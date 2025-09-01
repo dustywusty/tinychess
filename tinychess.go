@@ -9,6 +9,8 @@
 // - Captured pieces (by White / by Black) with localStorage persistence
 // - Coordinates (a–h / 1–8) on the board
 // - PGN (SAN) lines + UCI move list (from→to)
+// - NEW: Home remembers recent games (localStorage), prevents new-game if one is active,
+//        and shows results (1-0/0-1/½-½) when finished
 
 package main
 
@@ -358,6 +360,13 @@ const homeHTML = `<!doctype html>
   h1 { font-weight:700; margin-bottom:12px; }
   p  { opacity:.85; }
   footer { opacity:0.7; padding:8px 14px 24px; text-align:center; }
+
+  /* Recent list */
+  .recent { max-width:800px; margin:24px auto; padding:0 16px; text-align:left; }
+  .card { background:var(--panel); border:1px solid var(--btn-border); border-radius:12px; padding:12px; margin:10px 0; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+  .pill { display:inline-block; border:1px solid var(--btn-border); padding:2px 6px; border-radius:999px; font-size:12px; opacity:.9; }
 </style>
 </head>
 <body>
@@ -373,14 +382,19 @@ const homeHTML = `<!doctype html>
       <button class="mode" data-theme="light" style="background:#ffffff" aria-label="Light mode"></button>
       <button class="mode" data-theme="dark"  style="background:#000000" aria-label="Dark mode"></button>
     </div>
-    <a class="btn" href="/new">New game</a>
+    <a class="btn" href="/new" id="newgame">New game</a>
   </header>
 
   <main>
     <h1>Play chess with a link</h1>
     <p>Click “New game” to create a shareable URL. Anyone with the link can watch and move.</p>
-    <p><a class="btn" href="/new">New game</a></p>
+    <p><a class="btn" href="/new" id="newgame2">New game</a></p>
   </main>
+
+  <section class="recent">
+    <h2>Recent games (this browser)</h2>
+    <div id="recent"></div>
+  </section>
 
   <footer>Built with Go, SSE & vanilla JS — with ❤️ by Dusty and his bots.</footer>
   <script defer data-domain="tinychess.bitchimfabulo.us" src="https://plausible.io/js/script.outbound-links.js"></script>
@@ -390,7 +404,6 @@ const homeHTML = `<!doctype html>
   let theme  = localStorage.getItem('theme')  || 'dark';
   let accent = localStorage.getItem('accent') ||
                getComputedStyle(root).getPropertyValue('--accent').trim() || '#6ee7ff';
-
   root.setAttribute('data-theme', theme);
   root.style.setProperty('--accent', accent);
 
@@ -417,6 +430,65 @@ const homeHTML = `<!doctype html>
       localStorage.setItem('theme', theme);
       markActive();
     }
+  });
+
+  // ----- Recent/active games -----
+  const KEY = 'tinychess:games:v1';
+  function loadGames(){ try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { return {}; } }
+  function saveGames(map){ try { localStorage.setItem(KEY, JSON.stringify(map)); } catch {} }
+  function byLastSeenDesc(a,b){ return (b.lastSeen||0)-(a.lastSeen||0); }
+  function hasResult(g){ return !!(g && g.result); }
+  function activeGames(){ const m = loadGames(); return Object.values(m).filter(function(g){ return !hasResult(g); }); }
+
+  function renderRecent(){
+    const box = document.getElementById('recent'); if(!box) return;
+    const games = Object.values(loadGames()).sort(byLastSeenDesc);
+    if (!games.length){ box.innerHTML = '<p style="opacity:.8">No games yet — start one above.</p>'; return; }
+    box.innerHTML = '';
+    for (var i=0;i<games.length;i++){
+      var g = games[i];
+      var a = document.createElement('div');
+      a.className = 'card';
+      var when = new Date(g.lastSeen || g.createdAt || Date.now()).toLocaleString();
+      var res  = g.result ? '<span class="pill">Result: ' + g.result + '</span>' : '<span class="pill">In progress</span>';
+      var stat = g.status ? '<span class="pill">' + g.status + '</span>' : '';
+      a.innerHTML =
+        '<div class="row">' +
+        '  <strong>ID:</strong> <span class="mono">' + g.id + '</span> ' +
+        '  ' + res + ' ' + stat +
+        '</div>' +
+        '<div class="row" style="margin-top:6px;">' +
+        '  <button class="btn" data-goto="' + g.id + '">Open</button>' +
+        '  <button class="btn" data-copy="' + g.id + '">Copy link</button>' +
+        '  <button class="btn" data-remove="' + g.id + '">Forget</button>' +
+        '  <span style="opacity:.7; margin-left:auto;">Last seen: ' + when + '</span>' +
+        '</div>';
+      box.appendChild(a);
+    }
+  }
+  renderRecent();
+
+  document.addEventListener('click', function(e){
+    const t = e.target;
+    if (t.matches('[data-goto]')){ location.href = '/' + t.getAttribute('data-goto'); }
+    if (t.matches('[data-copy]')){ try{ navigator.clipboard.writeText(location.origin + '/' + t.getAttribute('data-copy')); }catch(e){} }
+    if (t.matches('[data-remove]')){
+      const id = t.getAttribute('data-remove');
+      const m = loadGames(); delete m[id]; saveGames(m); renderRecent();
+    }
+  });
+
+  function handleNewClick(ev){
+    const act = activeGames();
+    if (act.length){
+      act.sort(byLastSeenDesc);
+      location.href = '/' + act[0].id;
+      ev.preventDefault();
+    }
+  }
+  ['newgame','newgame2'].forEach(function(id){
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('click', handleNewClick);
   });
 })();
 </script>
@@ -584,6 +656,14 @@ const gameHTML = `<!doctype html>
   };
   let selected = null;
 
+  // ---- local game index (per-browser) ----
+  const INDEX_KEY = 'tinychess:games:v1';
+  function loadIndex(){ try { return JSON.parse(localStorage.getItem(INDEX_KEY) || '{}'); } catch { return {}; } }
+  function saveIndex(m){ try { localStorage.setItem(INDEX_KEY, JSON.stringify(m)); } catch {} }
+  function rememberGame(id){ if (!id) return; var m = loadIndex(); if (!m[id]) m[id] = { id:id, createdAt: Date.now(), lastSeen: Date.now(), moves: 0, result: null, status: '' }; else m[id].lastSeen = Date.now(); saveIndex(m); }
+  function setGameState(id, fields){ if (!id) return; var m = loadIndex(); m[id] = Object.assign(m[id] || { id:id, createdAt: Date.now() }, fields, { lastSeen: Date.now() }); saveIndex(m); }
+  rememberGame(gameId);
+
   // Theme picker
   const root = document.documentElement;
   let theme = localStorage.getItem('theme') || 'dark';
@@ -614,19 +694,19 @@ const gameHTML = `<!doctype html>
   const reactBar = document.getElementById('reactbar');
   const EMOJIS = ["👍","👎","❤️","😠","😢","🎉","👏"];
   const COOLDOWN_MS = 5000; let lastReact = 0;
-  function buildReactBar(){ if(!reactBar) return; reactBar.innerHTML=''; EMOJIS.forEach(e=>{ const b=document.createElement('button'); b.className='react'; b.textContent=e; b.title='Send reaction'; b.addEventListener('click', ()=>sendReaction(e,b)); reactBar.appendChild(b); }); }
-  function showReaction(e){ if(!rxEl) return; const s=document.createElement('span'); s.textContent=e; s.className='burst'; rxEl.appendChild(s); setTimeout(()=>s.remove(), 1600); }
+  function buildReactBar(){ if(!reactBar) return; reactBar.innerHTML=''; EMOJIS.forEach(function(e){ var b=document.createElement('button'); b.className='react'; b.textContent=e; b.title='Send reaction'; b.addEventListener('click', function(){ sendReaction(e,b); }); reactBar.appendChild(b); }); }
+  function showReaction(e){ if(!rxEl) return; const s=document.createElement('span'); s.textContent=e; s.className='burst'; rxEl.appendChild(s); setTimeout(function(){ s.remove(); }, 1600); }
   async function sendReaction(emoji, btn){
     if(!gameId) return;
     const now = Date.now();
     if (now - lastReact < COOLDOWN_MS) { status('Hold up… cooldown', true); return; }
     lastReact = now;
-    if (btn){ btn.disabled = true; setTimeout(()=>btn.disabled = false, COOLDOWN_MS); }
+    if (btn){ btn.disabled = true; setTimeout(function(){ btn.disabled = false; }, COOLDOWN_MS); }
     try{
-      const res = await fetch('/react/' + gameId, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({emoji}) });
+      const res = await fetch('/react/' + gameId, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({emoji:emoji}) });
       const j = await res.json();
       if (!j.ok){ status(j.error || 'reaction failed', true); } else { showReaction(emoji); }
-    }catch(_){}
+    }catch(_){ }
   }
   buildReactBar();
 
@@ -687,13 +767,13 @@ const gameHTML = `<!doctype html>
 
   function renderSelected(){
     document.querySelectorAll('.cell')
-      .forEach(el => el.classList.toggle('sel', el.dataset.square === selected));
+      .forEach(function(el){ el.classList.toggle('sel', el.dataset.square === selected); });
   }
 
   async function makeMove(uci){
     if(!gameId){ status('No game id'); return; }
     try{
-      const res = await fetch('/move/' + gameId, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({uci}) });
+      const res = await fetch('/move/' + gameId, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({uci:uci}) });
       const j = await res.json();
       if(!j.ok){ status('Illegal move: '+(j.error||'unknown'), true); }
     }catch(err){ status('Network error', true); }
@@ -761,7 +841,8 @@ const gameHTML = `<!doctype html>
     const tokens = pgn.trim().split(/\s+/);
     const lines = [];
     let line = [];
-    for (const t of tokens) {
+    for (let i=0;i<tokens.length;i++) {
+      const t = tokens[i];
       if (/^\d+\.$/.test(t)) {
         if (line.length) lines.push(line.join(' '));
         line = [t];
@@ -829,6 +910,20 @@ const gameHTML = `<!doctype html>
         const caps = capturedFromFEN(st.fen);
         renderCaptured(caps.byWhite, caps.byBlack);
         try{ localStorage.setItem(capKey(gameId), JSON.stringify(caps)); }catch{}
+
+        // Persist summary to recent list
+        var resultFromPGN = (function(){
+          var txt = (st.pgn || '').trim();
+          var m = txt.match(/\b(1-0|0-1|1\/2-1\/2|\*)\b\s*$/);
+          return m ? (m[1] === '*' ? null : m[1]) : null;
+        })();
+        var finishedNow = !!resultFromPGN || (!!st.status && /(1-0|0-1|1\/2-1\/2)/.test(st.status||''));
+        setGameState(gameId, {
+          moves: Array.isArray(st.uci) ? st.uci.length : 0,
+          status: st.status || '',
+          result: resultFromPGN || (function(){ var m = (st.status||'').match(/(1-0|0-1|1\/2-1\/2)/); return m ? m[1] : null; })(),
+          finishedAt: finishedNow ? Date.now() : undefined
+        });
       }
     };
     es.onerror = ()=>{ status('Disconnected. Reconnecting…', true); };
