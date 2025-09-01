@@ -1,17 +1,3 @@
-// Tiny Chess: Go server with SSE + vanilla JS UI
-// Features:
-// - Shareable URL /{uuid} for each game
-// - Server is the source of truth; validates moves with notnil/chess
-// - Live updates via Server-Sent Events (EventSource)
-// - Simple UI (Unicode pieces, click-to-move)
-// - Reset; copy-link; promotions (auto-queen)
-// - Theme picker (accent + light/dark), emoji reactions
-// - Captured pieces (by White / by Black) with localStorage persistence
-// - Coordinates (a–h / 1–8) on the board
-// - PGN (SAN) lines + UCI move list (from→to)
-// - NEW: Home remembers recent games (localStorage), prevents new-game if one is active,
-//        and shows results (1-0/0-1/½-½) when finished
-
 package main
 
 import (
@@ -43,9 +29,29 @@ type game struct {
 	watchers  map[chan []byte]struct{}
 	lastReact map[string]time.Time
 	lastSeen  time.Time
+	clients   map[string]time.Time // clientId -> last seen
 }
 
-func newHub() *hub { return &hub{games: make(map[string]*game)} }
+func newHub() *hub {
+	h := &hub{games: make(map[string]*game)}
+	// cleanup goroutine
+	go func() {
+		for {
+			time.Sleep(5 * time.Minute)
+			h.mu.Lock()
+			for id, g := range h.games {
+				g.mu.Lock()
+				idle := time.Since(g.lastSeen) > 24*time.Hour
+				g.mu.Unlock()
+				if idle {
+					delete(h.games, id)
+				}
+			}
+			h.mu.Unlock()
+		}
+	}()
+	return h
+}
 
 func (h *hub) get(id string) *game {
 	h.mu.Lock()
@@ -53,7 +59,12 @@ func (h *hub) get(id string) *game {
 	if g, ok := h.games[id]; ok {
 		return g
 	}
-	ng := &game{g: chess.NewGame(), watchers: make(map[chan []byte]struct{})}
+	ng := &game{
+		g:         chess.NewGame(),
+		watchers:  make(map[chan []byte]struct{}),
+		lastReact: make(map[string]time.Time),
+		clients:   make(map[string]time.Time),
+	}
 	h.games[id] = ng
 	return ng
 }
@@ -64,18 +75,14 @@ func (g *game) touch() {
 	g.mu.Unlock()
 }
 
-// Build a UCI (from->to) list by replaying moves on a temp game,
-// ensuring we pass the correct position to UCINotation{}.Encode.
 func (g *game) movesUCI() []string {
 	ms := g.g.Moves()
 	out := make([]string, 0, len(ms))
 	tmp := chess.NewGame()
 	uci := chess.UCINotation{}
 	for _, m := range ms {
-		// Encode using the position before the move
 		s := uci.Encode(tmp.Position(), m)
 		out = append(out, s)
-		// Advance tmp using the encoded UCI for tmp's position
 		if mv2, err := uci.Decode(tmp.Position(), s); err == nil {
 			_ = tmp.Move(mv2)
 		}
@@ -100,6 +107,7 @@ func (g *game) stateLocked() map[string]any {
 		"pgn":      pgn,
 		"uci":      g.movesUCI(),
 		"lastSeen": g.lastSeen.UnixMilli(),
+		"watchers": len(g.watchers),
 	}
 }
 
@@ -108,7 +116,7 @@ func (g *game) broadcast() {
 	state := g.stateLocked()
 	data, _ := json.Marshal(state)
 	for ch := range g.watchers {
-		select { // don't block a slow client
+		select {
 		case ch <- data:
 		default:
 		}
@@ -171,6 +179,9 @@ func handleSSE(w http.ResponseWriter, r *http.Request) {
 
 	g.touch()
 
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+
 	ctx := r.Context()
 	for {
 		select {
@@ -179,6 +190,10 @@ func handleSSE(w http.ResponseWriter, r *http.Request) {
 			delete(g.watchers, ch)
 			g.mu.Unlock()
 			return
+		case <-ticker.C:
+			// heartbeat
+			_, _ = w.Write([]byte("data: {}\n\n"))
+			flusher.Flush()
 		case msg := <-ch:
 			_, _ = w.Write([]byte("data: "))
 			_, _ = w.Write(msg)
@@ -200,7 +215,6 @@ func handleMove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uci := strings.ToLower(strings.TrimSpace(m.UCI))
-	// default to queen on bare promotion UCI
 	if len(uci) == 4 && isPromotionToLastRank(uci) {
 		uci += "q"
 	}
@@ -223,7 +237,6 @@ func handleMove(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "state": state})
 }
 
-// Emoji reactions with 5s/IP cooldown
 func handleReact(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimPrefix(r.URL.Path, "/react/")
 	g := H.get(id)
@@ -249,20 +262,16 @@ func handleReact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ip := clientIP(r)
 	now := time.Now()
 
 	g.mu.Lock()
-	if g.lastReact == nil {
-		g.lastReact = make(map[string]time.Time)
-	}
-	if t, ok := g.lastReact[ip]; ok && now.Sub(t) < 5*time.Second {
+	if t, ok := g.lastReact[body.Sender]; ok && now.Sub(t) < 5*time.Second {
 		wait := int(5 - now.Sub(t).Seconds())
 		g.mu.Unlock()
 		writeJSON(w, http.StatusOK, map[string]any{"ok": false, "error": fmt.Sprintf("cooldown %ds", wait)})
 		return
 	}
-	g.lastReact[ip] = now
+	g.lastReact[body.Sender] = now
 
 	payload := map[string]any{
 		"kind":   "emoji",
@@ -328,7 +337,6 @@ func randomHex(n int) string {
 
 func ioWriteHTML(w http.ResponseWriter, html string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	// prevent stale HTML during rapid iteration
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(html))
@@ -370,7 +378,9 @@ const homeHTML = `<!doctype html>
 
   header { padding:10px 14px; display:flex; gap:8px; align-items:center;
            border-bottom:1px solid var(--btn-border); background:var(--panel); position:sticky; top:0; }
-  .title { font-weight:600; letter-spacing:0.2px; }
+  .title { font-weight:600; letter-spacing:0.2px; display:flex; align-items:center; gap:6px; }
+  .chess-icon { color:#fff; -webkit-text-stroke:1px #000; }
+
   .btn{
     cursor:pointer; border:1px solid var(--btn-border);
     background:var(--btn-bg); color:var(--btn-text);
@@ -400,7 +410,7 @@ const homeHTML = `<!doctype html>
 </head>
 <body>
   <header>
-    <div class="title">♟️ Tiny Chess</div>
+    <div class="title"><span class="chess-icon">♙</span> Tiny Chess</div>
     <div style="flex:1"></div>
     <div class="theme" id="themectl">
       <button class="swatch" data-accent="#6ee7ff" style="background:#6ee7ff" aria-label="Accent cyan"></button>
@@ -548,7 +558,6 @@ const gameHTML = `<!doctype html>
     --bg:     color-mix(in oklab, var(--accent) 6%,  #0b0d11);
     --panel:  color-mix(in oklab, var(--accent) 10%, #141821);
     --text:#e5e7eb;
-    --piece-light:#111827; --piece-dark:#eef2f7;
     /* Board colors derived from accent for dark theme */
     --sq1: color-mix(in oklab, var(--accent) 18%, white);
     --sq2: color-mix(in oklab, var(--accent) 62%, black);
@@ -560,7 +569,6 @@ const gameHTML = `<!doctype html>
     --bg:     color-mix(in oklab, var(--accent) 8%,  #f7f7fb);
     --panel:  color-mix(in oklab, var(--accent) 12%, #ffffff);
     --text:#0f172a;
-    --piece-light:#0f172a; --piece-dark:#0f172a;
     /* Softer board colors for light theme */
     --sq1: color-mix(in oklab, var(--accent) 8%,  white);
     --sq2: color-mix(in oklab, var(--accent) 28%, #7f99b7);
@@ -577,18 +585,24 @@ const gameHTML = `<!doctype html>
          font:14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif; }
   header { padding:10px 14px; display:flex; gap:8px; align-items:center;
            border-bottom:1px solid var(--btn-border); background:var(--panel); position:sticky; top:0; }
-  .title { font-weight:600; letter-spacing:0.2px; }
+  .title { font-weight:600; letter-spacing:0.2px; display:flex; align-items:center; gap:6px; }
+  .chess-icon { color:#fff; -webkit-text-stroke:1px #000; }
+
   .wrap { max-width:1000px; margin:0 auto; padding:16px; display:grid; grid-template-columns: 1fr 320px; gap:16px; }
   .board { width:100%; max-width:640px; aspect-ratio:1/1; border:1px solid #2a3345; border-radius:12px; overflow:hidden;
            user-select:none; background:var(--sq3); display:grid; grid-template-rows: repeat(8, 1fr); }
   .rank  { display:grid; grid-template-columns: repeat(8, 1fr); }
   .cell  { display:flex; align-items:center; justify-content:center; font-size: clamp(22px, 6vw, 54px); position:relative; }
-  .light { background: var(--sq1); color: var(--piece-light); }
-  .dark  { background: var(--sq2); color: var(--piece-dark); }
+  .light { background: var(--sq1); }
+  .dark  { background: var(--sq2); }
+  /* Fixed piece colors so they never flip on dark/light squares */
+  .white-piece { color:#ffffff; -webkit-text-stroke:1px #0b0d11; text-shadow: 0 0 0.5px rgba(0,0,0,.5); }
+  .black-piece { color:#0b0d11; -webkit-text-stroke:1px #eaeef5; text-shadow: 0 0 0.5px rgba(255,255,255,.5); }
   .cell.sel { outline:3px solid var(--accent); outline-offset:-3px; }
+  .cell.last-move { box-shadow: inset 0 0 0 3px var(--accent); }
 
   /* Coordinates */
-  .coord { position:absolute; pointer-events:none; font-size:12px; line-height:1; opacity:.75; }
+  .coord { position:absolute; pointer-events:none; font-size:12px; line-height:1; opacity:.78; }
   .coord-file { bottom:4px; right:6px; }
   .coord-rank { top:4px; left:6px; }
   .light .coord { color: rgba(15,23,42,.65); }
@@ -596,7 +610,6 @@ const gameHTML = `<!doctype html>
 
   .panel { background:var(--panel); border:1px solid #2a3345; border-radius:12px; padding:12px; }
 
-  /* Theme-aware buttons */
   .btn{
     cursor:pointer; border:1px solid var(--btn-border);
     background:var(--btn-bg); color:var(--btn-text);
@@ -625,7 +638,7 @@ const gameHTML = `<!doctype html>
   .rx{ margin-top:6px; display:flex; gap:6px; flex-wrap:wrap; min-height:22px; }
   @keyframes pop { from{ transform:scale(.4); opacity:0; } to{ transform:scale(1); opacity:1; } }
   .burst{ animation: pop .28s ease-out; }
-  @media (max-width: 860px){ .wrap { grid-template-columns: 1fr; } }
+
   .big-emoji {
     position: fixed;
     left: 50%;
@@ -637,15 +650,17 @@ const gameHTML = `<!doctype html>
     z-index: 9999;
   }
   @keyframes shrinkFade {
-    0%   { transform: translate(-50%, -50%) scale(4); opacity: 1; }
-    50%  { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
-    100% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
-} 
+    0%   { transform: translate(-50%, -50%) scale(4);   opacity: 1; }
+    60%  { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
+  }
+
+  @media (max-width: 860px){ .wrap { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
   <header>
-    <div class="title"><a href="..">♟️ Tiny Chess</a></div>
+    <div class="title"><span class="chess-icon">♙</span> <a href=".." style="color:inherit;text-decoration:none">Tiny Chess</a></div>
     <div style="flex:1"></div>
     <div class="theme" id="themectl">
       <button class="swatch" data-accent="#6ee7ff" style="background:#6ee7ff"></button>
@@ -667,11 +682,9 @@ const gameHTML = `<!doctype html>
       <div class="row"><strong>Turn:</strong> <span id="turn"></span></div>
       <div class="status" id="status"></div>
 
-      <!-- Captured pieces -->
       <div class="row"><strong>White captured:</strong> <span id="cap_by_white" class="caps"></span></div>
       <div class="row"><strong>Black captured:</strong> <span id="cap_by_black" class="caps"></span></div>
 
-      <!-- Reactions -->
       <div class="rx" id="rx"></div>
       <div class="row"><div class="reactions" id="reactbar" aria-label="Reactions"></div></div>
 
@@ -693,14 +706,20 @@ const gameHTML = `<!doctype html>
 <script defer data-domain="tinychess.bitchimfabulo.us" src="https://plausible.io/js/script.outbound-links.js"></script>
 <script>
 (function(){
+  const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
+  // ---- IDs / elements ----
   const CLIENT_ID_KEY = "tinychess:clientId";
   let clientId = localStorage.getItem(CLIENT_ID_KEY);
   if (!clientId) {
     clientId = Math.random().toString(36).slice(2);
     localStorage.setItem(CLIENT_ID_KEY, clientId);
   }
-  const idFromServer = "{{GAME_ID}}";
-  const gameId = idFromServer || location.pathname.replace(/^\/+/, '');
+  // If the server didn't substitute {{GAME_ID}}, fall back to the path.
+  const idFromServerRaw = "{{GAME_ID}}";
+  const gameId = (idFromServerRaw && idFromServerRaw !== "{{GAME_ID}}")
+                   ? idFromServerRaw
+                   : location.pathname.replace(/^\/+/, '');
   const boardEl = document.getElementById('board');
   const statusEl = document.getElementById('status');
   const turnEl = document.getElementById('turn');
@@ -709,27 +728,9 @@ const gameHTML = `<!doctype html>
   const gameIdEl = document.getElementById('gameid');
   const capWhiteEl = document.getElementById('cap_by_white');
   const capBlackEl = document.getElementById('cap_by_black');
+  const rxEl = document.getElementById('rx');
+  const reactBar = document.getElementById('reactbar');
   gameIdEl.textContent = gameId || '(none)';
-
-  const glyph = {
-    'P':'\u2659','N':'\u2658','B':'\u2657','R':'\u2656','Q':'\u2655','K':'\u2654',
-    'p':'\u265F','n':'\u265E','b':'\u265D','r':'\u265C','q':'\u265B','k':'\u265A'
-  };
-  let selected = null;
-
-  // ---- local game index (per-browser) ----
-  const INDEX_KEY = 'tinychess:games:v1';
-  function loadIndex(){ try { return JSON.parse(localStorage.getItem(INDEX_KEY) || '{}'); } catch { return {}; } }
-  function saveIndex(m){ try { localStorage.setItem(INDEX_KEY, JSON.stringify(m)); } catch {} }
-  function rememberGame(id){ if (!id) return; var m = loadIndex(); if (!m[id]) m[id] = { id:id, createdAt: Date.now(), lastSeen: Date.now(), moves: 0, result: null, status: '' }; else m[id].lastSeen = Date.now(); saveIndex(m); }
-  function setGameState(id, fields){
-    if (!id) return;
-    var m = loadIndex();
-    // Merge fields (server lastSeen will flow through)
-    m[id] = Object.assign(m[id] || { id:id, createdAt: Date.now() }, fields);
-    saveIndex(m);
-  }
-  rememberGame(gameId);
 
   // Theme picker
   const root = document.documentElement;
@@ -756,9 +757,15 @@ const gameHTML = `<!doctype html>
     else if (t.matches('.mode')){ theme = t.getAttribute('data-theme'); root.setAttribute('data-theme', theme); localStorage.setItem('theme', theme); markActive(); }
   });
 
+  // ----- Pieces -----
+  const glyph = {
+    'P':'\u2659','N':'\u2658','B':'\u2657','R':'\u2656','Q':'\u2655','K':'\u2654',
+    'p':'\u265F','n':'\u265E','b':'\u265D','r':'\u265C','q':'\u265B','k':'\u265A'
+  };
+  let selected = null;
+  let lastMoveSquares = []; // [from, to]
+
   // Reactions
-  const rxEl = document.getElementById('rx');
-  const reactBar = document.getElementById('reactbar');
   const EMOJIS = [
     "👍","👎","❤️","😠","😢","🎉","👏",
     "😂","🤣","😎","🤔","😏","🙃","😴","🫡","🤯","🤡",
@@ -769,13 +776,14 @@ const gameHTML = `<!doctype html>
   ];
   const COOLDOWN_MS = 5000; let lastReact = 0;
   function buildReactBar(){ if(!reactBar) return; reactBar.innerHTML=''; EMOJIS.forEach(function(e){ var b=document.createElement('button'); b.className='react'; b.textContent=e; b.title='Send reaction'; b.addEventListener('click', function(){ sendReaction(e,b); }); reactBar.appendChild(b); }); }
+
   function showReaction(e){
-    // Big flash
+    // Big flash (center screen)
     const big = document.createElement('div');
     big.textContent = e;
     big.className = 'big-emoji';
     document.body.appendChild(big);
-    setTimeout(() => big.remove(), 1000);
+    setTimeout(() => big.remove(), 1200);
 
     // Small burst under reactions bar
     if (rxEl){
@@ -810,7 +818,8 @@ const gameHTML = `<!doctype html>
         status(j.error || 'reaction failed', true);
       } else {
         if (btn) { btn.style.background = 'var(--ok)'; setTimeout(()=>btn.style.background='',600); }
-        // no local burst here — SSE will handle for others
+        // Show locally immediately so the sender also sees it
+        showReaction(emoji);
       }
     }catch(_){
       if (btn) { btn.style.background = 'var(--err)'; setTimeout(()=>btn.style.background='',600); }
@@ -851,7 +860,14 @@ const gameHTML = `<!doctype html>
         cell.className = 'cell ' + (((r + c) % 2 === 1) ? 'light' : 'dark'); // a8 dark
         const sq = cellSquare(r, c);
         cell.dataset.square = sq;
-        cell.textContent = glyph[piece] || '';
+
+        if (piece) {
+          const isWhite = (piece === piece.toUpperCase());
+          cell.textContent = glyph[piece] || '';
+          cell.classList.add(isWhite ? 'white-piece' : 'black-piece');
+        } else {
+          cell.textContent = '';
+        }
 
         // coordinates
         if (r === 7) {
@@ -868,6 +884,9 @@ const gameHTML = `<!doctype html>
         }
 
         if (selected && sq === selected) cell.classList.add('sel');
+        if (lastMoveSquares.length && (sq === lastMoveSquares[0] || sq === lastMoveSquares[1])) {
+          cell.classList.add('last-move');
+        }
         row.appendChild(cell);
       }
       boardEl.appendChild(row);
@@ -1004,20 +1023,46 @@ const gameHTML = `<!doctype html>
   });
   document.getElementById('copy').addEventListener('click', async ()=>{ try{ await navigator.clipboard.writeText(location.href); status('Link copied!'); setTimeout(()=>status(''),1200);}catch{ status('Copy failed', true); } });
 
+  // ---- local game index (per-browser) ----
+  const INDEX_KEY = 'tinychess:games:v1';
+  function loadIndex(){ try { return JSON.parse(localStorage.getItem(INDEX_KEY) || '{}'); } catch { return {}; } }
+  function saveIndex(m){ try { localStorage.setItem(INDEX_KEY, JSON.stringify(m)); } catch {} }
+  function rememberGame(id){ if (!id) return; var m = loadIndex(); if (!m[id]) m[id] = { id:id, createdAt: Date.now(), lastSeen: Date.now(), moves: 0, result: null, status: '' }; else m[id].lastSeen = Date.now(); saveIndex(m); }
+  function setGameState(id, fields){
+    if (!id) return;
+    var m = loadIndex();
+    m[id] = Object.assign(m[id] || { id:id, createdAt: Date.now() }, fields);
+    saveIndex(m);
+  }
+  rememberGame(gameId);
+
   // live updates
+  function deriveLastMoveSquares(uciList){
+    if (!uciList || !uciList.length) return [];
+    const mv = uciList[uciList.length-1] || '';
+    if (!mv) return [];
+    const base = mv.length >= 4 ? mv.slice(0,4) : '';
+    if (base.length !== 4) return [];
+    return [base.slice(0,2), base.slice(2,4)];
+  }
+
+  // Render start position immediately (prevents blank board)
+  renderFEN(START_FEN);
+  turnEl.textContent = "white";
+  status('');
+
   if (gameId){
     const es = new EventSource('/sse/' + gameId);
     es.onmessage = (ev)=>{
-      const st = JSON.parse(ev.data);
+      const st = JSON.parse(ev.data || "{}");
       if (st.kind === 'emoji'){
-        if (st.sender !== clientId) {
-          showReaction(st.emoji); // only others see burst
-        }
+        if (st.sender !== clientId) showReaction(st.emoji);
         return;
       }
       if (st.kind === 'state'){
+        lastMoveSquares = deriveLastMoveSquares(st.uci || []);
         renderFEN(st.fen);
-        turnEl.textContent = st.turn;
+        turnEl.textContent = st.turn || '';
         pgnEl.textContent  = formatPGNLines(st.pgn || '');
         lanEl.textContent  = formatUCIMoves(st.uci || []);
         status(st.status || '');
