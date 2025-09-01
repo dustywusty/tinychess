@@ -5,7 +5,8 @@
 // - Live updates via Server-Sent Events (EventSource)
 // - Simple UI (Unicode pieces, click-to-move)
 // - Reset; copy-link; promotions (auto-queen)
-// - Theme picker (accent + light/dark) and emoji reactions
+// - Theme picker (accent + light/dark), emoji reactions
+// - Captured pieces (by White / by Black) with localStorage persistence
 
 package main
 
@@ -101,12 +102,10 @@ func handleNew(w http.ResponseWriter, r *http.Request) {
 func handlePage(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/")
 	if path == "" || path == "index.html" {
-		log.Printf("GET / -> home")
 		ioWriteHTML(w, homeHTML)
 		return
 	}
 	_ = H.get(path)
-	log.Printf("GET /%s -> game", path)
 	ioWriteHTML(w, strings.ReplaceAll(gameHTML, "{{GAME_ID}}", path))
 }
 
@@ -159,8 +158,9 @@ func handleMove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uci := strings.ToLower(strings.TrimSpace(m.UCI))
+	// default to queen on bare promotion UCI
 	if len(uci) == 4 && isPromotionToLastRank(uci) {
-		uci += "q" // default to queen
+		uci += "q"
 	}
 
 	g.mu.Lock()
@@ -275,7 +275,7 @@ func ioWriteHTML(w http.ResponseWriter, html string) {
 	_, _ = w.Write([]byte(html))
 }
 
-// ----- HTML -----
+// ----- HTML (home + game) -----
 
 const homeHTML = `<!doctype html>
 <html lang="en">
@@ -285,42 +285,51 @@ const homeHTML = `<!doctype html>
 <title>Tiny Chess</title>
 <style>
   :root { --accent:#6ee7ff; --ok:#22c55e; --err:#ef4444; }
-  :root,[data-theme="dark"] { --bg:#0b0d11; --panel:#141821; --text:#e5e7eb; --btn-bg:#1a2230; --btn-hover: #1f2a3a; --btn-text:  #e5e7eb; --btn-border:#2a3345;}
-  [data-theme="light"]      { --bg:#f7f7fb; --panel:#ffffff; --text:#0f172a; --btn-bg:    color-mix(in oklab, var(--accent) 14%, white); --btn-hover: color-mix(in oklab, var(--accent) 22%, white); --btn-text:  #0f172a; --btn-border: color-mix(in oklab, var(--accent) 30%, #b6c3d9);}
+  :root,[data-theme="dark"] {
+    /* Accent-tinted theme (dark) */
+    --bg:     color-mix(in oklab, var(--accent) 6%,  #0b0d11);
+    --panel:  color-mix(in oklab, var(--accent) 10%, #141821);
+    --text:#e5e7eb;
+    /* Buttons */
+    --btn-bg:#1a2230; --btn-hover:#1f2a3a; --btn-text:#e5e7eb; --btn-border:#2a3345;
+  }
+  [data-theme="light"] {
+    /* Accent-tinted theme (light) */
+    --bg:     color-mix(in oklab, var(--accent) 8%,  #f7f7fb);
+    --panel:  color-mix(in oklab, var(--accent) 12%, #ffffff);
+    --text:#0f172a;
+    /* Buttons */
+    --btn-bg:    color-mix(in oklab, var(--accent) 14%, white);
+    --btn-hover: color-mix(in oklab, var(--accent) 22%, white);
+    --btn-text:  #0f172a;
+    --btn-border: color-mix(in oklab, var(--accent) 30%, #b6c3d9);
+  }
 
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--text);
          font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif; }
 
   header { padding:10px 14px; display:flex; gap:8px; align-items:center;
-           border-bottom:1px solid #243042; background:var(--panel); position:sticky; top:0; }
+           border-bottom:1px solid var(--btn-border); background:var(--panel); position:sticky; top:0; }
   .title { font-weight:600; letter-spacing:0.2px; }
   .btn{
-    cursor:pointer;
-    border:1px solid var(--btn-border);
-    background:var(--btn-bg);
-    color:var(--btn-text);
-    border-radius:10px;
-    padding:8px 12px;
-    font-weight:600;
+    cursor:pointer; border:1px solid var(--btn-border);
+    background:var(--btn-bg); color:var(--btn-text);
+    border-radius:10px; padding:8px 12px; font-weight:600;
   }
   .btn:hover{ background:var(--btn-hover); }
-  .btn:focus-visible{
-    outline:2px solid var(--accent);
-    outline-offset:2px;
-    border-color: transparent;
-  }
+  .btn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-color:transparent; }
 
   .theme { display:flex; gap:6px; align-items:center; }
-  .swatch { width:16px; height:16px; border-radius:999px; border:1px solid #2a3345; cursor:pointer; }
-  .mode   { width:16px; height:16px; border-radius:4px;   border:1px solid #2a3345; cursor:pointer; }
+  .swatch,.mode { border:1px solid var(--btn-border); }
+  .swatch { width:16px; height:16px; border-radius:999px; cursor:pointer; }
+  .mode   { width:16px; height:16px; border-radius:4px;   cursor:pointer; }
   .active { outline:2px solid var(--accent); outline-offset:2px; }
 
   main { max-width:800px; margin:40px auto; padding:0 16px; text-align:center; }
   h1 { font-weight:700; margin-bottom:12px; }
   p  { opacity:.85; }
   footer { opacity:0.7; padding:8px 14px 24px; text-align:center; }
-  .swatch,.mode { border:1px solid var(--btn-border); }
 </style>
 </head>
 <body>
@@ -348,7 +357,6 @@ const homeHTML = `<!doctype html>
   <footer>Built with Go, SSE & vanilla JS — with ❤️ by Dusty and his bots.</footer>
 
 <script>
-console.log("home build a1"); // helps verify you’re on the new page
 (function(){
   const root = document.documentElement;
   let theme  = localStorage.getItem('theme')  || 'dark';
@@ -396,7 +404,9 @@ const gameHTML = `<!doctype html>
 <style>
   :root { --accent:#6ee7ff; --ok:#22c55e; --err:#ef4444; }
   :root,[data-theme="dark"] {
-    --bg:#0b0d11; --panel:#141821; --text:#e5e7eb;
+    --bg:     color-mix(in oklab, var(--accent) 6%,  #0b0d11);
+    --panel:  color-mix(in oklab, var(--accent) 10%, #141821);
+    --text:#e5e7eb;
     --piece-light:#111827; --piece-dark:#eef2f7;
     /* Board colors derived from accent for dark theme */
     --sq1: color-mix(in oklab, var(--accent) 18%, white);
@@ -406,7 +416,9 @@ const gameHTML = `<!doctype html>
     --btn-bg:#1a2230; --btn-hover:#1f2a3a; --btn-text:#e5e7eb; --btn-border:#2a3345;
   }
   [data-theme="light"] {
-    --bg:#f7f7fb; --panel:#ffffff; --text:#0f172a;
+    --bg:     color-mix(in oklab, var(--accent) 8%,  #f7f7fb);
+    --panel:  color-mix(in oklab, var(--accent) 12%, #ffffff);
+    --text:#0f172a;
     --piece-light:#0f172a; --piece-dark:#0f172a;
     /* Softer board colors for light theme */
     --sq1: color-mix(in oklab, var(--accent) 8%,  white);
@@ -422,10 +434,12 @@ const gameHTML = `<!doctype html>
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--text);
          font:14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif; }
-  header { padding:10px 14px; display:flex; gap:8px; align-items:center; border-bottom:1px solid #243042; background:var(--panel); position:sticky; top:0; }
+  header { padding:10px 14px; display:flex; gap:8px; align-items:center;
+           border-bottom:1px solid var(--btn-border); background:var(--panel); position:sticky; top:0; }
   .title { font-weight:600; letter-spacing:0.2px; }
   .wrap { max-width:1000px; margin:0 auto; padding:16px; display:grid; grid-template-columns: 1fr 320px; gap:16px; }
-  .board { width:100%; max-width:640px; aspect-ratio:1/1; border:1px solid #2a3345; border-radius:12px; overflow:hidden; user-select:none; background:var(--sq3); display:grid; grid-template-rows: repeat(8, 1fr); }
+  .board { width:100%; max-width:640px; aspect-ratio:1/1; border:1px solid #2a3345; border-radius:12px; overflow:hidden;
+           user-select:none; background:var(--sq3); display:grid; grid-template-rows: repeat(8, 1fr); }
   .rank  { display:grid; grid-template-columns: repeat(8, 1fr); }
   .cell  { display:flex; align-items:center; justify-content:center; font-size: clamp(22px, 6vw, 54px); }
   .light { background: var(--sq1); color: var(--piece-light); }
@@ -434,15 +448,11 @@ const gameHTML = `<!doctype html>
 
   .panel { background:var(--panel); border:1px solid #2a3345; border-radius:12px; padding:12px; }
 
-  /* THEME-AWARE BUTTONS */
+  /* Theme-aware buttons */
   .btn{
-    cursor:pointer;
-    border:1px solid var(--btn-border);
-    background:var(--btn-bg);
-    color:var(--btn-text);
-    border-radius:10px;
-    padding:8px 12px;
-    font-weight:600;
+    cursor:pointer; border:1px solid var(--btn-border);
+    background:var(--btn-bg); color:var(--btn-text);
+    border-radius:10px; padding:8px 12px; font-weight:600;
   }
   .btn:hover{ background:var(--btn-hover); }
   .btn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-color:transparent; }
@@ -459,11 +469,13 @@ const gameHTML = `<!doctype html>
   .mode   { width:16px; height:16px; border-radius:4px;   cursor:pointer; }
   .active { outline:2px solid var(--accent); outline-offset:2px; }
 
+  .caps { min-height:22px; display:flex; gap:4px; flex-wrap:wrap; font-size:20px; line-height:1; }
   .reactions{ display:flex; gap:6px; flex-wrap:wrap; }
-  .react{ font-size:18px; background:transparent; border:1px solid var(--btn-border); border-radius:8px; padding:4px 6px; cursor:pointer; }
+  .react{ font-size:18px; background:transparent; border:1px solid var(--btn-border);
+          border-radius:8px; padding:4px 6px; cursor:pointer; }
   .react[disabled]{ opacity:.55; cursor:not-allowed; }
   .rx{ margin-top:6px; display:flex; gap:6px; flex-wrap:wrap; min-height:22px; }
-  @keyframes pop { from{ transform:scale(.4); opacity:0; } to{ transform:scale(1); opacity:1); } }
+  @keyframes pop { from{ transform:scale(.4); opacity:0; } to{ transform:scale(1); opacity:1; } }
   .burst{ animation: pop .28s ease-out; }
 
   @media (max-width: 860px){ .wrap { grid-template-columns: 1fr; } }
@@ -492,8 +504,15 @@ const gameHTML = `<!doctype html>
       <div class="row"><strong>Game:</strong> <span id="gameid" class="mono"></span></div>
       <div class="row"><strong>Turn:</strong> <span id="turn"></span></div>
       <div class="status" id="status"></div>
+
+      <!-- Captured pieces -->
+      <div class="row"><strong>White captured:</strong> <span id="cap_by_white" class="caps"></span></div>
+      <div class="row"><strong>Black captured:</strong> <span id="cap_by_black" class="caps"></span></div>
+
+      <!-- Reactions -->
       <div class="rx" id="rx"></div>
       <div class="row"><div class="reactions" id="reactbar" aria-label="Reactions"></div></div>
+
       <div class="row" style="margin-top:8px"><button class="btn" id="reset">Reset</button></div>
       <details style="margin-top:12px"><summary>PGN</summary><pre id="pgn" style="white-space:pre-wrap"></pre></details>
       <p style="margin-top:10px; opacity:.8">Tip: Click one square, then another to move. Promotions auto-queen. Anyone with the link can move.</p>
@@ -501,18 +520,25 @@ const gameHTML = `<!doctype html>
   </div>
 
   <footer>Built with Go, SSE & vanilla JS — with ❤️ by Dusty and his bots.</footer>
-
+<script defer data-domain="tinychess.bitchimfabulo.us" src="https://plausible.io/js/script.outbound-links.js"></script>
 <script>
-console.log("game build a1");
 (function(){
   const idFromServer = "{{GAME_ID}}";
-  const gameId = idFromServer || location.pathname.replace(/^\//,'');
+  const gameId = idFromServer || location.pathname.replace(/^\/+/, '');
   const boardEl = document.getElementById('board');
   const statusEl = document.getElementById('status');
   const turnEl = document.getElementById('turn');
   const pgnEl = document.getElementById('pgn');
   const gameIdEl = document.getElementById('gameid');
+  const capWhiteEl = document.getElementById('cap_by_white');
+  const capBlackEl = document.getElementById('cap_by_black');
   gameIdEl.textContent = gameId || '(none)';
+
+  const glyph = {
+    'P':'\u2659','N':'\u2658','B':'\u2657','R':'\u2656','Q':'\u2655','K':'\u2654',
+    'p':'\u265F','n':'\u265E','b':'\u265D','r':'\u265C','q':'\u265B','k':'\u265A'
+  };
+  let selected = null;
 
   // Theme picker
   const root = document.documentElement;
@@ -521,8 +547,16 @@ console.log("game build a1");
   root.setAttribute('data-theme', theme);
   root.style.setProperty('--accent', accent);
   function markActive(){
-    document.querySelectorAll('.swatch').forEach(el=>{ el.classList.toggle('active', el.getAttribute('data-accent')===accent); });
-    document.querySelectorAll('.mode').forEach(el=>{ el.classList.toggle('active', el.getAttribute('data-theme')===theme); });
+    var sw = document.querySelectorAll('.swatch');
+    for (var i = 0; i < sw.length; i++) {
+      if (sw[i].getAttribute('data-accent') === accent) sw[i].classList.add('active');
+      else sw[i].classList.remove('active');
+    }
+    var md = document.querySelectorAll('.mode');
+    for (var j = 0; j < md.length; j++) {
+      if (md[j].getAttribute('data-theme') === theme) md[j].classList.add('active');
+      else md[j].classList.remove('active');
+    }
   }
   markActive();
   document.addEventListener('click', (e)=>{
@@ -552,41 +586,50 @@ console.log("game build a1");
   }
   buildReactBar();
 
-  // Board render
-  const glyph = { 'P':'\u2659','N':'\u2658','B':'\u2657','R':'\u2656','Q':'\u2655','K':'\u2654', 'p':'\u265F','n':'\u265E','b':'\u265D','r':'\u265C','q':'\u265B','k':'\u265A' };
-  let selected = null;
-  function cellSquare(r, c){ const file = String.fromCharCode('a'.charCodeAt(0)+c); const rank = String(8-r); return file+rank; }
+  // --- board helpers ---
+  function cellSquare(row, col) {
+    const file = String.fromCharCode('a'.charCodeAt(0) + col);
+    const rank = String(8 - row);
+    return file + rank;
+  }
+
   function renderFEN(fen){
     const board = fen.split(' ')[0].split('/');
     boardEl.innerHTML = '';
-    for(let r=0;r<8;r++){
+
+    for (let r = 0; r < 8; r++) {
       const row = document.createElement('div'); row.className = 'rank';
-      let fenRank = board[r]; let cells = [];
-      for(let i=0;i<fenRank.length;i++){ const ch = fenRank[i]; if(/\d/.test(ch)){ const n = parseInt(ch,10); for(let k=0;k<n;k++) cells.push(''); } else { cells.push(ch); } }
-      for(let c=0;c<8;c++){
+      const fenRank = board[r];
+      const cells = [];
+
+      for (let i = 0; i < fenRank.length; i++) {
+        const ch = fenRank[i];
+        if (/\d/.test(ch)) {
+          const n = parseInt(ch, 10);
+          for (let k = 0; k < n; k++) cells.push('');
+        } else {
+          cells.push(ch);
+        }
+      }
+
+      for (let c = 0; c < 8; c++) {
         const piece = cells[c] || '';
-        const cell = document.createElement('div');
-        cell.className = 'cell ' + (((r+c)%2===0)?'light':'dark');
-        const sq = cellSquare(r,c);
+        const cell  = document.createElement('div');
+        cell.className = 'cell ' + (((r + c) % 2 === 1) ? 'light' : 'dark'); // a8 dark
+        const sq = cellSquare(r, c);
         cell.dataset.square = sq;
         cell.textContent = glyph[piece] || '';
-        if (selected && sq===selected) cell.classList.add('sel');
-        cell.addEventListener('click', onCellClick);
+        if (selected && sq === selected) cell.classList.add('sel');
         row.appendChild(cell);
       }
       boardEl.appendChild(row);
     }
   }
 
-  function onCellClick(ev){
-    const sq = ev.currentTarget.dataset.square;
-    if (!selected){ selected = sq; renderSelected(); return; }
-    if (selected === sq){ selected = null; renderSelected(); return; }
-    const uci = (selected+sq).toLowerCase();
-    selected = null; renderSelected();
-    makeMove(uci);
+  function renderSelected(){
+    document.querySelectorAll('.cell')
+      .forEach(el => el.classList.toggle('sel', el.dataset.square === selected));
   }
-  function renderSelected(){ document.querySelectorAll('.cell').forEach(el=>{ el.classList.toggle('sel', el.dataset.square===selected); }); }
 
   async function makeMove(uci){
     if(!gameId){ status('No game id'); return; }
@@ -597,9 +640,88 @@ console.log("game build a1");
     }catch(err){ status('Network error', true); }
   }
 
+  // ✅ SINGLE board-level click handler (bind once)
+  boardEl.addEventListener('click', (e) => {
+    const rect = boardEl.getBoundingClientRect();
+    const x = Math.min(Math.max(0, e.clientX - rect.left), rect.width  - 0.01);
+    const y = Math.min(Math.max(0, e.clientY - rect.top),  rect.height - 0.01);
+    const col = Math.floor((x / rect.width)  * 8);
+    const row = Math.floor((y / rect.height) * 8);
+    const sq  = cellSquare(row, col);
+
+    if (!selected) { selected = sq; renderSelected(); return; }
+    if (selected === sq) { selected = null; renderSelected(); return; }
+    const uci = (selected + sq).toLowerCase();
+    selected = null; renderSelected();
+    makeMove(uci);
+  });
+
   function status(msg, isErr){ statusEl.textContent = msg || ''; statusEl.style.color = isErr? 'var(--err)' : 'inherit'; }
 
-  document.getElementById('reset').addEventListener('click', async ()=>{ if(!gameId) return; await fetch('/reset/' + gameId, {method:'POST'}); });
+  // ---- Captured pieces (derived from FEN) + persisted per game ----
+  var startCounts = {P:8,N:2,B:2,R:2,Q:1,K:1,p:8,n:2,b:2,r:2,q:1,k:1};
+
+  function countsFromFEN(fen){
+    var boardOnly = fen.split(' ')[0];
+    var c = {P:0,N:0,B:0,R:0,Q:0,K:0,p:0,n:0,b:0,r:0,q:0,k:0};
+    for (var i=0;i<boardOnly.length;i++){
+      var ch = boardOnly[i];
+      if (/[prnbqkPRNBQK]/.test(ch)) c[ch] = (c[ch]||0)+1;
+    }
+    return c;
+  }
+
+  function capturedFromFEN(fen){
+    var cur = countsFromFEN(fen);
+
+    var lostWhite = {P:0,N:0,B:0,R:0,Q:0,K:0};
+    for (var k in lostWhite){
+      lostWhite[k] = Math.max(0, (startCounts[k]||0) - (cur[k]||0));
+    }
+
+    var lostBlack = {p:0,n:0,b:0,r:0,q:0,k:0};
+    for (var k2 in lostBlack){
+      lostBlack[k2] = Math.max(0, (startCounts[k2]||0) - (cur[k2]||0));
+    }
+
+    var byWhite = [];
+    var byBlack = [];
+
+    for (var k3 in lostBlack){
+      for (var i=0;i<lostBlack[k3];i++) byWhite.push(glyph[k3]);
+    }
+    for (var k4 in lostWhite){
+      for (var j=0;j<lostWhite[k4];j++) byBlack.push(glyph[k4]);
+    }
+    return {byWhite: byWhite, byBlack: byBlack};
+  }
+
+  function renderCaptured(byWhite, byBlack){
+    capWhiteEl.textContent = '';
+    capBlackEl.textContent = '';
+    for (var i=0;i<byWhite.length;i++){
+      var s1=document.createElement('span'); s1.textContent=byWhite[i]; capWhiteEl.appendChild(s1);
+    }
+    for (var j=0;j<byBlack.length;j++){
+      var s2=document.createElement('span'); s2.textContent=byBlack[j]; capBlackEl.appendChild(s2);
+    }
+  }
+
+  function capKey(id){ return 'tinychess:' + String(id||'') + ':captured:v1'; }
+
+  // Prefill from storage to avoid blank on reload
+  try{
+    var saved = JSON.parse(localStorage.getItem(capKey(gameId)) || 'null');
+    if (saved && saved.byWhite && saved.byBlack) renderCaptured(saved.byWhite, saved.byBlack);
+  }catch(e){}
+
+  // controls
+  document.getElementById('reset').addEventListener('click', async ()=>{
+    if(!gameId) return;
+    await fetch('/reset/' + gameId, {method:'POST'});
+    try { localStorage.removeItem(capKey(gameId)); } catch(e) {}
+    renderCaptured([], []);
+  });
   document.getElementById('copy').addEventListener('click', async ()=>{ try{ await navigator.clipboard.writeText(location.href); status('Link copied!'); setTimeout(()=>status(''),1200);}catch{ status('Copy failed', true); } });
 
   // live updates
@@ -613,6 +735,9 @@ console.log("game build a1");
         turnEl.textContent = st.turn;
         pgnEl.textContent  = st.pgn || '';
         status(st.status || '');
+        const caps = capturedFromFEN(st.fen);
+        renderCaptured(caps.byWhite, caps.byBlack);
+        try{ localStorage.setItem(capKey(gameId), JSON.stringify(caps)); }catch{}
       }
     };
     es.onerror = ()=>{ status('Disconnected. Reconnecting…', true); };
