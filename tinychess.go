@@ -334,7 +334,7 @@ const homeHTML = `<!doctype html>
 </head>
 <body>
   <header>
-    <div class="title">♟️ Tiny Chess</div>
+    <div class="title">♟️ <a href="https://github.com/dustywusty/tinychess">Tiny Chess</a></div>
     <div style="flex:1"></div>
     <div class="theme" id="themectl">
       <button class="swatch" data-accent="#6ee7ff" style="background:#6ee7ff" aria-label="Accent cyan"></button>
@@ -355,7 +355,7 @@ const homeHTML = `<!doctype html>
   </main>
 
   <footer>Built with Go, SSE & vanilla JS — with ❤️ by Dusty and his bots.</footer>
-
+  <script defer data-domain="tinychess.bitchimfabulo.us" src="https://plausible.io/js/script.outbound-links.js"></script>
 <script>
 (function(){
   const root = document.documentElement;
@@ -514,7 +514,7 @@ const gameHTML = `<!doctype html>
       <div class="row"><div class="reactions" id="reactbar" aria-label="Reactions"></div></div>
 
       <div class="row" style="margin-top:8px"><button class="btn" id="reset">Reset</button></div>
-      <details style="margin-top:12px"><summary>PGN</summary><pre id="pgn" style="white-space:pre-wrap"></pre></details>
+      <details style="margin-top:12px"><summary>PGN</summary><pre id="pgn" style="white-space:pre-wrap;"></pre></details>
       <p style="margin-top:10px; opacity:.8">Tip: Click one square, then another to move. Promotions auto-queen. Anyone with the link can move.</p>
     </div>
   </div>
@@ -707,6 +707,27 @@ const gameHTML = `<!doctype html>
     }
   }
 
+  function formatPGNForDisplay(pgn) {
+    if (!pgn) return '';
+    const tokens = pgn.trim().split(/\s+/);
+    const lines = [];
+    let line = [];
+    for (const t of tokens) {
+      if (/^\d+\.$/.test(t)) {          // a new move number like "12."
+        if (line.length) lines.push(line.join(' '));
+        line = [t];
+      } else if (/^(1-0|0-1|1\/2-1\/2|\*)$/.test(t)) { // result token
+        if (line.length) { lines.push(line.join(' ')); line = []; }
+        // drop "*" if you don't want to show "game in progress"
+        // else: lines.push(t);
+      } else {
+        line.push(t);
+      }
+    }
+    if (line.length) lines.push(line.join(' '));
+    return lines.join('<br>');
+  }
+
   function capKey(id){ return 'tinychess:' + String(id||'') + ':captured:v1'; }
 
   // Prefill from storage to avoid blank on reload
@@ -733,7 +754,7 @@ const gameHTML = `<!doctype html>
       if (st.kind === 'state'){
         renderFEN(st.fen);
         turnEl.textContent = st.turn;
-        pgnEl.textContent  = st.pgn || '';
+        pgnEl.innerHTML = formatPGNForDisplay(st.pgn || '');
         status(st.status || '');
         const caps = capturedFromFEN(st.fen);
         renderCaptured(caps.byWhite, caps.byBlack);
