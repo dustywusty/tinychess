@@ -362,7 +362,7 @@ const homeHTML = `<!doctype html>
 </head>
 <body>
   <header>
-    <div class="title">♟️ <a href="https://github.com/dustywusty/tinychess">Tiny Chess</a></div>
+    <div class="title"><a href="https://github.com/dustywusty/tinychess">♟️ Tiny Chess</a></div>
     <div style="flex:1"></div>
     <div class="theme" id="themectl">
       <button class="swatch" data-accent="#6ee7ff" style="background:#6ee7ff" aria-label="Accent cyan"></button>
@@ -518,7 +518,7 @@ const gameHTML = `<!doctype html>
 </head>
 <body>
   <header>
-    <div class="title">♟️ Tiny Chess</div>
+    <div class="title"><a href="..">♟️ Tiny Chess</a></div>
     <div style="flex:1"></div>
     <div class="theme" id="themectl">
       <button class="swatch" data-accent="#6ee7ff" style="background:#6ee7ff"></button>
