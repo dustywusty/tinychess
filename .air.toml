@@ -1,0 +1,19 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "go build -trimpath -ldflags='-s -w' -o ./bin/tinychess ."
+bin = "bin/tinychess"
+include_ext = ["go"]
+exclude_dir = ["bin", "tmp", ".git"]
+kill_delay = 1000
+poll = false
+
+[log]
+timestamp = true
+
+[color]
+main = "cyan"
+watcher = "yellow"
+build = "green"
+runner = "magenta"
