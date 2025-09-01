@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tiny Chess</title>
+<style>
+  :root { --accent:#6ee7ff; --ok:#22c55e; --err:#ef4444; }
+  :root,[data-theme="dark"] {
+    /* Accent-tinted theme (dark) */
+    --bg:     color-mix(in oklab, var(--accent) 6%,  #0b0d11);
+    --panel:  color-mix(in oklab, var(--accent) 10%, #141821);
+    --text:#e5e7eb;
+    /* Buttons */
+    --btn-bg:#1a2230; --btn-hover:#1f2a3a; --btn-text:#e5e7eb; --btn-border:#2a3345;
+  }
+  [data-theme="light"] {
+    /* Accent-tinted theme (light) */
+    --bg:     color-mix(in oklab, var(--accent) 8%,  #f7f7fb);
+    --panel:  color-mix(in oklab, var(--accent) 12%, #ffffff);
+    --text:#0f172a;
+    /* Buttons */
+    --btn-bg:    color-mix(in oklab, var(--accent) 14%, white);
+    --btn-hover: color-mix(in oklab, var(--accent) 22%, white);
+    --btn-text:  #0f172a;
+    --btn-border: color-mix(in oklab, var(--accent) 30%, #b6c3d9);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text);
+         font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif; }
+
+  header { padding:10px 14px; display:flex; gap:8px; align-items:center;
+           border-bottom:1px solid var(--btn-border); background:var(--panel); position:sticky; top:0; }
+  .title { font-weight:600; letter-spacing:0.2px; display:flex; align-items:center; gap:6px; }
+  .chess-icon { color:#fff; -webkit-text-stroke:1px #000; }
+
+  .btn{
+    cursor:pointer; border:1px solid var(--btn-border);
+    background:var(--btn-bg); color:var(--btn-text);
+    border-radius:10px; padding:8px 12px; font-weight:600;
+  }
+  .btn:hover{ background:var(--btn-hover); }
+  .btn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-color:transparent; }
+
+  .theme { display:flex; gap:6px; align-items:center; }
+  .swatch,.mode { border:1px solid var(--btn-border); }
+  .swatch { width:16px; height:16px; border-radius:999px; cursor:pointer; }
+  .mode   { width:16px; height:16px; border-radius:4px;   cursor:pointer; }
+  .active { outline:2px solid var(--accent); outline-offset:2px; }
+
+  main { max-width:800px; margin:40px auto; padding:0 16px; text-align:center; }
+  h1 { font-weight:700; margin-bottom:12px; }
+  p  { opacity:.85; }
+  footer { opacity:0.7; padding:8px 14px 24px; text-align:center; }
+
+  /* Recent list */
+  .recent { max-width:800px; margin:24px auto; padding:0 16px; text-align:left; }
+  .card { background:var(--panel); border:1px solid var(--btn-border); border-radius:12px; padding:12px; margin:10px 0; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+  .pill { display:inline-block; border:1px solid var(--btn-border); padding:2px 6px; border-radius:999px; font-size:12px; opacity:.9; }
+</style>
+</head>
+<body>
+  <header>
+    <div class="title"><span class="chess-icon">♙</span> Tiny Chess</div>
+    <div style="flex:1"></div>
+    <div class="theme" id="themectl">
+      <button class="swatch" data-accent="#6ee7ff" style="background:#6ee7ff" aria-label="Accent cyan"></button>
+      <button class="swatch" data-accent="#a78bfa" style="background:#a78bfa" aria-label="Accent purple"></button>
+      <button class="swatch" data-accent="#f472b6" style="background:#f472b6" aria-label="Accent pink"></button>
+      <button class="swatch" data-accent="#f59e0b" style="background:#f59e0b" aria-label="Accent amber"></button>
+      <button class="swatch" data-accent="#10b981" style="background:#10b981" aria-label="Accent green"></button>
+      <button class="mode" data-theme="light" style="background:#ffffff" aria-label="Light mode"></button>
+      <button class="mode" data-theme="dark"  style="background:#000000" aria-label="Dark mode"></button>
+    </div>
+    <a class="btn" href="/new" id="newgame">New game</a>
+  </header>
+
+  <main>
+    <h1>Play chess with a link</h1>
+    <p>Click "New game" to create a shareable URL. Anyone with the link can watch and move.</p>
+    <p><a class="btn" href="/new" id="newgame2">New game</a></p>
+  </main>
+
+  <section class="recent">
+    <h2>Recent games (this browser)</h2>
+    <div id="recent"></div>
+  </section>
+
+  <footer>Built with Go, SSE & vanilla JS — with ❤️ by Dusty and his traumatized 🤖</footer>
+  <script defer data-domain="tinychess.bitchimfabulo.us" src="https://plausible.io/js/script.outbound-links.js"></script>
+<script>
+(function(){
+  const root = document.documentElement;
+  let theme  = localStorage.getItem('theme')  || 'dark';
+  let accent = localStorage.getItem('accent') ||
+               getComputedStyle(root).getPropertyValue('--accent').trim() || '#6ee7ff';
+  root.setAttribute('data-theme', theme);
+  root.style.setProperty('--accent', accent);
+
+  function markActive(){
+    document.querySelectorAll('.swatch').forEach(el=>{
+      el.classList.toggle('active', el.getAttribute('data-accent')===accent);
+    });
+    document.querySelectorAll('.mode').forEach(el=>{
+      el.classList.toggle('active', el.getAttribute('data-theme')===theme);
+    });
+  }
+  markActive();
+
+  document.addEventListener('click', (e)=>{
+    const t = e.target;
+    if (t.matches('.swatch')){
+      accent = t.getAttribute('data-accent');
+      root.style.setProperty('--accent', accent);
+      localStorage.setItem('accent', accent);
+      markActive();
+    } else if (t.matches('.mode')){
+      theme = t.getAttribute('data-theme');
+      root.setAttribute('data-theme', theme);
+      localStorage.setItem('theme', theme);
+      markActive();
+    }
+  });
+
+  // ----- Recent/active games -----
+  const KEY = 'tinychess:games:v1';
+  function loadGames(){ try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { return {}; } }
+  function saveGames(map){ try { localStorage.setItem(KEY, JSON.stringify(map)); } catch {} }
+  function byLastSeenDesc(a,b){ return (b.lastSeen||0)-(a.lastSeen||0); }
+  function hasResult(g){ return !!(g && g.result); }
+  function activeGames(){ const m = loadGames(); return Object.values(m).filter(function(g){ return !hasResult(g); }); }
+
+  function renderRecent(){
+    const box = document.getElementById('recent'); 
+    if(!box) return;
+
+    const games = Object.values(loadGames()).sort(byLastSeenDesc);
+    if (!games.length){
+      box.innerHTML = '<p style="opacity:.8">No games yet — start one above.</p>';
+      return;
+    }
+
+    box.innerHTML = '';
+    for (var i=0;i<games.length;i++){
+      var g = games[i];
+      var a = document.createElement('div');
+      a.className = 'card';
+
+      // prefer server lastSeen, fallback to local, then createdAt
+      var seen = g.lastSeen || g.lastSeenLocal || g.createdAt || Date.now();
+      var when = new Date(seen).toLocaleString();
+
+      var res  = g.result ? '<span class="pill">Result: ' + g.result + '</span>' : '<span class="pill">In progress</span>';
+      var stat = g.status ? '<span class="pill">' + g.status + '</span>' : '';
+
+      a.innerHTML =
+        '<div class="row">' +
+        '  <strong>ID:</strong> <span class="mono">' + g.id + '</span> ' +
+        '  ' + res + ' ' + stat +
+        '</div>' +
+        '<div class="row" style="margin-top:6px;">' +
+        '  <button class="btn" data-goto="' + g.id + '">Open</button>' +
+        '  <button class="btn" data-copy="' + g.id + '">Copy link</button>' +
+        '  <button class="btn" data-remove="' + g.id + '">Forget</button>' +
+        '  <span style="opacity:.7; margin-left:auto;">Last seen: ' + when + '</span>' +
+        '</div>';
+      box.appendChild(a);
+    }
+  }
+
+  renderRecent();
+
+  document.addEventListener('click', function(e){
+    const t = e.target;
+    if (t.matches('[data-goto]')){ location.href = '/' + t.getAttribute('data-goto'); }
+    if (t.matches('[data-copy]')){ try{ navigator.clipboard.writeText(location.origin + '/' + t.getAttribute('data-copy')); }catch(e){} }
+    if (t.matches('[data-remove]')){
+      const id = t.getAttribute('data-remove');
+      const m = loadGames(); delete m[id]; saveGames(m); renderRecent();
+    }
+  });
+
+  function handleNewClick(ev){
+    const act = activeGames();
+    if (act.length){
+      act.sort(byLastSeenDesc);
+      location.href = '/' + act[0].id;
+      ev.preventDefault();
+    }
+  }
+  ['newgame','newgame2'].forEach(function(id){
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('click', handleNewClick);
+  });
+})();
+</script>
+</body>
+</html>
