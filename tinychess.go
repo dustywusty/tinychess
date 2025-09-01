@@ -7,6 +7,8 @@
 // - Reset; copy-link; promotions (auto-queen)
 // - Theme picker (accent + light/dark), emoji reactions
 // - Captured pieces (by White / by Black) with localStorage persistence
+// - Coordinates (a–h / 1–8) on the board
+// - PGN (SAN) lines + UCI move list (from→to)
 
 package main
 
@@ -53,6 +55,25 @@ func (h *hub) get(id string) *game {
 	return ng
 }
 
+// Build a UCI (from->to) list by replaying moves on a temp game,
+// ensuring we pass the correct position to UCINotation{}.Encode.
+func (g *game) movesUCI() []string {
+	ms := g.g.Moves()
+	out := make([]string, 0, len(ms))
+	tmp := chess.NewGame()
+	uci := chess.UCINotation{}
+	for _, m := range ms {
+		// Encode using the position before the move
+		s := uci.Encode(tmp.Position(), m)
+		out = append(out, s)
+		// Advance tmp using the encoded UCI for tmp's position
+		if mv2, err := uci.Decode(tmp.Position(), s); err == nil {
+			_ = tmp.Move(mv2)
+		}
+	}
+	return out
+}
+
 func (g *game) stateLocked() map[string]any {
 	pos := g.g.Position()
 	fen := pos.String()
@@ -62,7 +83,14 @@ func (g *game) stateLocked() map[string]any {
 		status = fmt.Sprintf("%s by %s", g.g.Outcome().String(), g.g.Method().String())
 	}
 	pgn := g.g.String()
-	return map[string]any{"kind": "state", "fen": fen, "turn": turn, "status": status, "pgn": pgn}
+	return map[string]any{
+		"kind":   "state",
+		"fen":    fen,
+		"turn":   turn,
+		"status": status,
+		"pgn":    pgn,          // SAN within a PGN
+		"uci":    g.movesUCI(), // explicit from→to list
+	}
 }
 
 func (g *game) broadcast() {
@@ -441,10 +469,17 @@ const gameHTML = `<!doctype html>
   .board { width:100%; max-width:640px; aspect-ratio:1/1; border:1px solid #2a3345; border-radius:12px; overflow:hidden;
            user-select:none; background:var(--sq3); display:grid; grid-template-rows: repeat(8, 1fr); }
   .rank  { display:grid; grid-template-columns: repeat(8, 1fr); }
-  .cell  { display:flex; align-items:center; justify-content:center; font-size: clamp(22px, 6vw, 54px); }
+  .cell  { display:flex; align-items:center; justify-content:center; font-size: clamp(22px, 6vw, 54px); position:relative; }
   .light { background: var(--sq1); color: var(--piece-light); }
   .dark  { background: var(--sq2); color: var(--piece-dark); }
   .cell.sel { outline:3px solid var(--accent); outline-offset:-3px; }
+
+  /* Coordinates */
+  .coord { position:absolute; pointer-events:none; font-size:12px; line-height:1; opacity:.75; }
+  .coord-file { bottom:4px; right:6px; }
+  .coord-rank { top:4px; left:6px; }
+  .light .coord { color: rgba(15,23,42,.65); }
+  .dark  .coord { color: rgba(255,255,255,.78); }
 
   .panel { background:var(--panel); border:1px solid #2a3345; border-radius:12px; padding:12px; }
 
@@ -514,7 +549,15 @@ const gameHTML = `<!doctype html>
       <div class="row"><div class="reactions" id="reactbar" aria-label="Reactions"></div></div>
 
       <div class="row" style="margin-top:8px"><button class="btn" id="reset">Reset</button></div>
-      <details style="margin-top:12px"><summary>PGN</summary><pre id="pgn" style="white-space:pre-wrap;"></pre></details>
+
+      <details style="margin-top:12px;"><summary>PGN</summary>
+        <pre id="pgn" style="white-space:pre-wrap;"></pre>
+      </details>
+
+      <details style="margin-top:8px"><summary>Moves (from→to)</summary>
+        <pre id="lan" style="white-space:pre-wrap;"></pre>
+      </details>
+
       <p style="margin-top:10px; opacity:.8">Tip: Click one square, then another to move. Promotions auto-queen. Anyone with the link can move.</p>
     </div>
   </div>
@@ -528,7 +571,8 @@ const gameHTML = `<!doctype html>
   const boardEl = document.getElementById('board');
   const statusEl = document.getElementById('status');
   const turnEl = document.getElementById('turn');
-  const pgnEl = document.getElementById('pgn');
+  const pgnEl  = document.getElementById('pgn');
+  const lanEl  = document.getElementById('lan');
   const gameIdEl = document.getElementById('gameid');
   const capWhiteEl = document.getElementById('cap_by_white');
   const capBlackEl = document.getElementById('cap_by_black');
@@ -619,6 +663,21 @@ const gameHTML = `<!doctype html>
         const sq = cellSquare(r, c);
         cell.dataset.square = sq;
         cell.textContent = glyph[piece] || '';
+
+        // coordinates
+        if (r === 7) {
+          const f = document.createElement('span');
+          f.className = 'coord coord-file';
+          f.textContent = String.fromCharCode(97 + c);
+          cell.appendChild(f);
+        }
+        if (c === 0) {
+          const rr = document.createElement('span');
+          rr.className = 'coord coord-rank';
+          rr.textContent = String(8 - r);
+          cell.appendChild(rr);
+        }
+
         if (selected && sq === selected) cell.classList.add('sel');
         row.appendChild(cell);
       }
@@ -640,7 +699,7 @@ const gameHTML = `<!doctype html>
     }catch(err){ status('Network error', true); }
   }
 
-  // ✅ SINGLE board-level click handler (bind once)
+  // Board-level click handler
   boardEl.addEventListener('click', (e) => {
     const rect = boardEl.getBoundingClientRect();
     const x = Math.min(Math.max(0, e.clientX - rect.left), rect.width  - 0.01);
@@ -696,6 +755,37 @@ const gameHTML = `<!doctype html>
     return {byWhite: byWhite, byBlack: byBlack};
   }
 
+  // --- formatting helpers ---
+  function formatPGNLines(pgn) {
+    if (!pgn) return '';
+    const tokens = pgn.trim().split(/\s+/);
+    const lines = [];
+    let line = [];
+    for (const t of tokens) {
+      if (/^\d+\.$/.test(t)) {
+        if (line.length) lines.push(line.join(' '));
+        line = [t];
+      } else if (/^(1-0|0-1|1\/2-1\/2|\*)$/.test(t)) {
+        if (line.length) { lines.push(line.join(' ')); line = []; }
+      } else {
+        line.push(t);
+      }
+    }
+    if (line.length) lines.push(line.join(' '));
+    return lines.join('\n');
+  }
+
+  function formatUCIMoves(uciList){
+    if (!uciList || !uciList.length) return '';
+    let out = [];
+    for (let i = 0, n = 1; i < uciList.length; i += 2, n++) {
+      const w = uciList[i] || '';
+      const b = uciList[i+1] || '';
+      out.push(b ? (n + '. ' + w + ' ' + b) : (n + '. ' + w));
+    }
+    return out.join('\n');
+  }
+
   function renderCaptured(byWhite, byBlack){
     capWhiteEl.textContent = '';
     capBlackEl.textContent = '';
@@ -705,27 +795,6 @@ const gameHTML = `<!doctype html>
     for (var j=0;j<byBlack.length;j++){
       var s2=document.createElement('span'); s2.textContent=byBlack[j]; capBlackEl.appendChild(s2);
     }
-  }
-
-  function formatPGNForDisplay(pgn) {
-    if (!pgn) return '';
-    const tokens = pgn.trim().split(/\s+/);
-    const lines = [];
-    let line = [];
-    for (const t of tokens) {
-      if (/^\d+\.$/.test(t)) {          // a new move number like "12."
-        if (line.length) lines.push(line.join(' '));
-        line = [t];
-      } else if (/^(1-0|0-1|1\/2-1\/2|\*)$/.test(t)) { // result token
-        if (line.length) { lines.push(line.join(' ')); line = []; }
-        // drop "*" if you don't want to show "game in progress"
-        // else: lines.push(t);
-      } else {
-        line.push(t);
-      }
-    }
-    if (line.length) lines.push(line.join(' '));
-    return lines.join('<br>');
   }
 
   function capKey(id){ return 'tinychess:' + String(id||'') + ':captured:v1'; }
@@ -754,7 +823,8 @@ const gameHTML = `<!doctype html>
       if (st.kind === 'state'){
         renderFEN(st.fen);
         turnEl.textContent = st.turn;
-        pgnEl.innerHTML = formatPGNForDisplay(st.pgn || '');
+        pgnEl.textContent  = formatPGNLines(st.pgn || '');
+        lanEl.textContent  = formatUCIMoves(st.uci || []);
         status(st.status || '');
         const caps = capturedFromFEN(st.fen);
         renderCaptured(caps.byWhite, caps.byBlack);
