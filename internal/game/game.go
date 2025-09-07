@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/notnil/chess"
+	"tinychess/internal/logging"
 )
 
 // Touch updates the last seen timestamp for a game
@@ -74,19 +75,19 @@ func (g *Game) MakeMove(uci string) error {
 
 	// Debug: Print current position and legal moves
 	pos := g.g.Position()
-	fmt.Printf("DEBUG: Attempting move %s on position %s\n", uci, pos.String())
+	logging.Debugf("Attempting move %s on position %s", uci, pos.String())
 
 	legalMoves := g.g.Moves()
-	fmt.Printf("DEBUG: Legal moves count: %d\n", len(legalMoves))
+	logging.Debugf("Legal moves count: %d", len(legalMoves))
 
 	// Try to decode the move
 	move, err := chess.UCINotation{}.Decode(pos, uci)
 	if err != nil {
-		fmt.Printf("DEBUG: UCI decode error: %v\n", err)
+		logging.Debugf("UCI decode error: %v", err)
 		return err
 	}
 
-	fmt.Printf("DEBUG: Decoded move: %s -> %s\n", move.S1(), move.S2())
+	logging.Debugf("Decoded move: %s -> %s", move.S1(), move.S2())
 
 	// Check if the move is in the legal moves list
 	isLegal := false
@@ -98,7 +99,7 @@ func (g *Game) MakeMove(uci string) error {
 	}
 
 	if !isLegal {
-		fmt.Printf("DEBUG: Move %s is not in legal moves list\n", uci)
+		logging.Debugf("Move %s is not in legal moves list", uci)
 		// Let's try to make the move anyway - the chess library might have additional validation
 		err = g.g.Move(move)
 		if err != nil {
@@ -116,7 +117,7 @@ func (g *Game) Reset() {
 	g.g = chess.NewGame()
 	// Debug: Print initial game state
 	pos := g.g.Position()
-	fmt.Printf("DEBUG: Game reset - FEN: %s, Castling: %s\n", pos.String(), pos.CastleRights())
+	logging.Debugf("Game reset - FEN: %s, Castling: %s", pos.String(), pos.CastleRights())
 	g.Mu.Unlock()
 }
 
