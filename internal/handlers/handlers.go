@@ -102,9 +102,7 @@ func (h *Handler) HandleMove(w http.ResponseWriter, r *http.Request) {
 	}
 
 	uci := strings.ToLower(strings.TrimSpace(m.UCI))
-	if len(uci) == 4 && isPromotionToLastRank(uci) {
-		uci += "q"
-	}
+	uci = appendPromotionIfPawn(g, uci)
 
 	// Handle castling moves - ensure they're properly formatted
 	if len(uci) == 4 {
