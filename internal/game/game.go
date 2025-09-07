@@ -72,39 +72,9 @@ func (g *Game) MakeMove(uci string) error {
 	g.Mu.Lock()
 	defer g.Mu.Unlock()
 
-	// Debug: Print current position and legal moves
-	pos := g.g.Position()
-	fmt.Printf("DEBUG: Attempting move %s on position %s\n", uci, pos.String())
-
-	legalMoves := g.g.Moves()
-	fmt.Printf("DEBUG: Legal moves count: %d\n", len(legalMoves))
-
-	// Try to decode the move
-	move, err := chess.UCINotation{}.Decode(pos, uci)
+	move, err := chess.UCINotation{}.Decode(g.g.Position(), uci)
 	if err != nil {
-		fmt.Printf("DEBUG: UCI decode error: %v\n", err)
 		return err
-	}
-
-	fmt.Printf("DEBUG: Decoded move: %s -> %s\n", move.S1(), move.S2())
-
-	// Check if the move is in the legal moves list
-	isLegal := false
-	for _, legalMove := range legalMoves {
-		if legalMove.S1() == move.S1() && legalMove.S2() == move.S2() {
-			isLegal = true
-			break
-		}
-	}
-
-	if !isLegal {
-		fmt.Printf("DEBUG: Move %s is not in legal moves list\n", uci)
-		// Let's try to make the move anyway - the chess library might have additional validation
-		err = g.g.Move(move)
-		if err != nil {
-			return fmt.Errorf("illegal move: %s (%v)", uci, err)
-		}
-		return nil
 	}
 
 	return g.g.Move(move)
