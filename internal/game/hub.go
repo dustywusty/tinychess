@@ -40,6 +40,7 @@ func (h *Hub) Get(id string) *Game {
 		Watchers:  make(map[chan []byte]struct{}),
 		LastReact: make(map[string]time.Time),
 		Clients:   make(map[string]time.Time),
+		LastSeen:  time.Now(),
 	}
 	h.Games[id] = ng
 	return ng
