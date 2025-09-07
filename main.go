@@ -1,14 +1,20 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"net/http"
 
 	"tinychess/internal/game"
 	"tinychess/internal/handlers"
+	"tinychess/internal/logging"
 )
 
 func main() {
+	debug := flag.Bool("debug", false, "enable debug logging")
+	flag.Parse()
+	logging.Debug = *debug
+
 	// Initialize game hub
 	hub := game.NewHub()
 

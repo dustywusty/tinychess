@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"tinychess/internal/game"
+	"tinychess/internal/logging"
 	"tinychess/internal/templates"
 
 	"github.com/google/uuid"
@@ -107,7 +108,7 @@ func (h *Handler) HandleMove(w http.ResponseWriter, r *http.Request) {
 	if len(uci) == 4 {
 		// Check for castling moves
 		if uci == "e1g1" || uci == "e1c1" || uci == "e8g8" || uci == "e8c8" {
-			fmt.Printf("DEBUG: Castling move detected: %s\n", uci)
+			logging.Debugf("Castling move detected: %s", uci)
 		}
 	}
 
