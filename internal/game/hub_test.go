@@ -3,6 +3,8 @@ package game
 import (
 	"testing"
 	"time"
+
+	"github.com/notnil/chess"
 )
 
 // runCleanup mimics the hub's cleanup routine for testing purposes.
@@ -21,7 +23,7 @@ func runCleanup(h *Hub) {
 
 func TestGamePersistenceBeforeCleanup(t *testing.T) {
 	h := NewHub()
-	g := h.Get("test")
+	g := h.Get("test", "")
 
 	// Simulate a game that was last seen 23 hours ago.
 	g.Mu.Lock()
@@ -49,5 +51,29 @@ func TestGamePersistenceBeforeCleanup(t *testing.T) {
 	h.Mu.Unlock()
 	if exists {
 		t.Fatalf("game not removed after 24 hours of inactivity")
+	}
+}
+
+func TestOwnerAndClientColorAssignment(t *testing.T) {
+	h := NewHub()
+	g := h.Get("g1", "owner")
+
+	if g.OwnerID != "owner" {
+		t.Fatalf("expected owner id to be set")
+	}
+	ownerColor := g.OwnerColor
+	if c, ok := g.Clients["owner"]; !ok || c != ownerColor {
+		t.Fatalf("owner not recorded with correct color")
+	}
+
+	g = h.Get("g1", "client2")
+	var expected chess.Color
+	if ownerColor == chess.White {
+		expected = chess.Black
+	} else {
+		expected = chess.White
+	}
+	if c := g.Clients["client2"]; c != expected {
+		t.Fatalf("expected client2 color %v, got %v", expected, c)
 	}
 }
