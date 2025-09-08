@@ -386,19 +386,15 @@
       </div>
 
       <div class="row" style="margin-top:8px"><button class="btn" id="reset">Reset</button></div>
+      <div class="row" style="margin-top:8px"><button class="btn" id="release">Release seat</button></div>
 
       <details style="margin-top:12px;">
         <summary>PGN</summary>
         <pre id="pgn" style="white-space:pre-wrap;"></pre>
       </details>
 
-      <details style="margin-top:8px">
-        <summary>Moves (from→to)</summary>
-        <pre id="lan" style="white-space:pre-wrap;"></pre>
-      </details>
-
       <p style="margin-top:10px; opacity:.8">Tip: Click one square, then another to move. Promotions auto-queen. Anyone
-        with the link can move.</p>
+        with the link can spectate now.</p>
     </div>
   </div>
   <footer>
@@ -762,6 +758,29 @@
         try { localStorage.removeItem(capKey(gameId)); } catch (e) { }
         renderCaptured([], []);
       });
+      const releaseBtn = document.getElementById('release');
+      if (releaseBtn) releaseBtn.addEventListener('click', async () => {
+        if (!gameId || !clientId) return;
+        try {
+          const resp = await fetch('/release/' + gameId, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ clientId: clientId, targetId: clientId })
+          });
+          const data = await resp.json().catch(() => null);
+          if (data && data.ok) {
+            isSpectator = true;
+            playerColorSet = false;
+            if (roleEl) roleEl.textContent = 'Spectating';
+            releaseBtn.style.display = 'none';
+            status('Seat released');
+          } else {
+            status('Release failed', true);
+          }
+        } catch (e) {
+          status('Release failed', true);
+        }
+      });
       document.getElementById('copy').addEventListener('click', async () => { try { await navigator.clipboard.writeText(location.href); status('Link copied!'); setTimeout(() => status(''), 1200); } catch { status('Copy failed', true); } });
 
       // ---- local game index (per-browser) ----
@@ -815,6 +834,7 @@
               playerColorSet = true;
             }
             if (roleEl) roleEl.textContent = isSpectator ? 'Spectating' : ('Playing as ' + playerColor.charAt(0).toUpperCase() + playerColor.slice(1));
+            if (releaseBtn) releaseBtn.style.display = isSpectator ? 'none' : '';
             lastMoveSquares = deriveLastMoveSquares(st.uci || []);
             renderFEN(st.fen);
             turnEl.textContent = st.turn || '';
