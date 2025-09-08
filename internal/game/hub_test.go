@@ -98,3 +98,37 @@ func TestTwoClientsReceiveOppositeColors(t *testing.T) {
 		t.Fatalf("spectator should not be assigned a color")
 	}
 }
+
+func TestColorPersistsAfterOwnerLeaves(t *testing.T) {
+	h := NewHub()
+
+	// owner joins
+	g, _ := h.Get("g3", "owner")
+	// second player joins
+	g, _ = h.Get("g3", "player")
+
+	initialColor := g.Clients["player"]
+
+	// owner releases themselves
+	g.RemoveClient("owner")
+
+	// player refreshes (rejoins)
+	g, col := h.Get("g3", "player")
+	if col == nil || *col != initialColor {
+		t.Fatalf("expected player to retain color %v, got %v", initialColor, col)
+	}
+
+	if g.OwnerID != "player" {
+		t.Fatalf("expected player to become owner after release")
+	}
+
+	if g.OwnerColor != initialColor {
+		t.Fatalf("owner color not updated to player's color")
+	}
+
+	// new client should receive opposite color
+	g, col2 := h.Get("g3", "newbie")
+	if col2 == nil || *col2 == initialColor {
+		t.Fatalf("expected new client to receive opposite color")
+	}
+}
