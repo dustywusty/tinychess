@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/notnil/chess"
-	"tinychess/internal/logging"
 )
 
 // Touch updates the last seen timestamp for a game
@@ -74,16 +73,6 @@ func (g *Game) MakeMove(uci string) error {
 	defer g.Mu.Unlock()
 
 	return g.g.MoveStr(uci)
-}
-
-// Reset resets the game to the starting position
-func (g *Game) Reset() {
-	g.Mu.Lock()
-	g.g = chess.NewGame(chess.UseNotation(chess.UCINotation{}))
-	// Debug: Print initial game state
-	pos := g.g.Position()
-	logging.Debugf("Game reset - FEN: %s, Castling: %s", pos.String(), pos.CastleRights())
-	g.Mu.Unlock()
 }
 
 // AddWatcher adds a new watcher channel

@@ -245,21 +245,6 @@ func (h *Handler) HandleRelease(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
-// HandleReset resets a game to the starting position
-func (h *Handler) HandleReset(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimPrefix(r.URL.Path, "/reset/")
-	g, _ := h.Hub.Get(id, "")
-
-	g.Reset()
-
-	g.Mu.Lock()
-	state := g.StateLocked()
-	g.Mu.Unlock()
-
-	go g.Broadcast()
-	WriteJSON(w, http.StatusOK, map[string]any{"ok": true, "state": state})
-}
-
 // ClientIP extracts the client IP from the request
 func ClientIP(r *http.Request) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
