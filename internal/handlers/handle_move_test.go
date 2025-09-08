@@ -15,8 +15,8 @@ import (
 func TestHandleMoveWrongColor(t *testing.T) {
 	hub := game.NewHub()
 	h := NewHandler(hub)
-	g := hub.Get("g1")
-	g.Seats["c1"] = chess.White
+	g := hub.Get("g1", "")
+	g.Clients["c1"] = chess.White
 
 	req := httptest.NewRequest("POST", "/move/g1", strings.NewReader(`{"uci":"a7a6","clientId":"c1"}`))
 	w := httptest.NewRecorder()
@@ -35,8 +35,8 @@ func TestHandleMoveWrongColor(t *testing.T) {
 func TestHandleMoveNotYourTurn(t *testing.T) {
 	hub := game.NewHub()
 	h := NewHandler(hub)
-	g := hub.Get("g2")
-	g.Seats["c2"] = chess.Black
+	g := hub.Get("g2", "")
+	g.Clients["c2"] = chess.Black
 
 	req := httptest.NewRequest("POST", "/move/g2", strings.NewReader(`{"uci":"a7a6","clientId":"c2"}`))
 	w := httptest.NewRecorder()
@@ -55,8 +55,8 @@ func TestHandleMoveNotYourTurn(t *testing.T) {
 func TestHandleMoveSuccess(t *testing.T) {
 	hub := game.NewHub()
 	h := NewHandler(hub)
-	g := hub.Get("g3")
-	g.Seats["c1"] = chess.White
+	g := hub.Get("g3", "")
+	g.Clients["c1"] = chess.White
 
 	req := httptest.NewRequest("POST", "/move/g3", strings.NewReader(`{"uci":"e2e4","clientId":"c1"}`))
 	w := httptest.NewRecorder()
