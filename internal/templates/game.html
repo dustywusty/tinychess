@@ -429,9 +429,6 @@
           Tip: Click one square, then another to move. Promotions auto-queen.
         </p>
         <div class="row" style="margin-top: 8px">
-          <button class="btn" id="reset">Reset</button>
-        </div>
-        <div class="row" style="margin-top: 8px">
           <button class="btn" id="release">Release seat</button>
         </div>
 
@@ -972,15 +969,6 @@
             renderCaptured(saved.byWhite, saved.byBlack);
         } catch (e) {}
 
-        // controls
-        document.getElementById("reset").addEventListener("click", async () => {
-          if (!gameId) return;
-          await fetch("/reset/" + gameId, { method: "POST" });
-          try {
-            localStorage.removeItem(capKey(gameId));
-          } catch (e) {}
-          renderCaptured([], []);
-        });
         const releaseBtn = document.getElementById("release");
         if (releaseBtn)
           releaseBtn.addEventListener("click", async () => {
