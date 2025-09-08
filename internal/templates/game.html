@@ -413,11 +413,7 @@
 
       // ---- IDs / elements ----
       const CLIENT_ID_KEY = "tinychess:clientId";
-      let clientId = localStorage.getItem(CLIENT_ID_KEY);
-      if (!clientId) {
-        clientId = Math.random().toString(36).slice(2);
-        localStorage.setItem(CLIENT_ID_KEY, clientId);
-      }
+      let clientId = sessionStorage.getItem(CLIENT_ID_KEY) || '';
       // If the server didn't substitute {{GAME_ID}}, fall back to the path.
       const idFromServerRaw = "{{GAME_ID}}";
       const gameId = (idFromServerRaw && idFromServerRaw !== "{{GAME_ID}}")
@@ -789,7 +785,9 @@
       status('');
 
       if (gameId) {
-        const es = new EventSource('/sse/' + gameId + '?clientId=' + encodeURIComponent(clientId));
+        let sseURL = '/sse/' + gameId;
+        if (clientId) sseURL += '?clientId=' + encodeURIComponent(clientId);
+        const es = new EventSource(sseURL);
         es.onmessage = (ev) => {
           const st = JSON.parse(ev.data || "{}");
           if (st.kind === 'emoji') {
@@ -797,12 +795,15 @@
             return;
           }
           if (st.kind === 'state') {
+            if (!clientId && st.clientId) {
+              clientId = st.clientId;
+              try { sessionStorage.setItem(CLIENT_ID_KEY, clientId); } catch {}
+            }
             if (st.role === 'spectator') {
               isSpectator = true;
-              playerColor = 'white';
-              playerColorSet = true;
-            } else if (!playerColorSet && st.color) {
-              playerColor = st.color;
+            }
+            if (!playerColorSet) {
+              playerColor = st.color || 'white';
               playerColorSet = true;
             }
             if (roleEl) roleEl.textContent = isSpectator ? 'Spectating' : ('Playing as ' + playerColor);

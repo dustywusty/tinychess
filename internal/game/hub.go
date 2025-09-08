@@ -31,10 +31,13 @@ func NewHub() *Hub {
 
 // Get retrieves an existing game or creates a new one. If a clientId is provided,
 // the first one becomes the owner and is assigned a random color. Subsequent
-// clients are assigned the opposite color.
-func (h *Hub) Get(id, clientId string) *Game {
+// clients are assigned the opposite color. The returned color indicates the
+// assigned color for the given client, or nil if the client is a spectator or no
+// clientId was provided.
+func (h *Hub) Get(id, clientId string) (*Game, *chess.Color) {
 	h.Mu.Lock()
 	g, ok := h.Games[id]
+	var assigned *chess.Color
 	if !ok {
 		color := chess.White
 		if rand.Intn(2) == 0 {
@@ -51,12 +54,13 @@ func (h *Hub) Get(id, clientId string) *Game {
 		if clientId != "" {
 			g.OwnerID = clientId
 			g.Clients[clientId] = g.OwnerColor
+			c := g.OwnerColor
+			assigned = &c
 		}
 		h.Games[id] = g
 		h.Mu.Unlock()
-		return g
+		return g, assigned
 	}
-
 	h.Mu.Unlock()
 
 	if clientId != "" {
@@ -64,18 +68,24 @@ func (h *Hub) Get(id, clientId string) *Game {
 		if g.OwnerID == "" {
 			g.OwnerID = clientId
 			g.Clients[clientId] = g.OwnerColor
-		} else if _, exists := g.Clients[clientId]; !exists {
-			if len(g.Clients) < 2 {
-				var color chess.Color
-				if g.OwnerColor == chess.White {
-					color = chess.Black
-				} else {
-					color = chess.White
-				}
-				g.Clients[clientId] = color
+			c := g.OwnerColor
+			assigned = &c
+		} else if col, exists := g.Clients[clientId]; exists {
+			c := col
+			assigned = &c
+		} else if len(g.Clients) < 2 {
+			var color chess.Color
+			if g.OwnerColor == chess.White {
+				color = chess.Black
+			} else {
+				color = chess.White
 			}
+			g.Clients[clientId] = color
+			c := color
+			assigned = &c
 		}
 		g.Mu.Unlock()
 	}
-	return g
+
+	return g, assigned
 }

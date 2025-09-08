@@ -23,7 +23,7 @@ func runCleanup(h *Hub) {
 
 func TestGamePersistenceBeforeCleanup(t *testing.T) {
 	h := NewHub()
-	g := h.Get("test", "")
+	g, _ := h.Get("test", "")
 
 	// Simulate a game that was last seen 23 hours ago.
 	g.Mu.Lock()
@@ -56,7 +56,7 @@ func TestGamePersistenceBeforeCleanup(t *testing.T) {
 
 func TestOwnerAndClientColorAssignment(t *testing.T) {
 	h := NewHub()
-	g := h.Get("g1", "owner")
+	g, _ := h.Get("g1", "owner")
 
 	if g.OwnerID != "owner" {
 		t.Fatalf("expected owner id to be set")
@@ -66,7 +66,7 @@ func TestOwnerAndClientColorAssignment(t *testing.T) {
 		t.Fatalf("owner not recorded with correct color")
 	}
 
-	g = h.Get("g1", "client2")
+	g, _ = h.Get("g1", "client2")
 	var expected chess.Color
 	if ownerColor == chess.White {
 		expected = chess.Black
@@ -80,8 +80,8 @@ func TestOwnerAndClientColorAssignment(t *testing.T) {
 
 func TestTwoClientsReceiveOppositeColors(t *testing.T) {
 	h := NewHub()
-	g := h.Get("g2", "c1")
-	g = h.Get("g2", "c2")
+	g, _ := h.Get("g2", "c1")
+	g, _ = h.Get("g2", "c2")
 
 	c1 := g.Clients["c1"]
 	c2 := g.Clients["c2"]
@@ -93,7 +93,7 @@ func TestTwoClientsReceiveOppositeColors(t *testing.T) {
 		t.Fatalf("expected clients to have opposite colors, both got %v", c1)
 	}
 
-	g = h.Get("g2", "")
+	g, _ = h.Get("g2", "")
 	if len(g.Clients) != 2 {
 		t.Fatalf("spectator should not be assigned a color")
 	}
