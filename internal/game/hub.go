@@ -65,13 +65,17 @@ func (h *Hub) Get(id, clientId string) (*Game, *chess.Color) {
 
 	if clientId != "" {
 		g.Mu.Lock()
-		if g.OwnerID == "" {
+		if col, exists := g.Clients[clientId]; exists {
+			if g.OwnerID == "" {
+				g.OwnerID = clientId
+				g.OwnerColor = col
+			}
+			c := col
+			assigned = &c
+		} else if g.OwnerID == "" {
 			g.OwnerID = clientId
 			g.Clients[clientId] = g.OwnerColor
 			c := g.OwnerColor
-			assigned = &c
-		} else if col, exists := g.Clients[clientId]; exists {
-			c := col
 			assigned = &c
 		} else if len(g.Clients) < 2 {
 			var color chess.Color
