@@ -49,6 +49,12 @@ type GameState struct {
 	Watchers int      `json:"watchers"`
 }
 
+// ClientState represents the state sent to a specific client, including their color
+type ClientState struct {
+	GameState
+	Color string `json:"color,omitempty"`
+}
+
 // ReactionPayload represents a reaction broadcast
 type ReactionPayload struct {
 	Kind   string `json:"kind"`

@@ -429,9 +429,9 @@
       const reactBar = document.getElementById('reactbar');
       gameIdEl.textContent = gameId || '(none)';
 
-      // Orientation (default white, ?color=black flips board)
-      const params = new URLSearchParams(location.search);
-      const playerColor = params.get('color') === 'black' ? 'black' : 'white';
+      // Orientation (default white; updated from server message)
+      let playerColor = 'white';
+      let playerColorSet = false;
 
       // Theme picker
       const root = document.documentElement;
@@ -788,6 +788,10 @@
             return;
           }
           if (st.kind === 'state') {
+            if (!playerColorSet && st.color) {
+              playerColor = st.color;
+              playerColorSet = true;
+            }
             lastMoveSquares = deriveLastMoveSquares(st.uci || []);
             renderFEN(st.fen);
             turnEl.textContent = st.turn || '';
