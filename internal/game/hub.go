@@ -65,13 +65,15 @@ func (h *Hub) Get(id, clientId string) *Game {
 			g.OwnerID = clientId
 			g.Clients[clientId] = g.OwnerColor
 		} else if _, exists := g.Clients[clientId]; !exists {
-			var color chess.Color
-			if g.OwnerColor == chess.White {
-				color = chess.Black
-			} else {
-				color = chess.White
+			if len(g.Clients) < 2 {
+				var color chess.Color
+				if g.OwnerColor == chess.White {
+					color = chess.Black
+				} else {
+					color = chess.White
+				}
+				g.Clients[clientId] = color
 			}
-			g.Clients[clientId] = color
 		}
 		g.Mu.Unlock()
 	}

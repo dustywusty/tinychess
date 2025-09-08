@@ -412,10 +412,10 @@
 
       // ---- IDs / elements ----
       const CLIENT_ID_KEY = "tinychess:clientId";
-      let clientId = localStorage.getItem(CLIENT_ID_KEY);
+      let clientId = sessionStorage.getItem(CLIENT_ID_KEY);
       if (!clientId) {
         clientId = Math.random().toString(36).slice(2);
-        localStorage.setItem(CLIENT_ID_KEY, clientId);
+        sessionStorage.setItem(CLIENT_ID_KEY, clientId);
       }
       // If the server didn't substitute {{GAME_ID}}, fall back to the path.
       const idFromServerRaw = "{{GAME_ID}}";
@@ -793,8 +793,8 @@
             return;
           }
           if (st.kind === 'state') {
-            if (!playerColorSet && st.color) {
-              playerColor = st.color;
+            if (!playerColorSet) {
+              playerColor = st.color || 'white';
               playerColorSet = true;
             }
             lastMoveSquares = deriveLastMoveSquares(st.uci || []);

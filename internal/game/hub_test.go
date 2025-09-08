@@ -77,3 +77,26 @@ func TestOwnerAndClientColorAssignment(t *testing.T) {
 		t.Fatalf("expected client2 color %v, got %v", expected, c)
 	}
 }
+
+func TestSpectatorReceivesNoColor(t *testing.T) {
+	h := NewHub()
+	g := h.Get("g2", "p1")
+	g = h.Get("g2", "p2")
+	g = h.Get("g2", "p3")
+
+	g.Mu.Lock()
+	c1, ok1 := g.Clients["p1"]
+	c2, ok2 := g.Clients["p2"]
+	_, ok3 := g.Clients["p3"]
+	g.Mu.Unlock()
+
+	if !ok1 || !ok2 {
+		t.Fatalf("expected first two clients to have colors assigned")
+	}
+	if c1 == c2 {
+		t.Fatalf("expected players to have opposite colors")
+	}
+	if ok3 {
+		t.Fatalf("third client should be a spectator without color")
+	}
+}

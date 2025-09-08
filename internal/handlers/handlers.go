@@ -46,7 +46,10 @@ func (h *Handler) HandlePage(w http.ResponseWriter, r *http.Request) {
 // HandleSSE handles Server-Sent Events for real-time game updates
 func (h *Handler) HandleSSE(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimPrefix(r.URL.Path, "/sse/")
-	clientID := r.URL.Query().Get("clientId")
+	clientID := strings.TrimSpace(r.URL.Query().Get("clientId"))
+	if clientID == "" {
+		clientID = uuid.NewString()
+	}
 	g := h.Hub.Get(id, clientID)
 
 	flusher, ok := w.(http.Flusher)
@@ -66,10 +69,13 @@ func (h *Handler) HandleSSE(w http.ResponseWriter, r *http.Request) {
 	col, exists := g.Clients[clientID]
 	g.Mu.Unlock()
 
-	initial := game.ClientState{GameState: state}
+	var colorPtr *string
 	if exists {
-		initial.Color = col.String()
+		c := col.String()
+		colorPtr = &c
 	}
+
+	initial := game.ClientState{GameState: state, Color: colorPtr}
 	initialJSON, _ := json.Marshal(initial)
 
 	_, _ = fmt.Fprintf(w, "data: %s\n\n", initialJSON)
