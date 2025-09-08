@@ -36,7 +36,7 @@ func (h *Hub) Get(id string) *Game {
 		return g
 	}
 	ng := &Game{
-		g:         chess.NewGame(),
+		g:         chess.NewGame(chess.UseNotation(chess.UCINotation{})),
 		Watchers:  make(map[chan []byte]struct{}),
 		LastReact: make(map[string]time.Time),
 		Clients:   make(map[string]time.Time),
