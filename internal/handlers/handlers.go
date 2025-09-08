@@ -66,9 +66,11 @@ func (h *Handler) HandleSSE(w http.ResponseWriter, r *http.Request) {
 	col, exists := g.Clients[clientID]
 	g.Mu.Unlock()
 
-	initial := game.ClientState{GameState: state}
+	initial := game.ClientState{GameState: state, Role: "spectator"}
 	if exists {
-		initial.Color = col.String()
+		c := col.String()
+		initial.Color = &c
+		initial.Role = "player"
 	}
 	initialJSON, _ := json.Marshal(initial)
 
