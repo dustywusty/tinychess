@@ -149,6 +149,11 @@
       font-size: 12px;
     }
 
+    footer .version a,
+    footer .version a:visited {
+      color: inherit;
+    }
+
     /* Recent list */
     .recent {
       max-width: 800px;
@@ -216,7 +221,7 @@
 
   <footer>
     Built with Go, SSE & vanilla JS — with ❤️ by Dusty and his traumatized 🤖
-    <div class="version">Version: <a href="https://github.com/dustywusty/tinychess/tree/{{COMMIT}}">{{COMMIT}}</a></div>
+    <div class="version">Version: <a href="https://github.com/dustywusty/tinychess/tree/{{COMMIT}}" target="_blank" rel="noopener">{{COMMIT}}</a></div>
   </footer>
   <script defer data-domain="tinychess.bitchimfabulo.us"
     src="https://plausible.io/js/script.outbound-links.js"></script>
