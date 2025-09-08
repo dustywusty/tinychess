@@ -77,3 +77,24 @@ func TestOwnerAndClientColorAssignment(t *testing.T) {
 		t.Fatalf("expected client2 color %v, got %v", expected, c)
 	}
 }
+
+func TestTwoClientsReceiveOppositeColors(t *testing.T) {
+	h := NewHub()
+	g := h.Get("g2", "c1")
+	g = h.Get("g2", "c2")
+
+	c1 := g.Clients["c1"]
+	c2 := g.Clients["c2"]
+
+	if (c1 != chess.White && c1 != chess.Black) || (c2 != chess.White && c2 != chess.Black) {
+		t.Fatalf("clients received invalid colors: %v and %v", c1, c2)
+	}
+	if c1 == c2 {
+		t.Fatalf("expected clients to have opposite colors, both got %v", c1)
+	}
+
+	g = h.Get("g2", "")
+	if len(g.Clients) != 2 {
+		t.Fatalf("spectator should not be assigned a color")
+	}
+}
