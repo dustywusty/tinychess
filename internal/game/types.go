@@ -52,7 +52,8 @@ type GameState struct {
 // ClientState represents the state sent to a specific client, including their color
 type ClientState struct {
 	GameState
-	Color string `json:"color,omitempty"`
+	Color *string `json:"color"`
+	Role  string  `json:"role"`
 }
 
 // ReactionPayload represents a reaction broadcast
