@@ -1,6 +1,6 @@
 # Tiny Chess
 
-[![CI](https://github.com/bmf-san/tinychess/actions/workflows/ci.yml/badge.svg)](https://github.com/bmf-san/tinychess/actions/workflows/ci.yml)
+[![CI](https://github.com/dustywusty/tinychess/actions/workflows/ci.yml/badge.svg)](https://github.com/dustywusty/tinychess/actions/workflows/ci.yml)
 
 A simple web-based chess game that you can play with just a link.
 
