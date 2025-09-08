@@ -3,8 +3,8 @@ BIN := bin/$(APP)
 PKG := .
 PORT ?= 8080
 
-# ldflags embeds a build stamp; feel free to remove
-LDFLAGS := -s -w -X 'main.build=$$(date -u +%Y%m%d-%H%M%S)'
+# ldflags embeds a build stamp and commit hash; feel free to remove
+LDFLAGS := -s -w -X 'main.build=$$(date -u +%Y%m%d-%H%M%S)' -X 'main.commit=$$(git rev-parse --short HEAD)'
 
 .PHONY: all build run dev clean lint test race
 

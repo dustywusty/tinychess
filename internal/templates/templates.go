@@ -7,6 +7,10 @@ import (
 	"strings"
 )
 
+var commit = "dev"
+
+func SetCommit(c string) { commit = c }
+
 // WriteHomeHTML serves the home page template
 func WriteHomeHTML(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -18,7 +22,8 @@ func WriteHomeHTML(w http.ResponseWriter) {
 		http.Error(w, "Template not found", http.StatusInternalServerError)
 		return
 	}
-	_, _ = w.Write(content)
+	html := strings.ReplaceAll(string(content), "{{COMMIT}}", commit)
+	_, _ = w.Write([]byte(html))
 }
 
 // WriteGameHTML serves the game page template with game ID substitution
@@ -34,6 +39,7 @@ func WriteGameHTML(w http.ResponseWriter, gameID string) {
 	}
 
 	html := strings.ReplaceAll(string(content), "{{GAME_ID}}", gameID)
+	html = strings.ReplaceAll(html, "{{COMMIT}}", commit)
 	_, _ = w.Write([]byte(html))
 }
 
