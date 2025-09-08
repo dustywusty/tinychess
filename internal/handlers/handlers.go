@@ -63,7 +63,7 @@ func (h *Handler) HandleSSE(w http.ResponseWriter, r *http.Request) {
 	initial, _ := json.Marshal(g.StateLocked())
 	g.Mu.Unlock()
 
-	fmt.Fprintf(w, "data: %s\n\n", initial)
+	_, _ = fmt.Fprintf(w, "data: %s\n\n", initial)
 	flusher.Flush()
 
 	g.Touch()
