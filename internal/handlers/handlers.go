@@ -13,6 +13,7 @@ import (
 	"tinychess/internal/templates"
 
 	"github.com/google/uuid"
+	"github.com/notnil/chess"
 )
 
 // Handler contains dependencies for HTTP handlers
@@ -101,6 +102,12 @@ func (h *Handler) HandleMove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	clientID := strings.TrimSpace(m.ClientID)
+	if clientID == "" {
+		WriteJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "missing client id"})
+		return
+	}
+
 	uci := strings.ToLower(strings.TrimSpace(m.UCI))
 	uci = appendPromotionIfPawn(g, uci)
 
@@ -112,9 +119,38 @@ func (h *Handler) HandleMove(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	from := uci[:2]
+
 	g.Mu.Lock()
 	state := g.StateLocked()
+	playerColor, ok := g.Seats[clientID]
 	g.Mu.Unlock()
+
+	fenOpt, err := chess.FEN(state.FEN)
+	if err != nil {
+		WriteJSON(w, http.StatusOK, map[string]any{"ok": false, "error": "bad fen", "state": state})
+		return
+	}
+	tmp := chess.NewGame(fenOpt)
+	board := tmp.Position().Board()
+	fsq := parseSquare(from)
+	piece := board.Piece(fsq)
+	turn := tmp.Position().Turn()
+
+	if !ok {
+		WriteJSON(w, http.StatusOK, map[string]any{"ok": false, "error": "unknown client", "state": state})
+		return
+	}
+
+	if piece == chess.NoPiece || piece.Color() != playerColor {
+		WriteJSON(w, http.StatusOK, map[string]any{"ok": false, "error": "wrong color", "state": state})
+		return
+	}
+
+	if turn != playerColor {
+		WriteJSON(w, http.StatusOK, map[string]any{"ok": false, "error": "not your turn", "state": state})
+		return
+	}
 
 	g.Touch()
 

@@ -20,12 +20,14 @@ type Game struct {
 	Watchers  map[chan []byte]struct{}
 	LastReact map[string]time.Time
 	LastSeen  time.Time
-	Clients   map[string]time.Time // clientId -> last seen
+	Clients   map[string]time.Time   // clientId -> last seen
+	Seats     map[string]chess.Color // clientId -> color
 }
 
 // MoveRequest represents a move request from a client
 type MoveRequest struct {
-	UCI string `json:"uci"`
+	UCI      string `json:"uci"`
+	ClientID string `json:"clientId"`
 }
 
 // ReactionRequest represents a reaction request from a client
