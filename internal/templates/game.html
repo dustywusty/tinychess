@@ -780,7 +780,7 @@
       status('');
 
       if (gameId) {
-        const es = new EventSource('/sse/' + gameId);
+        const es = new EventSource('/sse/' + gameId + '?clientId=' + encodeURIComponent(clientId));
         es.onmessage = (ev) => {
           const st = JSON.parse(ev.data || "{}");
           if (st.kind === 'emoji') {
