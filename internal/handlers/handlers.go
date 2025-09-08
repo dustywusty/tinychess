@@ -124,7 +124,7 @@ func (h *Handler) HandleMove(w http.ResponseWriter, r *http.Request) {
 
 	g.Mu.Lock()
 	state := g.StateLocked()
-	playerColor, ok := g.Seats[clientID]
+	playerColor, ok := g.Clients[clientID]
 	g.Mu.Unlock()
 
 	fenOpt, err := chess.FEN(state.FEN)
