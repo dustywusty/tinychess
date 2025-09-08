@@ -608,7 +608,7 @@
         if (!gameId) { status('No game id'); return; }
         console.log('Attempting move:', uci);
         try {
-          const res = await fetch('/move/' + gameId, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uci: uci }) });
+          const res = await fetch('/move/' + gameId, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uci: uci, clientId: clientId }) });
           const j = await res.json();
           if (!j.ok) {
             console.log('Move failed:', j.error);

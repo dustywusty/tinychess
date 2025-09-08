@@ -27,7 +27,8 @@ type Game struct {
 
 // MoveRequest represents a move request from a client
 type MoveRequest struct {
-	UCI string `json:"uci"`
+	UCI      string `json:"uci"`
+	ClientID string `json:"clientId"`
 }
 
 // ReactionRequest represents a reaction request from a client

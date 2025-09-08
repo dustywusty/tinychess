@@ -56,6 +56,7 @@ func (h *Hub) Get(id, clientId string) *Game {
 		h.Mu.Unlock()
 		return g
 	}
+
 	h.Mu.Unlock()
 
 	if clientId != "" {
