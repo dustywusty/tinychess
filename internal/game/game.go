@@ -100,6 +100,17 @@ func (g *Game) RemoveWatcher(ch chan []byte) {
 	g.Mu.Unlock()
 }
 
+// RemoveClient removes a client from the game. If the client was the owner,
+// the owner slot is cleared so another client can claim it later.
+func (g *Game) RemoveClient(id string) {
+	g.Mu.Lock()
+	delete(g.Clients, id)
+	if g.OwnerID == id {
+		g.OwnerID = ""
+	}
+	g.Mu.Unlock()
+}
+
 // CanReact checks if a sender can send a reaction (cooldown check)
 func (g *Game) CanReact(sender string) (bool, int) {
 	g.Mu.Lock()
