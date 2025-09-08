@@ -373,6 +373,7 @@
     <div class="board" id="board" aria-label="Chess board"></div>
     <div class="panel">
       <div class="row"><strong>Game:</strong> <span id="gameid" class="mono"></span></div>
+      <div class="row"><strong>You:</strong> <span id="role"></span></div>
       <div class="row"><strong>Turn:</strong> <span id="turn"></span></div>
       <div class="status" id="status"></div>
 
@@ -428,6 +429,7 @@
       const pgnEl = document.getElementById('pgn');
       const lanEl = document.getElementById('lan');
       const gameIdEl = document.getElementById('gameid');
+      const roleEl = document.getElementById('role');
       const capWhiteEl = document.getElementById('cap_by_white');
       const capBlackEl = document.getElementById('cap_by_black');
       const rxEl = document.getElementById('rx');
@@ -437,6 +439,7 @@
       // Orientation (default white; updated from server message)
       let playerColor = 'white';
       let playerColorSet = false;
+      let isSpectator = false;
 
       // Theme picker
       const root = document.documentElement;
@@ -629,6 +632,7 @@
 
       // Board-level click handler
       boardEl.addEventListener('click', (e) => {
+        if (isSpectator) return;
         const rect = boardEl.getBoundingClientRect();
         const x = Math.min(Math.max(0, e.clientX - rect.left), rect.width - 0.01);
         const y = Math.min(Math.max(0, e.clientY - rect.top), rect.height - 0.01);
@@ -793,10 +797,15 @@
             return;
           }
           if (st.kind === 'state') {
-            if (!playerColorSet) {
-              playerColor = st.color || 'white';
+            if (st.role === 'spectator') {
+              isSpectator = true;
+              playerColor = 'white';
+              playerColorSet = true;
+            } else if (!playerColorSet && st.color) {
+              playerColor = st.color;
               playerColorSet = true;
             }
+            if (roleEl) roleEl.textContent = isSpectator ? 'Spectating' : ('Playing as ' + playerColor);
             lastMoveSquares = deriveLastMoveSquares(st.uci || []);
             renderFEN(st.fen);
             turnEl.textContent = st.turn || '';
@@ -819,7 +828,9 @@
               status: st.status || '',
               result: resultFromPGN || (function () { var m = (st.status || '').match(/(1-0|0-1|1\/2-1\/2)/); return m ? m[1] : null; })(),
               finishedAt: finishedNow ? Date.now() : undefined,
-              lastSeen: st.lastSeen
+              lastSeen: st.lastSeen,
+              color: st.color || null,
+              role: st.role || ''
             });
           }
         };

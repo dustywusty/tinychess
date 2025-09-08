@@ -53,6 +53,7 @@ type GameState struct {
 type ClientState struct {
 	GameState
 	Color *string `json:"color"`
+	Role  string  `json:"role"`
 }
 
 // ReactionPayload represents a reaction broadcast

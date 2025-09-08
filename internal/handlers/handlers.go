@@ -69,10 +69,11 @@ func (h *Handler) HandleSSE(w http.ResponseWriter, r *http.Request) {
 	col, exists := g.Clients[clientID]
 	g.Mu.Unlock()
 
-	var colorPtr *string
+	initial := game.ClientState{GameState: state, Role: "spectator"}
 	if exists {
 		c := col.String()
-		colorPtr = &c
+		initial.Color = &c
+		initial.Role = "player"
 	}
 
 	initial := game.ClientState{GameState: state, Color: colorPtr}
