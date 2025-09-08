@@ -8,7 +8,7 @@ import (
 
 func newGame() *game.Game {
 	hub := game.NewHub()
-	return hub.Get("test")
+	return hub.Get("test", "")
 }
 
 func TestAppendPromotionIfPawnRank8(t *testing.T) {

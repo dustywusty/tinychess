@@ -15,13 +15,14 @@ type Hub struct {
 
 // Game represents a single chess game with its state and watchers
 type Game struct {
-	Mu        sync.Mutex
-	g         *chess.Game
-	Watchers  map[chan []byte]struct{}
-	LastReact map[string]time.Time
-	LastSeen  time.Time
-	Clients   map[string]time.Time   // clientId -> last seen
-	Seats     map[string]chess.Color // clientId -> color
+	Mu         sync.Mutex
+	g          *chess.Game
+	Watchers   map[chan []byte]struct{}
+	LastReact  map[string]time.Time
+	LastSeen   time.Time
+	OwnerID    string
+	OwnerColor chess.Color
+	Clients    map[string]chess.Color // clientId -> color
 }
 
 // MoveRequest represents a move request from a client

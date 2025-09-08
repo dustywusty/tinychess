@@ -39,14 +39,15 @@ func (h *Handler) HandlePage(w http.ResponseWriter, r *http.Request) {
 		templates.WriteHomeHTML(w)
 		return
 	}
-	_ = h.Hub.Get(path)
+	_ = h.Hub.Get(path, "")
 	templates.WriteGameHTML(w, path)
 }
 
 // HandleSSE handles Server-Sent Events for real-time game updates
 func (h *Handler) HandleSSE(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimPrefix(r.URL.Path, "/sse/")
-	g := h.Hub.Get(id)
+	clientID := r.URL.Query().Get("clientId")
+	g := h.Hub.Get(id, clientID)
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -94,7 +95,7 @@ func (h *Handler) HandleSSE(w http.ResponseWriter, r *http.Request) {
 // HandleMove processes a chess move
 func (h *Handler) HandleMove(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimPrefix(r.URL.Path, "/move/")
-	g := h.Hub.Get(id)
+	g := h.Hub.Get(id, "")
 
 	var m game.MoveRequest
 	if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
@@ -171,7 +172,7 @@ func (h *Handler) HandleMove(w http.ResponseWriter, r *http.Request) {
 // HandleReact processes a reaction/emoji
 func (h *Handler) HandleReact(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimPrefix(r.URL.Path, "/react/")
-	g := h.Hub.Get(id)
+	g := h.Hub.Get(id, "")
 
 	var body game.ReactionRequest
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -204,7 +205,7 @@ func (h *Handler) HandleReact(w http.ResponseWriter, r *http.Request) {
 // HandleReset resets a game to the starting position
 func (h *Handler) HandleReset(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimPrefix(r.URL.Path, "/reset/")
-	g := h.Hub.Get(id)
+	g := h.Hub.Get(id, "")
 
 	g.Reset()
 

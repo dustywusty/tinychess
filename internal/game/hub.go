@@ -1,6 +1,7 @@
 package game
 
 import (
+	"math/rand"
 	"time"
 
 	"github.com/notnil/chess"
@@ -28,21 +29,51 @@ func NewHub() *Hub {
 	return h
 }
 
-// Get retrieves an existing game or creates a new one
-func (h *Hub) Get(id string) *Game {
+// Get retrieves an existing game or creates a new one. If a clientId is provided,
+// the first one becomes the owner and is assigned a random color. Subsequent
+// clients are assigned the opposite color.
+func (h *Hub) Get(id, clientId string) *Game {
 	h.Mu.Lock()
-	defer h.Mu.Unlock()
-	if g, ok := h.Games[id]; ok {
+	g, ok := h.Games[id]
+	if !ok {
+		color := chess.White
+		if rand.Intn(2) == 0 {
+			color = chess.Black
+		}
+		g = &Game{
+			g:          chess.NewGame(chess.UseNotation(chess.UCINotation{})),
+			Watchers:   make(map[chan []byte]struct{}),
+			LastReact:  make(map[string]time.Time),
+			Clients:    make(map[string]chess.Color),
+			LastSeen:   time.Now(),
+			OwnerColor: color,
+		}
+		if clientId != "" {
+			g.OwnerID = clientId
+			g.Clients[clientId] = g.OwnerColor
+		}
+		h.Games[id] = g
+		h.Mu.Unlock()
 		return g
 	}
-	ng := &Game{
-		g:         chess.NewGame(chess.UseNotation(chess.UCINotation{})),
-		Watchers:  make(map[chan []byte]struct{}),
-		LastReact: make(map[string]time.Time),
-		Clients:   make(map[string]time.Time),
-		Seats:     make(map[string]chess.Color),
-		LastSeen:  time.Now(),
+
+	h.Mu.Unlock()
+
+	if clientId != "" {
+		g.Mu.Lock()
+		if g.OwnerID == "" {
+			g.OwnerID = clientId
+			g.Clients[clientId] = g.OwnerColor
+		} else if _, exists := g.Clients[clientId]; !exists {
+			var color chess.Color
+			if g.OwnerColor == chess.White {
+				color = chess.Black
+			} else {
+				color = chess.White
+			}
+			g.Clients[clientId] = color
+		}
+		g.Mu.Unlock()
 	}
-	h.Games[id] = ng
-	return ng
+	return g
 }
