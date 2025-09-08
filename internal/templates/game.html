@@ -437,6 +437,14 @@
       let playerColorSet = false;
       let isSpectator = false;
 
+      function normalizeColor(c) {
+        if (!c) return 'white';
+        const v = String(c).toLowerCase();
+        if (v === 'w' || v === 'white') return 'white';
+        if (v === 'b' || v === 'black') return 'black';
+        return 'white';
+      }
+
       // Theme picker
       const root = document.documentElement;
       let theme = localStorage.getItem('theme') || 'dark';
@@ -803,10 +811,10 @@
               isSpectator = true;
             }
             if (!playerColorSet) {
-              playerColor = st.color || 'white';
+              playerColor = normalizeColor(st.color);
               playerColorSet = true;
             }
-            if (roleEl) roleEl.textContent = isSpectator ? 'Spectating' : ('Playing as ' + playerColor);
+            if (roleEl) roleEl.textContent = isSpectator ? 'Spectating' : ('Playing as ' + playerColor.charAt(0).toUpperCase() + playerColor.slice(1));
             lastMoveSquares = deriveLastMoveSquares(st.uci || []);
             renderFEN(st.fen);
             turnEl.textContent = st.turn || '';
@@ -830,7 +838,7 @@
               result: resultFromPGN || (function () { var m = (st.status || '').match(/(1-0|0-1|1\/2-1\/2)/); return m ? m[1] : null; })(),
               finishedAt: finishedNow ? Date.now() : undefined,
               lastSeen: st.lastSeen,
-              color: st.color || null,
+              color: st.color ? normalizeColor(st.color) : null,
               role: st.role || ''
             });
           }
