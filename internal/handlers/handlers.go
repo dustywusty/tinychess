@@ -62,10 +62,17 @@ func (h *Handler) HandleSSE(w http.ResponseWriter, r *http.Request) {
 	g.AddWatcher(ch)
 
 	g.Mu.Lock()
-	initial, _ := json.Marshal(g.StateLocked())
+	state := g.StateLocked()
+	col, exists := g.Clients[clientID]
 	g.Mu.Unlock()
 
-	_, _ = fmt.Fprintf(w, "data: %s\n\n", initial)
+	initial := game.ClientState{GameState: state}
+	if exists {
+		initial.Color = col.String()
+	}
+	initialJSON, _ := json.Marshal(initial)
+
+	_, _ = fmt.Fprintf(w, "data: %s\n\n", initialJSON)
 	flusher.Flush()
 
 	g.Touch()
