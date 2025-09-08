@@ -29,6 +29,7 @@ func main() {
 	http.HandleFunc("/sse/", h.HandleSSE)
 	http.HandleFunc("/move/", h.HandleMove)
 	http.HandleFunc("/react/", h.HandleReact)
+	http.HandleFunc("/release/", h.HandleRelease)
 	http.HandleFunc("/reset/", h.HandleReset)
 	http.HandleFunc("/", h.HandlePage)
 

@@ -213,6 +213,38 @@ func (h *Handler) HandleReact(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
+// HandleRelease removes a client from a game if requested by the owner.
+func (h *Handler) HandleRelease(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimPrefix(r.URL.Path, "/release/")
+	g, _ := h.Hub.Get(id, "")
+
+	var body struct {
+		ClientID string `json:"clientId"`
+		TargetID string `json:"targetId"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		WriteJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "bad json"})
+		return
+	}
+
+	if body.ClientID == "" || body.TargetID == "" {
+		WriteJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "missing client id"})
+		return
+	}
+
+	g.Mu.Lock()
+	owner := g.OwnerID
+	g.Mu.Unlock()
+	if body.ClientID != owner {
+		WriteJSON(w, http.StatusOK, map[string]any{"ok": false, "error": "not owner"})
+		return
+	}
+
+	g.RemoveClient(body.TargetID)
+	go g.Broadcast()
+	WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
 // HandleReset resets a game to the starting position
 func (h *Handler) HandleReset(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimPrefix(r.URL.Path, "/reset/")
