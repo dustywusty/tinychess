@@ -8,12 +8,15 @@ import (
 	"tinychess/internal/game"
 	"tinychess/internal/handlers"
 	"tinychess/internal/logging"
+	"tinychess/internal/templates"
 )
 
 func main() {
 	debug := flag.Bool("debug", false, "enable debug logging")
 	flag.Parse()
 	logging.Debug = *debug
+
+	templates.SetCommit(commit)
 
 	// Initialize game hub
 	hub := game.NewHub()
