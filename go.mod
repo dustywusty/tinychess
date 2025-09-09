@@ -3,6 +3,9 @@ module tinychess
 go 1.22.2
 
 require (
-	github.com/google/uuid v1.5.0 // indirect
-	github.com/notnil/chess v1.10.0 // indirect
+    gorm.io/driver/postgres v1.5.4
+    gorm.io/gorm v1.25.5
+    github.com/google/uuid v1.5.0
+    github.com/notnil/chess v1.10.0
 )
+
