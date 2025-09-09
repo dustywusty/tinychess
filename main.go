@@ -4,10 +4,12 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"os"
 
 	"tinychess/internal/game"
 	"tinychess/internal/handlers"
 	"tinychess/internal/logging"
+	"tinychess/internal/storage"
 	"tinychess/internal/templates"
 )
 
@@ -17,6 +19,12 @@ func main() {
 	logging.Debug = *debug
 
 	templates.SetCommit(commit)
+
+	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
+		if _, err := storage.New(dsn); err != nil {
+			log.Fatalf("failed to initialize database: %v", err)
+		}
+	}
 
 	// Initialize game hub
 	hub := game.NewHub()
