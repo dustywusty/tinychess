@@ -1,6 +1,7 @@
 package game
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -34,5 +35,24 @@ func TestMakeMoveInvalidUCI(t *testing.T) {
 	g := newTestGame()
 	if err := g.MakeMove("invalid"); err == nil {
 		t.Fatalf("expected error for invalid UCI, got nil")
+	}
+}
+
+func TestCheckmateState(t *testing.T) {
+	g := newTestGame()
+	moves := []string{"f2f3", "e7e5", "g2g4", "d8h4"}
+	for _, m := range moves {
+		if err := g.MakeMove(m); err != nil {
+			t.Fatalf("move %s failed: %v", m, err)
+		}
+	}
+	g.Mu.Lock()
+	st := g.StateLocked()
+	g.Mu.Unlock()
+	if st.Status == "" {
+		t.Fatalf("expected status to be set after checkmate")
+	}
+	if !strings.Contains(strings.ToLower(st.Status), "checkmate") {
+		t.Fatalf("expected checkmate in status, got %s", st.Status)
 	}
 }
