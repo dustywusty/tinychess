@@ -8,8 +8,12 @@ import (
 )
 
 var commit = "dev"
+var buildDate = ""
 
-func SetCommit(c string) { commit = c }
+func SetVersion(c, d string) {
+	commit = c
+	buildDate = d
+}
 
 // WriteHomeHTML serves the home page template
 func WriteHomeHTML(w http.ResponseWriter) {
@@ -23,6 +27,7 @@ func WriteHomeHTML(w http.ResponseWriter) {
 		return
 	}
 	html := strings.ReplaceAll(string(content), "{{COMMIT}}", commit)
+	html = strings.ReplaceAll(html, "{{BUILD_DATE}}", buildDate)
 	_, _ = w.Write([]byte(html))
 }
 
@@ -40,6 +45,7 @@ func WriteGameHTML(w http.ResponseWriter, gameID string) {
 
 	html := strings.ReplaceAll(string(content), "{{GAME_ID}}", gameID)
 	html = strings.ReplaceAll(html, "{{COMMIT}}", commit)
+	html = strings.ReplaceAll(html, "{{BUILD_DATE}}", buildDate)
 	_, _ = w.Write([]byte(html))
 }
 

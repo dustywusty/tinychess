@@ -4,26 +4,38 @@ import (
 	"os/exec"
 	"runtime/debug"
 	"strings"
+	"time"
 )
 
 var commit = "dev"
+var buildDate = ""
 
 func init() {
-	if commit != "dev" {
-		return
-	}
 	if info, ok := debug.ReadBuildInfo(); ok {
 		for _, s := range info.Settings {
-			if s.Key == "vcs.revision" && s.Value != "" {
-				commit = s.Value
-				if len(commit) > 7 {
-					commit = commit[:7]
+			switch s.Key {
+			case "vcs.revision":
+				if commit == "dev" && s.Value != "" {
+					commit = s.Value
+					if len(commit) > 7 {
+						commit = commit[:7]
+					}
 				}
-				return
+			case "vcs.time":
+				if buildDate == "" && s.Value != "" {
+					if t, err := time.Parse(time.RFC3339, s.Value); err == nil {
+						buildDate = t.Format("1-2-2006")
+					}
+				}
 			}
 		}
 	}
-	if c, err := exec.Command("git", "rev-parse", "--short", "HEAD").Output(); err == nil {
-		commit = strings.TrimSpace(string(c))
+	if commit == "dev" {
+		if c, err := exec.Command("git", "rev-parse", "--short", "HEAD").Output(); err == nil {
+			commit = strings.TrimSpace(string(c))
+		}
+	}
+	if buildDate == "" {
+		buildDate = time.Now().Format("1-2-2006")
 	}
 }
