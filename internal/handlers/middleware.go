@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/notnil/chess"
+	"github.com/corentings/chess/v2"
 	"tinychess/internal/game"
 )
 

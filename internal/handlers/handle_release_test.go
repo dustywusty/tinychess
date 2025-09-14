@@ -8,7 +8,7 @@ import (
 
 	"tinychess/internal/game"
 
-	"github.com/notnil/chess"
+	"github.com/corentings/chess/v2"
 )
 
 func TestHandleRelease(t *testing.T) {

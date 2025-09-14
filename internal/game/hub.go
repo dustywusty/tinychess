@@ -4,7 +4,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/notnil/chess"
+	"github.com/corentings/chess/v2"
 )
 
 // NewHub creates a new game hub with cleanup goroutine
@@ -44,7 +44,7 @@ func (h *Hub) Get(id, clientId string) (*Game, *chess.Color) {
 			color = chess.Black
 		}
 		g = &Game{
-			g:          chess.NewGame(chess.UseNotation(chess.UCINotation{})),
+			g:          chess.NewGame(),
 			Watchers:   make(map[chan []byte]struct{}),
 			LastReact:  make(map[string]time.Time),
 			Clients:    make(map[string]chess.Color),

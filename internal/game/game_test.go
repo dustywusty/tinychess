@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/notnil/chess"
+	"github.com/corentings/chess/v2"
 )
 
 // helper to create a new Game with necessary fields
 func newTestGame() *Game {
 	return &Game{
-		g:         chess.NewGame(chess.UseNotation(chess.UCINotation{})),
+		g:         chess.NewGame(),
 		Watchers:  make(map[chan []byte]struct{}),
 		LastReact: make(map[string]time.Time),
 	}

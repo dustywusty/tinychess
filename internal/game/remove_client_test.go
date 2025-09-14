@@ -3,7 +3,7 @@ package game
 import (
 	"testing"
 
-	"github.com/notnil/chess"
+	"github.com/corentings/chess/v2"
 )
 
 func TestRemoveClient(t *testing.T) {

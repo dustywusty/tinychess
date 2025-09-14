@@ -3,8 +3,8 @@ module tinychess
 go 1.22.2
 
 require (
+	github.com/corentings/chess/v2 v2.2.0
 	github.com/google/uuid v1.5.0
-	github.com/notnil/chess v1.10.0
 	gorm.io/driver/postgres v1.5.4
 	gorm.io/gorm v1.25.5
 )
@@ -16,5 +16,6 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	golang.org/x/crypto v0.14.0 // indirect
+	golang.org/x/exp v0.0.0-20250128182459-e0ece0dbea4c // indirect
 	golang.org/x/text v0.13.0 // indirect
 )

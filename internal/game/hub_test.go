@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/notnil/chess"
+	"github.com/corentings/chess/v2"
 )
 
 // runCleanup mimics the hub's cleanup routine for testing purposes.
