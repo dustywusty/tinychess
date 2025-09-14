@@ -12,8 +12,8 @@ import (
 	"tinychess/internal/logging"
 	"tinychess/internal/templates"
 
+	"github.com/corentings/chess/v2"
 	"github.com/google/uuid"
-	"github.com/notnil/chess"
 )
 
 // Handler contains dependencies for HTTP handlers

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/notnil/chess"
+	"github.com/corentings/chess/v2"
 )
 
 // Touch updates the last seen timestamp for a game
@@ -25,7 +25,7 @@ func (g *Game) MovesUCI() []string {
 		s := uci.Encode(tmp.Position(), m)
 		out = append(out, s)
 		if mv2, err := uci.Decode(tmp.Position(), s); err == nil {
-			_ = tmp.Move(mv2)
+			_ = tmp.Move(mv2, nil)
 		}
 	}
 	return out
@@ -72,7 +72,21 @@ func (g *Game) MakeMove(uci string) error {
 	g.Mu.Lock()
 	defer g.Mu.Unlock()
 
-	return g.g.MoveStr(uci)
+	mv, err := chess.UCINotation{}.Decode(g.g.Position(), uci)
+	if err != nil {
+		return err
+	}
+	valid := false
+	for _, m := range g.g.ValidMoves() {
+		if m.S1() == mv.S1() && m.S2() == mv.S2() && m.Promo() == mv.Promo() {
+			valid = true
+			break
+		}
+	}
+	if !valid {
+		return fmt.Errorf("illegal move")
+	}
+	return g.g.Move(mv, nil)
 }
 
 // AddWatcher adds a new watcher channel

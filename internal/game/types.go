@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/notnil/chess"
+	"github.com/corentings/chess/v2"
 )
 
 // Hub manages all active chess games

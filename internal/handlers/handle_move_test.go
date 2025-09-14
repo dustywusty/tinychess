@@ -8,7 +8,7 @@ import (
 
 	"tinychess/internal/game"
 
-	"github.com/notnil/chess"
+	"github.com/corentings/chess/v2"
 )
 
 // Test that a move is rejected when the piece is not of the player's color.
