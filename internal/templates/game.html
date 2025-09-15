@@ -79,7 +79,7 @@
       }
 
       .wrap {
-        max-width: 760px;
+        max-width: 800px;
         margin: 0 auto;
         padding: 16px;
         display: flex;
@@ -89,8 +89,7 @@
       }
 
       .play {
-        width: 100%;
-        display: flex;
+        display: inline-flex;
         align-items: flex-start;
       }
 
@@ -102,6 +101,7 @@
         border-radius: 12px;
         padding: 8px;
         overflow-y: auto;
+        display: none;
       }
 
       .moves pre {
@@ -110,8 +110,8 @@
       }
 
       .board {
-        flex: 1 1 0;
-        max-width: 640px;
+        flex: 0 0 auto;
+        width: min(100%, 640px);
         aspect-ratio: 1/1;
         border: 1px solid #2a3345;
         border-radius: 12px;
@@ -458,7 +458,7 @@
     </dialog>
     <footer>
       Version: {{COMMIT}}<br />
-      Built-on: {{BUILD_DATE}}
+      Built: {{BUILD_DATE}}
     </footer>
     <script
       defer
@@ -487,6 +487,7 @@
         const statusEl = document.getElementById("status");
         const turnEl = document.getElementById("turn");
         const pgnEl = document.getElementById("pgn");
+        const movesEl = document.querySelector(".moves");
         const lanEl = document.getElementById("lan");
         const gameIdEl = document.getElementById("gameid");
         const roleEl = document.getElementById("role");
@@ -1117,6 +1118,9 @@
               renderFEN(st.fen);
               updateTurn(st);
               pgnEl.textContent = formatPGNLines(st.pgn || "");
+              movesEl.style.display = (st.pgn || "").trim()
+                ? ""
+                : "none";
               lanEl.textContent = formatUCIMoves(st.uci || []);
               status(st.status || "");
               gameOver = !!st.status;
