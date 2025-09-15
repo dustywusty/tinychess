@@ -8,6 +8,8 @@ We give you a shareable URL and we'll randomly pick your side; the next person g
 
 Anyone else who opens the link is a spectator.
 
+Players can react with any emoji using the built-in emoji picker.
+
 ## Links
 
 - Production: https://tinychess.bitchimfabulo.us

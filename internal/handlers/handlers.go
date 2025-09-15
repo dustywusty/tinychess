@@ -191,11 +191,6 @@ func (h *Handler) HandleReact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !isAllowedEmoji(body.Emoji) {
-		WriteJSON(w, http.StatusOK, map[string]any{"ok": false, "error": "unsupported emoji"})
-		return
-	}
-
 	canReact, wait := g.CanReact(body.Sender)
 	if !canReact {
 		WriteJSON(w, http.StatusOK, map[string]any{"ok": false, "error": fmt.Sprintf("cooldown %ds", wait)})
