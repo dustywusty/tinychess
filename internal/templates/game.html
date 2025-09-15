@@ -103,7 +103,7 @@
         border-radius: 12px;
         padding: 8px;
         overflow-y: auto;
-        display: none;
+        display: none !important;
       }
 
       .moves pre {
@@ -197,16 +197,19 @@
         border-radius: 12px;
         padding: 12px;
         width: 100%;
+        position: relative;
+      }
+
+      .panel::after {
+        content: "";
+        display: table;
+        clear: both;
       }
 
       .captured {
-        margin-top: 8px;
-      }
-
-      @media (min-width: 640px) {
-        .captured {
-          text-align: right;
-        }
+        float: right;
+        text-align: right;
+        margin-top: 0;
       }
 
       .btn {
@@ -436,10 +439,6 @@
         <div class="moves"><pre id="pgn" class="mono"></pre></div>
       </div>
       <div class="panel">
-        <div class="row"><strong>You:</strong> <span id="role"></span></div>
-        <div class="row"><strong>Turn:</strong> <span id="turn"></span></div>
-        <div class="status" id="status"></div>
-
         <div id="captured" class="captured">
           <div class="row">
             <strong>White captured:</strong>
@@ -450,6 +449,10 @@
             <span id="cap_by_black" class="caps"></span>
           </div>
         </div>
+
+        <div class="row"><strong>You:</strong> <span id="role"></span></div>
+        <div class="row"><strong>Turn:</strong> <span id="turn"></span></div>
+        <div class="status" id="status"></div>
 
         <div class="rx" id="rx"></div>
         <div class="row">
