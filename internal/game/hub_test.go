@@ -80,8 +80,8 @@ func TestOwnerAndClientColorAssignment(t *testing.T) {
 
 func TestTwoClientsReceiveOppositeColors(t *testing.T) {
 	h := NewHub()
-	g, _ := h.Get("g2", "c1")
-	g, _ = h.Get("g2", "c2")
+	_, _ = h.Get("g2", "c1")
+	g, _ := h.Get("g2", "c2")
 
 	c1 := g.Clients["c1"]
 	c2 := g.Clients["c2"]
@@ -103,9 +103,9 @@ func TestColorPersistsAfterOwnerLeaves(t *testing.T) {
 	h := NewHub()
 
 	// owner joins
-	g, _ := h.Get("g3", "owner")
+	h.Get("g3", "owner")
 	// second player joins
-	g, _ = h.Get("g3", "player")
+	g, _ := h.Get("g3", "player")
 
 	initialColor := g.Clients["player"]
 
@@ -127,7 +127,7 @@ func TestColorPersistsAfterOwnerLeaves(t *testing.T) {
 	}
 
 	// new client should receive opposite color
-	g, col2 := h.Get("g3", "newbie")
+	_, col2 := h.Get("g3", "newbie")
 	if col2 == nil || *col2 == initialColor {
 		t.Fatalf("expected new client to receive opposite color")
 	}
