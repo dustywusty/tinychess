@@ -86,6 +86,7 @@
         flex-direction: column;
         align-items: center;
         gap: 16px;
+        position: relative;
       }
 
       .play {
@@ -196,6 +197,20 @@
         border-radius: 12px;
         padding: 12px;
         width: 100%;
+      }
+
+      .captured {
+        margin-top: 8px;
+      }
+
+      @media (min-width: 640px) {
+        .captured {
+          position: absolute;
+          top: 16px;
+          right: 16px;
+          margin-top: 0;
+          text-align: right;
+        }
       }
 
       .btn {
@@ -425,20 +440,19 @@
         <div class="moves"><pre id="pgn" class="mono"></pre></div>
       </div>
       <div class="panel">
-        <div class="row">
-          <strong>Game:</strong> <span id="gameid" class="mono"></span>
-        </div>
         <div class="row"><strong>You:</strong> <span id="role"></span></div>
         <div class="row"><strong>Turn:</strong> <span id="turn"></span></div>
         <div class="status" id="status"></div>
 
-        <div class="row">
-          <strong>White captured:</strong>
-          <span id="cap_by_white" class="caps"></span>
-        </div>
-        <div class="row">
-          <strong>Black captured:</strong>
-          <span id="cap_by_black" class="caps"></span>
+        <div id="captured" class="captured">
+          <div class="row">
+            <strong>White captured:</strong>
+            <span id="cap_by_white" class="caps"></span>
+          </div>
+          <div class="row">
+            <strong>Black captured:</strong>
+            <span id="cap_by_black" class="caps"></span>
+          </div>
         </div>
 
         <div class="rx" id="rx"></div>
@@ -446,9 +460,6 @@
           <button class="react" id="reactbtn" title="Send reaction">😀</button>
           <div class="recent-emojis" id="recent-emojis"></div>
         </div>
-        <p style="margin-top: 10px; opacity: 0.8">
-          Tip: Click one square, then another to move. Promotions auto-queen.
-        </p>
         <div class="row" style="margin-top: 8px">
           <button class="btn" id="release">Release seat</button>
         </div>
@@ -458,7 +469,7 @@
       <emoji-picker id="emojiPicker"></emoji-picker>
     </dialog>
     <footer>
-      Version: {{COMMIT}}<br />
+      Version: <a href="https://github.com/dustywusty/tinychess/tree/{{COMMIT}}">{{COMMIT}}</a><br />
       Built: {{BUILD_DATE}}
     </footer>
     <script
@@ -490,7 +501,6 @@
         const pgnEl = document.getElementById("pgn");
         const movesEl = document.querySelector(".moves");
         const lanEl = document.getElementById("lan");
-        const gameIdEl = document.getElementById("gameid");
         const roleEl = document.getElementById("role");
         const capWhiteEl = document.getElementById("cap_by_white");
         const capBlackEl = document.getElementById("cap_by_black");
@@ -500,7 +510,6 @@
         const emojiPicker = document.getElementById("emojiPicker");
         const recentEl = document.getElementById("recent-emojis");
         const RECENT_EMOJI_KEY = "tinychess:recentEmojis:v1";
-        gameIdEl.textContent = gameId || "(none)";
 
         // Orientation (default white; updated from server message)
         let playerColor = "white";
@@ -536,7 +545,7 @@
           let arr = loadRecent();
           arr = arr.filter((x) => x !== em);
           arr.unshift(em);
-          if (arr.length > 10) arr = arr.slice(0, 10);
+          if (arr.length > 15) arr = arr.slice(0, 15);
           saveRecent(arr);
           renderRecent(arr);
         }
@@ -1120,7 +1129,7 @@
               updateTurn(st);
               pgnEl.textContent = formatPGNLines(st.pgn || "");
               movesEl.style.display = (st.pgn || "").trim()
-                ? ""
+                ? "block"
                 : "none";
               lanEl.textContent = formatUCIMoves(st.uci || []);
               status(st.status || "");
