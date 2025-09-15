@@ -103,7 +103,7 @@
         border-radius: 12px;
         padding: 8px;
         overflow-y: auto;
-        display: none !important;
+        display: block;
       }
 
       .moves pre {
@@ -112,7 +112,7 @@
       }
 
       .board {
-        flex: 0 0 auto;
+        flex: 1 1 auto;
         width: 100%;
         aspect-ratio: 1/1;
         border: 1px solid #2a3345;
@@ -329,6 +329,14 @@
         min-height: 0;
       }
 
+      .actions {
+        margin-top: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+      }
+
       .recent-emojis {
         display: flex;
         gap: 4px;
@@ -454,11 +462,11 @@
         <div class="status" id="status"></div>
 
         <div class="rx" id="rx"></div>
-        <div class="row">
-          <button class="react" id="reactbtn" title="Send reaction">😀</button>
-          <div class="recent-emojis" id="recent-emojis"></div>
-        </div>
-        <div class="row" style="margin-top: 8px">
+        <div class="actions">
+          <div class="row">
+            <button class="react" id="reactbtn" title="Send reaction">😀</button>
+            <div class="recent-emojis" id="recent-emojis"></div>
+          </div>
           <button class="btn" id="release">Release seat</button>
         </div>
       </div>
