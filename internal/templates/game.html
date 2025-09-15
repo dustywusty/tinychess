@@ -224,15 +224,6 @@
         text-align: center;
       }
 
-      footer .version {
-        margin-top: 4px;
-        font-size: 12px;
-      }
-
-      footer .version a,
-      footer .version a:visited {
-        color: inherit;
-      }
 
       .theme {
         display: flex;
@@ -400,6 +391,7 @@
     </header>
 
     <div class="wrap">
+      <div class="board" id="board" aria-label="Chess board"></div>
       <div class="panel">
         <div class="row">
           <strong>Game:</strong> <span id="gameid" class="mono"></span>
@@ -433,23 +425,13 @@
           <pre id="pgn" style="white-space: pre-wrap"></pre>
         </details>
       </div>
-      <div class="board" id="board" aria-label="Chess board"></div>
     </div>
     <dialog id="emojiDialog">
       <emoji-picker id="emojiPicker"></emoji-picker>
     </dialog>
     <footer>
-      Built with Go & vanilla JS — with ❤️ by Dusty and his traumatized 🤖
-      <div class="version">
-        Version:
-        <a
-          href="https://github.com/dustywusty/tinychess/tree/{{COMMIT}}"
-          target="_blank"
-          rel="noopener"
-          >{{COMMIT}}</a
-        >
-        ({{BUILD_DATE}})
-      </div>
+      Version: {{COMMIT}}<br />
+      Built-on: {{BUILD_DATE}}
     </footer>
     <script
       defer

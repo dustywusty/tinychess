@@ -23,9 +23,9 @@ func init() {
 				}
 			case "vcs.time":
 				if buildDate == "" && s.Value != "" {
-					if t, err := time.Parse(time.RFC3339, s.Value); err == nil {
-						buildDate = t.Format("1-2-2006")
-					}
+                                        if t, err := time.Parse(time.RFC3339, s.Value); err == nil {
+                                                buildDate = t.Format("01-02-2006")
+                                        }
 				}
 			}
 		}
@@ -35,7 +35,7 @@ func init() {
 			commit = strings.TrimSpace(string(c))
 		}
 	}
-	if buildDate == "" {
-		buildDate = time.Now().Format("1-2-2006")
-	}
+        if buildDate == "" {
+                buildDate = time.Now().Format("01-02-2006")
+        }
 }
