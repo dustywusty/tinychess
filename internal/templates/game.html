@@ -195,7 +195,7 @@
         background: var(--panel);
         border: 1px solid #2a3345;
         border-radius: 12px;
-        padding: 12px;
+        padding: 8px;
         width: 100%;
         position: relative;
       }
@@ -240,8 +240,8 @@
       }
 
       .status {
-        margin-top: 10px;
-        min-height: 22px;
+        margin-top: 0;
+        min-height: 0;
       }
 
       .mono {
@@ -322,11 +322,11 @@
       }
 
       .rx {
-        margin-top: 6px;
+        margin-top: 0;
         display: flex;
         gap: 6px;
         flex-wrap: wrap;
-        min-height: 22px;
+        min-height: 0;
       }
 
       .recent-emojis {
@@ -450,7 +450,6 @@
           </div>
         </div>
 
-        <div class="row"><strong>You:</strong> <span id="role"></span></div>
         <div class="row"><strong>Turn:</strong> <span id="turn"></span></div>
         <div class="status" id="status"></div>
 
@@ -499,7 +498,6 @@
         const pgnEl = document.getElementById("pgn");
         const movesEl = document.querySelector(".moves");
         const lanEl = document.getElementById("lan");
-        const roleEl = document.getElementById("role");
         const capWhiteEl = document.getElementById("cap_by_white");
         const capBlackEl = document.getElementById("cap_by_black");
         const rxEl = document.getElementById("rx");
@@ -1015,7 +1013,6 @@
               if (data && data.ok) {
                 isSpectator = true;
                 playerColorSet = false;
-                if (roleEl) roleEl.textContent = "Spectating";
                 releaseBtn.style.display = "none";
                 status("Seat released");
               } else {
@@ -1114,12 +1111,6 @@
                 playerColor = normalizeColor(st.color);
                 playerColorSet = true;
               }
-              if (roleEl)
-                roleEl.textContent = isSpectator
-                  ? "Spectating"
-                  : "Playing as " +
-                    playerColor.charAt(0).toUpperCase() +
-                    playerColor.slice(1);
               if (releaseBtn)
                 releaseBtn.style.display = isSpectator ? "none" : "";
               lastMoveSquares = deriveLastMoveSquares(st.uci || []);
