@@ -79,7 +79,7 @@
       }
 
       .wrap {
-        max-width: 640px;
+        max-width: 760px;
         margin: 0 auto;
         padding: 16px;
         display: flex;
@@ -88,8 +88,29 @@
         gap: 16px;
       }
 
-      .board {
+      .play {
         width: 100%;
+        display: flex;
+        align-items: flex-start;
+      }
+
+      .moves {
+        width: 120px;
+        margin-left: 8px;
+        background: var(--panel);
+        border: 1px solid #2a3345;
+        border-radius: 12px;
+        padding: 8px;
+        overflow-y: auto;
+      }
+
+      .moves pre {
+        margin: 0;
+        white-space: pre-wrap;
+      }
+
+      .board {
+        flex: 1 1 0;
         max-width: 640px;
         aspect-ratio: 1/1;
         border: 1px solid #2a3345;
@@ -293,6 +314,13 @@
         min-height: 22px;
       }
 
+      .recent-emojis {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+        margin-left: 6px;
+      }
+
       @keyframes pop {
         from {
           transform: scale(0.4);
@@ -391,7 +419,10 @@
     </header>
 
     <div class="wrap">
-      <div class="board" id="board" aria-label="Chess board"></div>
+      <div class="play">
+        <div class="board" id="board" aria-label="Chess board"></div>
+        <div class="moves"><pre id="pgn" class="mono"></pre></div>
+      </div>
       <div class="panel">
         <div class="row">
           <strong>Game:</strong> <span id="gameid" class="mono"></span>
@@ -412,6 +443,7 @@
         <div class="rx" id="rx"></div>
         <div class="row">
           <button class="react" id="reactbtn" title="Send reaction">😀</button>
+          <div class="recent-emojis" id="recent-emojis"></div>
         </div>
         <p style="margin-top: 10px; opacity: 0.8">
           Tip: Click one square, then another to move. Promotions auto-queen.
@@ -419,11 +451,6 @@
         <div class="row" style="margin-top: 8px">
           <button class="btn" id="release">Release seat</button>
         </div>
-
-        <details style="margin-top: 12px">
-          <summary>PGN</summary>
-          <pre id="pgn" style="white-space: pre-wrap"></pre>
-        </details>
       </div>
     </div>
     <dialog id="emojiDialog">
@@ -469,6 +496,8 @@
         const reactBtn = document.getElementById("reactbtn");
         const emojiDialog = document.getElementById("emojiDialog");
         const emojiPicker = document.getElementById("emojiPicker");
+        const recentEl = document.getElementById("recent-emojis");
+        const RECENT_EMOJI_KEY = "tinychess:recentEmojis:v1";
         gameIdEl.textContent = gameId || "(none)";
 
         // Orientation (default white; updated from server message)
@@ -477,6 +506,39 @@
         let isSpectator = false;
         let gameOver = false;
         let prevCaptured = { byWhite: [], byBlack: [] };
+
+        function loadRecent() {
+          try {
+            return JSON.parse(localStorage.getItem(RECENT_EMOJI_KEY) || "[]");
+          } catch {
+            return [];
+          }
+        }
+        function saveRecent(list) {
+          try {
+            localStorage.setItem(RECENT_EMOJI_KEY, JSON.stringify(list));
+          } catch {}
+        }
+        function renderRecent(list) {
+          if (!recentEl) return;
+          recentEl.innerHTML = "";
+          for (const em of list) {
+            const b = document.createElement("button");
+            b.className = "react";
+            b.textContent = em;
+            b.addEventListener("click", () => sendReaction(em, b));
+            recentEl.appendChild(b);
+          }
+        }
+        function rememberEmoji(em) {
+          let arr = loadRecent();
+          arr = arr.filter((x) => x !== em);
+          arr.unshift(em);
+          if (arr.length > 10) arr = arr.slice(0, 10);
+          saveRecent(arr);
+          renderRecent(arr);
+        }
+        renderRecent(loadRecent());
 
         function normalizeColor(c) {
           if (!c) return "white";
@@ -575,6 +637,7 @@
         }
 
         async function sendReaction(emoji, btn) {
+          rememberEmoji(emoji);
           if (!gameId) return;
           const now = Date.now();
           if (now - lastReact < COOLDOWN_MS) {
