@@ -79,11 +79,12 @@
       }
 
       .wrap {
-        max-width: 1000px;
+        max-width: 640px;
         margin: 0 auto;
         padding: 16px;
-        display: grid;
-        grid-template-columns: 1fr 320px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
         gap: 16px;
       }
 
@@ -172,6 +173,7 @@
         border: 1px solid #2a3345;
         border-radius: 12px;
         padding: 12px;
+        width: 100%;
       }
 
       .btn {
@@ -278,12 +280,6 @@
         border-radius: 4px;
       }
 
-      .reactions {
-        display: flex;
-        gap: 6px;
-        flex-wrap: wrap;
-      }
-
       .react {
         font-size: 18px;
         background: transparent;
@@ -350,11 +346,6 @@
         }
       }
 
-      @media (max-width: 860px) {
-        .wrap {
-          grid-template-columns: 1fr;
-        }
-      }
     </style>
   </head>
 
@@ -409,7 +400,6 @@
     </header>
 
     <div class="wrap">
-      <div class="board" id="board" aria-label="Chess board"></div>
       <div class="panel">
         <div class="row">
           <strong>Game:</strong> <span id="gameid" class="mono"></span>
@@ -429,7 +419,7 @@
 
         <div class="rx" id="rx"></div>
         <div class="row">
-          <div class="reactions" id="reactbar" aria-label="Reactions"></div>
+          <button class="react" id="reactbtn" title="Send reaction">😀</button>
         </div>
         <p style="margin-top: 10px; opacity: 0.8">
           Tip: Click one square, then another to move. Promotions auto-queen.
@@ -443,7 +433,11 @@
           <pre id="pgn" style="white-space: pre-wrap"></pre>
         </details>
       </div>
+      <div class="board" id="board" aria-label="Chess board"></div>
     </div>
+    <dialog id="emojiDialog">
+      <emoji-picker id="emojiPicker"></emoji-picker>
+    </dialog>
     <footer>
       Built with Go & vanilla JS — with ❤️ by Dusty and his traumatized 🤖
       <div class="version">
@@ -461,6 +455,10 @@
       defer
       data-domain="tinychess.bitchimfabulo.us"
       src="https://plausible.io/js/script.outbound-links.js"
+    ></script>
+    <script
+      type="module"
+      src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js"
     ></script>
     <script>
       (function () {
@@ -486,7 +484,9 @@
         const capWhiteEl = document.getElementById("cap_by_white");
         const capBlackEl = document.getElementById("cap_by_black");
         const rxEl = document.getElementById("rx");
-        const reactBar = document.getElementById("reactbar");
+        const reactBtn = document.getElementById("reactbtn");
+        const emojiDialog = document.getElementById("emojiDialog");
+        const emojiPicker = document.getElementById("emojiPicker");
         gameIdEl.textContent = gameId || "(none)";
 
         // Orientation (default white; updated from server message)
@@ -562,70 +562,15 @@
         let lastMoveSquares = []; // [from, to]
 
         // Reactions
-        const EMOJIS = [
-          "👍",
-          "👎",
-          "❤️",
-          "😠",
-          "😢",
-          "🎉",
-          "👏",
-          "😂",
-          "🤣",
-          "😎",
-          "🤔",
-          "😏",
-          "🙃",
-          "😴",
-          "🫡",
-          "🤯",
-          "🤡",
-          "♟️",
-          "♞",
-          "♝",
-          "♜",
-          "♛",
-          "♚",
-          "⏱️",
-          "🏳️",
-          "🔄",
-          "🏆",
-          "🔥",
-          "💀",
-          "🩸",
-          "⚡",
-          "🚀",
-          "🕳️",
-          "🎯",
-          "💥",
-          "🧠",
-          "🍿",
-          "☕",
-          "🐢",
-          "🐇",
-          "🤝",
-          "🤬",
-          "🪦",
-          "🐌",
-          "🎭",
-          "🐙",
-          "🦄",
-          "🐒",
-        ];
         const COOLDOWN_MS = 5000;
         let lastReact = 0;
-        function buildReactBar() {
-          if (!reactBar) return;
-          reactBar.innerHTML = "";
-          EMOJIS.forEach(function (e) {
-            var b = document.createElement("button");
-            b.className = "react";
-            b.textContent = e;
-            b.title = "Send reaction";
-            b.addEventListener("click", function () {
-              sendReaction(e, b);
-            });
-            reactBar.appendChild(b);
+        if (reactBtn && emojiDialog && emojiPicker) {
+          reactBtn.addEventListener("click", function () {
+            emojiDialog.showModal();
+          });
+          emojiPicker.addEventListener("emoji-click", function (ev) {
+            emojiDialog.close();
+            sendReaction(ev.detail.unicode, reactBtn);
           });
         }
 
@@ -637,7 +582,7 @@
           document.body.appendChild(big);
           setTimeout(() => big.remove(), 1200);
 
-          // Small burst under reactions bar
+          // Small burst under reactions area
           if (rxEl) {
             const small = document.createElement("span");
             small.textContent = e;
@@ -693,7 +638,6 @@
           }
         }
 
-        buildReactBar();
 
         // --- board helpers ---
         function cellSquare(row, col) {
