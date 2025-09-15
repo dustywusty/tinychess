@@ -18,7 +18,7 @@ func main() {
 	flag.Parse()
 	logging.Debug = *debug
 
-	templates.SetVersion(commit, buildDate)
+	templates.SetVersion(commit)
 
 	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
 		if _, err := storage.New(dsn); err != nil {
