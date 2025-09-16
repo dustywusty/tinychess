@@ -20,17 +20,20 @@ func main() {
 
 	templates.SetVersion(commit)
 
+	var store *storage.Store
 	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
-		if _, err := storage.New(dsn); err != nil {
+		db, err := storage.New(dsn)
+		if err != nil {
 			log.Fatalf("failed to initialize database: %v", err)
 		}
+		store = storage.NewStore(db)
 	}
 
 	// Initialize game hub
-	hub := game.NewHub()
+	hub := game.NewHub(store)
 
 	// Initialize HTTP handlers
-	h := handlers.NewHandler(hub)
+	h := handlers.NewHandler(hub, store)
 
 	// Register routes
 	http.HandleFunc("/new", h.HandleNew)
@@ -38,6 +41,8 @@ func main() {
 	http.HandleFunc("/move/", h.HandleMove)
 	http.HandleFunc("/react/", h.HandleReact)
 	http.HandleFunc("/release/", h.HandleRelease)
+	http.HandleFunc("/forget/", h.HandleForget)
+	http.HandleFunc("/api/stats", h.HandleStats)
 	http.HandleFunc("/", h.HandlePage)
 
 	log.Printf("Tiny Chess listening on http://localhost:8080 …")

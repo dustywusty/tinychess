@@ -1,6 +1,7 @@
 package game
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -22,8 +23,11 @@ func runCleanup(h *Hub) {
 }
 
 func TestGamePersistenceBeforeCleanup(t *testing.T) {
-	h := NewHub()
-	g, _ := h.Get("test", "")
+	h := NewHub(nil)
+	g, _, err := h.Get(context.Background(), "test", "")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
 
 	// Simulate a game that was last seen 23 hours ago.
 	g.Mu.Lock()
@@ -55,8 +59,11 @@ func TestGamePersistenceBeforeCleanup(t *testing.T) {
 }
 
 func TestOwnerAndClientColorAssignment(t *testing.T) {
-	h := NewHub()
-	g, _ := h.Get("g1", "owner")
+	h := NewHub(nil)
+	g, _, err := h.Get(context.Background(), "g1", "owner")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
 
 	if g.OwnerID != "owner" {
 		t.Fatalf("expected owner id to be set")
@@ -66,7 +73,10 @@ func TestOwnerAndClientColorAssignment(t *testing.T) {
 		t.Fatalf("owner not recorded with correct color")
 	}
 
-	g, _ = h.Get("g1", "client2")
+	g, _, err = h.Get(context.Background(), "g1", "client2")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
 	var expected chess.Color
 	if ownerColor == chess.White {
 		expected = chess.Black
@@ -79,9 +89,14 @@ func TestOwnerAndClientColorAssignment(t *testing.T) {
 }
 
 func TestTwoClientsReceiveOppositeColors(t *testing.T) {
-	h := NewHub()
-	_, _ = h.Get("g2", "c1")
-	g, _ := h.Get("g2", "c2")
+	h := NewHub(nil)
+	if _, _, err := h.Get(context.Background(), "g2", "c1"); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	g, _, err := h.Get(context.Background(), "g2", "c2")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
 
 	c1 := g.Clients["c1"]
 	c2 := g.Clients["c2"]
@@ -93,19 +108,27 @@ func TestTwoClientsReceiveOppositeColors(t *testing.T) {
 		t.Fatalf("expected clients to have opposite colors, both got %v", c1)
 	}
 
-	g, _ = h.Get("g2", "")
+	g, _, err = h.Get(context.Background(), "g2", "")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
 	if len(g.Clients) != 2 {
 		t.Fatalf("spectator should not be assigned a color")
 	}
 }
 
 func TestColorPersistsAfterOwnerLeaves(t *testing.T) {
-	h := NewHub()
+	h := NewHub(nil)
 
 	// owner joins
-	h.Get("g3", "owner")
+	if _, _, err := h.Get(context.Background(), "g3", "owner"); err != nil {
+		t.Fatalf("get: %v", err)
+	}
 	// second player joins
-	g, _ := h.Get("g3", "player")
+	g, _, err := h.Get(context.Background(), "g3", "player")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
 
 	initialColor := g.Clients["player"]
 
@@ -113,7 +136,10 @@ func TestColorPersistsAfterOwnerLeaves(t *testing.T) {
 	g.RemoveClient("owner")
 
 	// player refreshes (rejoins)
-	g, col := h.Get("g3", "player")
+	g, col, err := h.Get(context.Background(), "g3", "player")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
 	if col == nil || *col != initialColor {
 		t.Fatalf("expected player to retain color %v, got %v", initialColor, col)
 	}
@@ -127,7 +153,10 @@ func TestColorPersistsAfterOwnerLeaves(t *testing.T) {
 	}
 
 	// new client should receive opposite color
-	_, col2 := h.Get("g3", "newbie")
+	_, col2, err := h.Get(context.Background(), "g3", "newbie")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
 	if col2 == nil || *col2 == initialColor {
 		t.Fatalf("expected new client to receive opposite color")
 	}
