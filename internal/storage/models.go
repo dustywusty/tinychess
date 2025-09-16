@@ -37,9 +37,9 @@ type GameSession struct {
 // UserSession links a user to a game session.
 type UserSession struct {
 	ID            uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
-	GameID        uuid.UUID `gorm:"type:uuid;index"`
+	GameID        uuid.UUID `gorm:"type:uuid;index;uniqueIndex:idx_user_sessions_game_user"`
 	GameSessionID uuid.UUID `gorm:"type:uuid;index"`
-	UserID        uuid.UUID `gorm:"type:uuid;index;uniqueIndex:idx_game_user"`
+	UserID        uuid.UUID `gorm:"type:uuid;index;uniqueIndex:idx_user_sessions_game_user"`
 	Color         string
 	Role          string
 	Active        bool
