@@ -8,11 +8,13 @@ import (
 	"github.com/corentings/chess/v2"
 )
 
-// Touch updates the last seen timestamp for a game
-func (g *Game) Touch() {
+// Touch updates the last seen timestamp for a game and returns the timestamp.
+func (g *Game) Touch() time.Time {
+	now := time.Now()
 	g.Mu.Lock()
-	g.LastSeen = time.Now()
+	g.LastSeen = now
 	g.Mu.Unlock()
+	return now
 }
 
 // MovesUCI returns the list of moves in UCI notation
@@ -140,4 +142,11 @@ func (g *Game) BroadcastReaction(payload ReactionPayload) {
 		}
 	}
 	g.Mu.Unlock()
+}
+
+// Outcome returns the game's current outcome.
+func (g *Game) Outcome() chess.Outcome {
+	g.Mu.Lock()
+	defer g.Mu.Unlock()
+	return g.g.Outcome()
 }

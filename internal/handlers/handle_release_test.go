@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http/httptest"
 	"strings"
@@ -12,9 +13,12 @@ import (
 )
 
 func TestHandleRelease(t *testing.T) {
-	hub := game.NewHub()
-	h := NewHandler(hub)
-	g, _ := hub.Get("g1", "owner")
+	hub := game.NewHub(nil)
+	h := NewHandler(hub, nil)
+	g, _, err := hub.Get(context.Background(), "g1", "owner")
+	if err != nil {
+		t.Fatalf("get game: %v", err)
+	}
 	g.Clients["other"] = chess.Black
 
 	req := httptest.NewRequest("POST", "/release/g1", strings.NewReader(`{"clientId":"owner","targetId":"other"}`))
@@ -34,9 +38,12 @@ func TestHandleRelease(t *testing.T) {
 }
 
 func TestHandleReleaseNotOwner(t *testing.T) {
-	hub := game.NewHub()
-	h := NewHandler(hub)
-	g, _ := hub.Get("g2", "owner")
+	hub := game.NewHub(nil)
+	h := NewHandler(hub, nil)
+	g, _, err := hub.Get(context.Background(), "g2", "owner")
+	if err != nil {
+		t.Fatalf("get game: %v", err)
+	}
 	g.Clients["other"] = chess.Black
 
 	req := httptest.NewRequest("POST", "/release/g2", strings.NewReader(`{"clientId":"notowner","targetId":"other"}`))

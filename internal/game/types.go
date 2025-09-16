@@ -5,16 +5,19 @@ import (
 	"time"
 
 	"github.com/corentings/chess/v2"
+	"tinychess/internal/storage"
 )
 
 // Hub manages all active chess games
 type Hub struct {
 	Mu    sync.Mutex
 	Games map[string]*Game
+	Store *storage.Store
 }
 
 // Game represents a single chess game with its state and watchers
 type Game struct {
+	ID         string
 	Mu         sync.Mutex
 	g          *chess.Game
 	Watchers   map[chan []byte]struct{}

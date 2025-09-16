@@ -138,6 +138,36 @@
         opacity: 0.85;
       }
 
+      .stats {
+        margin-top: 24px;
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .stat-pill {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 10px 14px;
+        background: var(--panel);
+        border: 1px solid var(--btn-border);
+        border-radius: 10px;
+        min-width: 120px;
+      }
+
+      .stat-pill strong {
+        font-size: 18px;
+      }
+
+      .stat-pill span {
+        opacity: 0.8;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
       footer {
         opacity: 0.7;
         padding: 8px 14px 24px;
@@ -245,6 +275,7 @@
       <p style="margin-top: 25px">
         <a class="btn" href="/new" id="newgame2">New game</a>
       </p>
+      <div class="stats" id="stats"></div>
     </main>
 
     <section class="recent">
@@ -302,6 +333,68 @@
           }
         });
 
+        // ----- User identity -----
+        const USER_ID_KEY = "tinychess:userId";
+        function generateId() {
+          if (window.crypto && typeof window.crypto.randomUUID === "function") {
+            return window.crypto.randomUUID();
+          }
+          const tpl = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
+          return tpl.replace(/[xy]/g, function (c) {
+            const r = (Math.random() * 16) | 0;
+            const v = c === "x" ? r : (r & 0x3) | 0x8;
+            return v.toString(16);
+          });
+        }
+        function ensureUserId() {
+          let id = "";
+          try {
+            id = localStorage.getItem(USER_ID_KEY) || "";
+          } catch {}
+          if (!id) {
+            id = generateId();
+            try {
+              localStorage.setItem(USER_ID_KEY, id);
+            } catch {}
+          }
+          return id;
+        }
+        const userId = ensureUserId();
+
+        // ----- Stats -----
+        function renderStats(stats) {
+          const box = document.getElementById("stats");
+          if (!box) return;
+          const list = [
+            { label: "Being played", value: Number(stats.active || 0) },
+            { label: "Started", value: Number(stats.started || 0) },
+            { label: "Completed", value: Number(stats.completed || 0) },
+          ];
+          box.innerHTML = list
+            .map(function (item) {
+              return (
+                '<div class="stat-pill"><strong>' +
+                item.value.toLocaleString() +
+                "</strong><span>" +
+                item.label +
+                "</span></div>"
+              );
+            })
+            .join("");
+        }
+
+        async function loadStats() {
+          try {
+            const res = await fetch("/api/stats");
+            const data = await res.json().catch(() => null);
+            if (!data || !data.ok || !data.stats) return;
+            renderStats(data.stats);
+          } catch (e) {}
+        }
+
+        renderStats({ started: 0, completed: 0, active: 0 });
+        loadStats();
+
         // ----- Recent/active games -----
         const KEY = "tinychess:games:v1";
         function loadGames() {
@@ -327,6 +420,41 @@
           return Object.values(m).filter(function (g) {
             return !hasResult(g);
           });
+        }
+
+        let creatingGame = false;
+        async function createGame() {
+          if (creatingGame) return;
+          creatingGame = true;
+          try {
+            const res = await fetch("/new", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ userId: userId }),
+            });
+            const data = await res.json().catch(() => null);
+            if (data && data.ok && data.id) {
+              location.href = "/" + data.id;
+              return;
+            }
+            alert("Unable to create a game right now. Please try again.");
+          } catch (e) {
+            alert("Unable to create a game right now. Please try again.");
+          } finally {
+            creatingGame = false;
+          }
+        }
+
+        async function forgetRemote(id) {
+          if (!id) return;
+          try {
+            await fetch("/forget/" + id, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ userId: userId }),
+            });
+          } catch (e) {}
+          loadStats();
         }
 
         function renderRecent() {
@@ -405,6 +533,7 @@
             const m = loadGames();
             delete m[id];
             saveGames(m);
+            forgetRemote(id);
             renderRecent();
           }
         });
@@ -415,7 +544,10 @@
             act.sort(byLastSeenDesc);
             location.href = "/" + act[0].id;
             ev.preventDefault();
+            return;
           }
+          ev.preventDefault();
+          createGame();
         }
         ["newgame", "newgame2"].forEach(function (id) {
           const el = document.getElementById(id);

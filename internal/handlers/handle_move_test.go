@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http/httptest"
 	"strings"
@@ -13,9 +14,12 @@ import (
 
 // Test that a move is rejected when the piece is not of the player's color.
 func TestHandleMoveWrongColor(t *testing.T) {
-	hub := game.NewHub()
-	h := NewHandler(hub)
-	g, _ := hub.Get("g1", "")
+	hub := game.NewHub(nil)
+	h := NewHandler(hub, nil)
+	g, _, err := hub.Get(context.Background(), "g1", "")
+	if err != nil {
+		t.Fatalf("get game: %v", err)
+	}
 	g.Clients["c1"] = chess.White
 
 	req := httptest.NewRequest("POST", "/move/g1", strings.NewReader(`{"uci":"a7a6","clientId":"c1"}`))
@@ -33,9 +37,12 @@ func TestHandleMoveWrongColor(t *testing.T) {
 
 // Test that a move is rejected when it is not the player's turn.
 func TestHandleMoveNotYourTurn(t *testing.T) {
-	hub := game.NewHub()
-	h := NewHandler(hub)
-	g, _ := hub.Get("g2", "")
+	hub := game.NewHub(nil)
+	h := NewHandler(hub, nil)
+	g, _, err := hub.Get(context.Background(), "g2", "")
+	if err != nil {
+		t.Fatalf("get game: %v", err)
+	}
 	g.Clients["c2"] = chess.Black
 
 	req := httptest.NewRequest("POST", "/move/g2", strings.NewReader(`{"uci":"a7a6","clientId":"c2"}`))
@@ -53,9 +60,12 @@ func TestHandleMoveNotYourTurn(t *testing.T) {
 
 // Test that a valid move by the correct player succeeds.
 func TestHandleMoveSuccess(t *testing.T) {
-	hub := game.NewHub()
-	h := NewHandler(hub)
-	g, _ := hub.Get("g3", "")
+	hub := game.NewHub(nil)
+	h := NewHandler(hub, nil)
+	g, _, err := hub.Get(context.Background(), "g3", "")
+	if err != nil {
+		t.Fatalf("get game: %v", err)
+	}
 	g.Clients["c1"] = chess.White
 
 	req := httptest.NewRequest("POST", "/move/g3", strings.NewReader(`{"uci":"e2e4","clientId":"c1"}`))
