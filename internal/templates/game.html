@@ -16,6 +16,8 @@
         --bg: color-mix(in oklab, var(--accent) 6%, #0b0d11);
         --panel: color-mix(in oklab, var(--accent) 10%, #141821);
         --text: #e5e7eb;
+        --primary: var(--accent);
+        --tertiary: color-mix(in oklab, var(--accent) 18%, var(--bg));
         /* Board colors derived from accent for dark theme */
         --sq1: color-mix(in oklab, var(--accent) 18%, white);
         --sq2: color-mix(in oklab, var(--accent) 62%, black);
@@ -31,6 +33,8 @@
         --bg: color-mix(in oklab, var(--accent) 8%, #f7f7fb);
         --panel: color-mix(in oklab, var(--accent) 12%, #ffffff);
         --text: #0f172a;
+        --primary: var(--accent);
+        --tertiary: color-mix(in oklab, var(--accent) 16%, var(--bg));
         /* Softer board colors for light theme */
         --sq1: color-mix(in oklab, var(--accent) 8%, white);
         --sq2: color-mix(in oklab, var(--accent) 28%, #7f99b7);
@@ -84,35 +88,51 @@
         padding: 16px;
         display: flex;
         flex-direction: column;
-        align-items: center;
+        align-items: stretch;
         gap: 16px;
         position: relative;
       }
 
       .play {
-        display: flex;
-        align-items: flex-start;
+        position: relative;
         width: 100%;
       }
 
       .moves {
-        width: 120px;
-        margin-left: 8px;
-        background: var(--panel);
-        border: 1px solid #2a3345;
-        border-radius: 12px;
-        padding: 8px;
+        position: absolute;
+        top: 0;
+        left: calc(100% + 16px);
+        width: clamp(120px, 18vw, 160px);
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        background: none;
+        border: none;
         overflow-y: auto;
         display: none;
       }
 
       .moves pre {
         margin: 0;
+        padding: 8px 12px;
         white-space: pre-wrap;
+        background: var(--tertiary);
+        color: var(--primary);
+        border-radius: 12px;
+      }
+
+      @media (max-width: 900px) {
+        .moves {
+          position: static;
+          width: fit-content;
+          max-width: 100%;
+          height: auto;
+          margin-top: 12px;
+        }
       }
 
       .board {
-        flex: 1 1 0;
+        width: 100%;
         aspect-ratio: 1/1;
         border: 1px solid #2a3345;
         border-radius: 12px;
