@@ -552,6 +552,45 @@
           idFromServerRaw && idFromServerRaw !== "{{GAME_ID}}"
             ? idFromServerRaw
             : location.pathname.replace(/^\/+/, "");
+        const BASE_TITLE = document.title || "Tiny Chess";
+        const YOUR_TURN_TITLE = `${BASE_TITLE} (Your Turn)`;
+        let titleBlinkTimer = null;
+        let shouldBlinkTitle = false;
+
+        function clearTitleBlink() {
+          if (titleBlinkTimer) {
+            clearInterval(titleBlinkTimer);
+            titleBlinkTimer = null;
+          }
+        }
+
+        function applyTitleState() {
+          if (!shouldBlinkTitle) {
+            clearTitleBlink();
+            document.title = BASE_TITLE;
+            return;
+          }
+
+          if (document.visibilityState === "visible") {
+            clearTitleBlink();
+            document.title = YOUR_TURN_TITLE;
+            return;
+          }
+
+          if (!titleBlinkTimer) {
+            document.title = YOUR_TURN_TITLE;
+            let toggle = false;
+            titleBlinkTimer = setInterval(() => {
+              toggle = !toggle;
+              document.title = toggle ? YOUR_TURN_TITLE : BASE_TITLE;
+            }, 1000);
+          }
+        }
+
+        document.addEventListener("visibilitychange", applyTitleState);
+        window.addEventListener("focus", applyTitleState);
+        window.addEventListener("blur", applyTitleState);
+
         const boardEl = document.getElementById("board");
         const statusEl = document.getElementById("status");
         const turnEl = document.getElementById("turn");
@@ -906,18 +945,27 @@
 
         function updateTurn(st) {
           if (!turnEl) return;
+          let text = "";
+
           if (st.status) {
-            turnEl.textContent = "Game over";
-            return;
-          }
-          const t = normalizeColor(st.turn);
-          if (isSpectator) {
-            turnEl.textContent = t || "";
-          } else if (t === playerColor) {
-            turnEl.textContent = "Your turn";
+            text = "Game over";
+            shouldBlinkTitle = false;
           } else {
-            turnEl.textContent = "Their turn";
+            const t = normalizeColor(st.turn);
+            if (isSpectator) {
+              text = t || "";
+              shouldBlinkTitle = false;
+            } else if (t === playerColor) {
+              text = "Your turn";
+              shouldBlinkTitle = true;
+            } else {
+              text = "Their turn";
+              shouldBlinkTitle = false;
+            }
           }
+
+          turnEl.textContent = text;
+          applyTitleState();
         }
 
         // ---- Captured pieces (derived from FEN) + persisted per game ----
