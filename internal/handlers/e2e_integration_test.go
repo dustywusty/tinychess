@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/corentings/chess/v2"
 	"github.com/google/uuid"
@@ -85,7 +86,7 @@ func TestEndToEndGamePlay(t *testing.T) {
 	}
 
 	spectatorID := uuid.NewString()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	sseReq, err := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL+"/sse/"+newResp.ID+"?clientId="+spectatorID, nil)
@@ -97,12 +98,16 @@ func TestEndToEndGamePlay(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sse request: %v", err)
 	}
+	defer sseResp.Body.Close()
 
 	var secondColor chess.Color
 	reader := bufio.NewReader(sseResp.Body)
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
+			if ctx.Err() != nil {
+				t.Fatalf("timeout waiting for color assignment: %v", ctx.Err())
+			}
 			t.Fatalf("read sse line: %v", err)
 		}
 		line = strings.TrimSpace(line)
@@ -128,7 +133,6 @@ func TestEndToEndGamePlay(t *testing.T) {
 		break
 	}
 	cancel()
-	sseResp.Body.Close()
 
 	if len(colorToClient) != 2 {
 		t.Fatalf("expected two assigned colors, got %d", len(colorToClient))
