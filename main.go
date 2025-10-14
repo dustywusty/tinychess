@@ -45,6 +45,6 @@ func main() {
 	http.HandleFunc("/api/stats", h.HandleStats)
 	http.HandleFunc("/", h.HandlePage)
 
-	log.Printf("Tiny Chess listening on http://localhost:8080 …")
+	log.Printf("Tiny Chess listening on http://localhost:8080/")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
