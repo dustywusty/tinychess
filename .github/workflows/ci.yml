@@ -17,3 +17,52 @@ jobs:
           cache: true
       - name: Run unit tests
         run: go test ./...
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install Playwright dependencies
+        run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: Run Playwright end-to-end tests
+        run: npm run test:e2e
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
+      - name: Locate gameplay screenshot
+        if: ${{ always() && github.event_name == 'pull_request' }}
+        run: |
+          if [ -d test-results ]; then
+            SCREENSHOT=$(find test-results -name 'final-board.png' -print -quit)
+            if [ -n "$SCREENSHOT" ]; then
+              echo "SCREENSHOT_PATH=$SCREENSHOT" >> "$GITHUB_ENV"
+            fi
+          fi
+      - name: Comment gameplay screenshot
+        if: ${{ always() && github.event_name == 'pull_request' && env.SCREENSHOT_PATH != '' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = process.env.SCREENSHOT_PATH;
+            const data = fs.readFileSync(path, { encoding: 'base64' });
+            const bodyLines = [
+              '🧪 **TinyChess end-to-end screenshot**',
+              '',
+              `![TinyChess Playwright screenshot](data:image/png;base64,${data})`,
+              '',
+              `Saved from \`${path}\``
+            ];
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: context.issue.number,
+              body: bodyLines.join('\n'),
+            });
