@@ -5,29 +5,44 @@ on:
     branches: [ main ]
   pull_request:
 
+# Give GITHUB_TOKEN the minimum needed. Make sure repo settings
+# (Settings → Actions → General → Workflow permissions) are set to
+# “Read and write permissions”.
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           cache: true
+
       - name: Run unit tests
         run: go test ./...
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
+
       - name: Install Playwright dependencies
         run: npm ci
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
+
       - name: Run Playwright end-to-end tests
         run: npm run test:e2e
+
       - name: Upload Playwright artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -37,32 +52,75 @@ jobs:
             playwright-report
             test-results
           if-no-files-found: ignore
+
       - name: Locate gameplay screenshot
-        if: ${{ always() && github.event_name == 'pull_request' }}
+        if: ${{ always() && (github.event_name == 'pull_request' || github.event_name == 'push') }}
         run: |
           if [ -d test-results ]; then
             SCREENSHOT=$(find test-results -name 'final-board.png' -print -quit)
             if [ -n "$SCREENSHOT" ]; then
               echo "SCREENSHOT_PATH=$SCREENSHOT" >> "$GITHUB_ENV"
+            else
+              echo "No final-board.png found."
             fi
+          else
+            echo "No test-results directory."
           fi
-      - name: Comment gameplay screenshot
-        if: ${{ always() && github.event_name == 'pull_request' && env.SCREENSHOT_PATH != '' }}
+
+      # Nice preview for all cases (including forks), visible in the job page
+      - name: Add run summary
+        if: ${{ always() }}
+        run: |
+          echo "## TinyChess end-to-end" >> $GITHUB_STEP_SUMMARY
+          if [ -n "${SCREENSHOT_PATH}" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "_Screenshot captured:_ \`${SCREENSHOT_PATH}\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Artifacts: **playwright-artifacts**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "_No screenshot found (see artifacts for details)._  " >> $GITHUB_STEP_SUMMARY
+            echo "Artifacts: **playwright-artifacts**" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      # Only comment when it’s a same-repo PR (token has write access).
+      # Forked PRs are skipped to avoid “Resource not accessible by integration”.
+      - name: Comment gameplay screenshot on PR
+        if: ${{ always()
+              && github.event_name == 'pull_request'
+              && env.SCREENSHOT_PATH != ''
+              && github.event.pull_request.head.repo.full_name == github.repository }}
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
             const path = process.env.SCREENSHOT_PATH;
+
+            // Read as base64 (small-ish PNGs are fine for comment bodies)
             const data = fs.readFileSync(path, { encoding: 'base64' });
-            const bodyLines = [
+
+            const issue_number = context.payload.pull_request.number;
+
+            const body = [
               '🧪 **TinyChess end-to-end screenshot**',
               '',
               `![TinyChess Playwright screenshot](data:image/png;base64,${data})`,
               '',
               `Saved from \`${path}\``
-            ];
+            ].join('\n');
+
             await github.rest.issues.createComment({
-              ...context.repo,
-              issue_number: context.issue.number,
-              body: bodyLines.join('\n'),
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number,
+              body,
             });
+
+      # Explain why a comment wasn't posted (forked PR)
+      - name: Note why we didn’t comment (forked PR)
+        if: ${{ always()
+              && github.event_name == 'pull_request'
+              && env.SCREENSHOT_PATH != ''
+              && github.event.pull_request.head.repo.full_name != github.repository }}
+        run: |
+          echo "PR is from a fork → GITHUB_TOKEN is read-only. Skipping PR comment; screenshot is in artifacts."
