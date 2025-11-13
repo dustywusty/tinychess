@@ -1,3 +1,7 @@
+# What is this?
+
+I've been playing around w/ making something w just agents, purely out of curiousity, this is that!
+
 # Tiny Chess
 
 [![CI](https://github.com/dustywusty/tinychess/actions/workflows/ci.yml/badge.svg)](https://github.com/dustywusty/tinychess/actions/workflows/ci.yml)
