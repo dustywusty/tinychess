@@ -16,5 +16,5 @@ Players can react with any emoji using the built-in emoji picker.
 
 ## Links
 
-- Production: https://tinychess.bitchimfabulo.us
-- Sandbox: https://sandbox.tinychess.bitchimfabulo.us
+- Production: https://tinychess.dusty.wtf/
+- Sandbox: https://sandbox.tinychess.dusty.wtf
