@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -18,12 +20,18 @@ import (
 
 // Handler contains dependencies for HTTP handlers
 type Handler struct {
-	Hub *game.Hub
+	Hub             *game.Hub
+	HashbrownURL    string
+	HashbrownAPIKey string
 }
 
 // NewHandler creates a new handler instance
-func NewHandler(hub *game.Hub) *Handler {
-	return &Handler{Hub: hub}
+func NewHandler(hub *game.Hub, hashbrownURL, hashbrownAPIKey string) *Handler {
+	return &Handler{
+		Hub:             hub,
+		HashbrownURL:    hashbrownURL,
+		HashbrownAPIKey: hashbrownAPIKey,
+	}
 }
 
 // HandleNew creates a new game and redirects to it
@@ -240,6 +248,83 @@ func (h *Handler) HandleRelease(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
+// HandleCoach proxies structured coach requests to Hashbrown.
+func (h *Handler) HandleCoach(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		WriteJSON(w, http.StatusMethodNotAllowed, map[string]any{"ok": false, "error": "method not allowed"})
+		return
+	}
+
+	if h.HashbrownURL == "" {
+		WriteJSON(w, http.StatusServiceUnavailable, map[string]any{"ok": false, "error": "coach unavailable"})
+		return
+	}
+
+	var req CoachRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		WriteJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "bad json"})
+		return
+	}
+
+	if strings.TrimSpace(req.FEN) == "" {
+		WriteJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "missing fen"})
+		return
+	}
+
+	payload, err := json.Marshal(req)
+	if err != nil {
+		WriteJSON(w, http.StatusInternalServerError, map[string]any{"ok": false, "error": "failed to encode request"})
+		return
+	}
+
+	hbReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, h.HashbrownURL, bytes.NewReader(payload))
+	if err != nil {
+		WriteJSON(w, http.StatusInternalServerError, map[string]any{"ok": false, "error": "failed to build request"})
+		return
+	}
+	hbReq.Header.Set("Content-Type", "application/json")
+	if h.HashbrownAPIKey != "" {
+		hbReq.Header.Set("Authorization", "Bearer "+h.HashbrownAPIKey)
+	}
+
+	client := &http.Client{Timeout: 12 * time.Second}
+	resp, err := client.Do(hbReq)
+	if err != nil {
+		logging.Debugf("hashbrown request failed: %v", err)
+		WriteJSON(w, http.StatusBadGateway, map[string]any{"ok": false, "error": "coach request failed"})
+		return
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		WriteJSON(w, http.StatusBadGateway, map[string]any{"ok": false, "error": "failed to read coach response"})
+		return
+	}
+
+	if resp.StatusCode >= http.StatusBadRequest {
+		logging.Debugf("hashbrown error: status=%d body=%s", resp.StatusCode, string(body))
+		WriteJSON(w, http.StatusBadGateway, map[string]any{"ok": false, "error": "coach error"})
+		return
+	}
+
+	var hbRaw map[string]any
+	if err := json.Unmarshal(body, &hbRaw); err != nil {
+		WriteJSON(w, http.StatusBadGateway, map[string]any{"ok": false, "error": "invalid coach response"})
+		return
+	}
+
+	suggestions := buildCoachSuggestions(req.FEN, hbRaw)
+	explanation := extractCoachExplanation(hbRaw)
+
+	WriteJSON(w, http.StatusOK, CoachResponse{
+		OK:          true,
+		Suggestions: suggestions,
+		Explanation: explanation,
+		Raw:         hbRaw,
+	})
+}
+
 // ClientIP extracts the client IP from the request
 func ClientIP(r *http.Request) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
@@ -250,4 +335,101 @@ func ClientIP(r *http.Request) string {
 		return host
 	}
 	return r.RemoteAddr
+}
+
+// CoachRequest is the structured payload sent to Hashbrown.
+type CoachRequest struct {
+	FEN         string   `json:"fen"`
+	PGN         string   `json:"pgn"`
+	MoveHistory []string `json:"moveHistory"`
+	SideToMove  string   `json:"sideToMove"`
+	Question    string   `json:"question"`
+}
+
+// CoachSuggestion is a validated coach move.
+type CoachSuggestion struct {
+	Move  string `json:"move"`
+	Valid bool   `json:"valid"`
+}
+
+// CoachResponse is returned to the client.
+type CoachResponse struct {
+	OK          bool              `json:"ok"`
+	Error       string            `json:"error,omitempty"`
+	Suggestions []CoachSuggestion `json:"suggestions,omitempty"`
+	Explanation string            `json:"explanation,omitempty"`
+	Raw         map[string]any    `json:"raw,omitempty"`
+}
+
+func buildCoachSuggestions(fen string, hbRaw map[string]any) []CoachSuggestion {
+	candidates := extractMoveCandidates(hbRaw)
+	if len(candidates) == 0 {
+		return nil
+	}
+
+	fenOpt, err := chess.FEN(fen)
+	if err != nil {
+		return nil
+	}
+	tmp := chess.NewGame(fenOpt)
+	uci := chess.UCINotation{}
+	san := chess.AlgebraicNotation{}
+
+	out := make([]CoachSuggestion, 0, len(candidates))
+	for _, move := range candidates {
+		mv, err := uci.Decode(tmp.Position(), move)
+		if err != nil {
+			mv, err = san.Decode(tmp.Position(), move)
+		}
+		out = append(out, CoachSuggestion{
+			Move:  move,
+			Valid: err == nil && mv != nil,
+		})
+	}
+	return out
+}
+
+func extractMoveCandidates(hbRaw map[string]any) []string {
+	keys := []string{"moves", "suggestions", "candidateMoves", "candidates"}
+	for _, key := range keys {
+		if val, ok := hbRaw[key]; ok {
+			return normalizeMoveList(val)
+		}
+	}
+	return nil
+}
+
+func normalizeMoveList(val any) []string {
+	switch v := val.(type) {
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok && strings.TrimSpace(s) != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	case []string:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			if strings.TrimSpace(item) != "" {
+				out = append(out, item)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func extractCoachExplanation(hbRaw map[string]any) string {
+	keys := []string{"explanation", "analysis", "reasoning", "summary"}
+	for _, key := range keys {
+		if val, ok := hbRaw[key]; ok {
+			if s, ok := val.(string); ok {
+				return s
+			}
+		}
+	}
+	return ""
 }

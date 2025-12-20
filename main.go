@@ -30,7 +30,9 @@ func main() {
 	hub := game.NewHub()
 
 	// Initialize HTTP handlers
-	h := handlers.NewHandler(hub)
+	hashbrownURL := os.Getenv("HASHBROWN_API_URL")
+	hashbrownAPIKey := os.Getenv("HASHBROWN_API_KEY")
+	h := handlers.NewHandler(hub, hashbrownURL, hashbrownAPIKey)
 
 	// Register routes
 	http.HandleFunc("/new", h.HandleNew)
@@ -38,6 +40,7 @@ func main() {
 	http.HandleFunc("/move/", h.HandleMove)
 	http.HandleFunc("/react/", h.HandleReact)
 	http.HandleFunc("/release/", h.HandleRelease)
+	http.HandleFunc("/coach/", h.HandleCoach)
 	http.HandleFunc("/", h.HandlePage)
 
 	log.Printf("Tiny Chess listening on http://localhost:8080 …")

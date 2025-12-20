@@ -263,6 +263,81 @@
         min-height: 0;
       }
 
+      .coach {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--btn-border);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .coach label {
+        font-weight: 600;
+      }
+
+      .coach-input {
+        flex: 1;
+        min-width: 180px;
+        padding: 8px 10px;
+        border-radius: 10px;
+        border: 1px solid var(--btn-border);
+        background: var(--btn-bg);
+        color: var(--btn-text);
+      }
+
+      .coach-input:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+        border-color: transparent;
+      }
+
+      .coach-output {
+        background: var(--tertiary);
+        border-radius: 12px;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .coach-output pre {
+        margin: 0;
+        white-space: pre-wrap;
+      }
+
+      .coach-suggestions {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-weight: 600;
+      }
+
+      .coach-suggestion {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+
+      .coach-tag {
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 999px;
+        border: 1px solid transparent;
+      }
+
+      .coach-tag.valid {
+        background: rgba(34, 197, 94, 0.15);
+        color: var(--ok);
+        border-color: rgba(34, 197, 94, 0.4);
+      }
+
+      .coach-tag.invalid {
+        background: rgba(239, 68, 68, 0.15);
+        color: var(--err);
+        border-color: rgba(239, 68, 68, 0.4);
+      }
+
       .mono {
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
           "Liberation Mono", monospace;
@@ -479,6 +554,22 @@
 
         <div class="row"><strong>Turn:</strong> <span id="turn"></span></div>
         <div class="status" id="status"></div>
+        <div class="coach">
+          <label for="coach-question">Ask the coach</label>
+          <div class="row">
+            <input
+              id="coach-question"
+              class="coach-input"
+              type="text"
+              placeholder="What’s my best move?"
+            />
+            <button class="btn" id="coach-ask">Ask Coach</button>
+          </div>
+          <div class="coach-output">
+            <div class="coach-suggestions" id="coach-suggestions"></div>
+            <pre id="coach-response" class="mono"></pre>
+          </div>
+        </div>
 
         <div class="rx" id="rx"></div>
         <div class="actions">
@@ -527,6 +618,11 @@
         const lanEl = document.getElementById("lan");
         const capWhiteEl = document.getElementById("cap_by_white");
         const capBlackEl = document.getElementById("cap_by_black");
+        const coachQuestionEl = document.getElementById("coach-question");
+        const coachAskEl = document.getElementById("coach-ask");
+        const coachSuggestionsEl =
+          document.getElementById("coach-suggestions");
+        const coachResponseEl = document.getElementById("coach-response");
         const rxEl = document.getElementById("rx");
         const reactBtn = document.getElementById("reactbtn");
         const emojiDialog = document.getElementById("emojiDialog");
@@ -540,6 +636,7 @@
         let isSpectator = false;
         let gameOver = false;
         let prevCaptured = { byWhite: [], byBlack: [] };
+        let currentState = { fen: START_FEN, pgn: "", turn: "w" };
 
         function loadRecent() {
           try {
@@ -978,6 +1075,105 @@
           return lines.join("\n");
         }
 
+        function parseMoveHistory(pgn) {
+          if (!pgn) return [];
+          const tokens = pgn.trim().split(/\s+/);
+          const moves = [];
+          for (const t of tokens) {
+            if (/^\d+\.$/.test(t)) continue;
+            if (/^(1-0|0-1|1\/2-1\/2|\*)$/.test(t)) continue;
+            moves.push(t);
+          }
+          return moves;
+        }
+
+        function buildCoachPayload() {
+          const fen = currentState.fen || START_FEN;
+          const sideToken = (fen.split(" ")[1] || "w").toLowerCase();
+          const sideToMove = sideToken === "b" ? "black" : "white";
+          const pgn = currentState.pgn || "";
+          return {
+            fen: fen,
+            pgn: pgn,
+            moveHistory: parseMoveHistory(pgn),
+            sideToMove: sideToMove,
+            question: (coachQuestionEl.value || "").trim(),
+          };
+        }
+
+        function renderCoachResult(data) {
+          if (coachSuggestionsEl) coachSuggestionsEl.innerHTML = "";
+          if (coachResponseEl) coachResponseEl.textContent = "";
+          if (!data || !data.ok) {
+            if (coachResponseEl)
+              coachResponseEl.textContent =
+                (data && data.error) || "Coach unavailable.";
+            return;
+          }
+
+          if (coachSuggestionsEl && data.suggestions && data.suggestions.length) {
+            for (const s of data.suggestions) {
+              const row = document.createElement("div");
+              row.className = "coach-suggestion";
+              const move = document.createElement("span");
+              move.textContent = s.move;
+              const tag = document.createElement("span");
+              tag.className = "coach-tag " + (s.valid ? "valid" : "invalid");
+              tag.textContent = s.valid ? "legal" : "illegal";
+              row.appendChild(move);
+              row.appendChild(tag);
+              coachSuggestionsEl.appendChild(row);
+            }
+          }
+
+          if (coachResponseEl) {
+            if (data.explanation) {
+              coachResponseEl.textContent = data.explanation;
+            } else if (data.raw) {
+              coachResponseEl.textContent = JSON.stringify(data.raw, null, 2);
+            } else {
+              coachResponseEl.textContent = "Coach response received.";
+            }
+          }
+        }
+
+        async function askCoach() {
+          if (!gameId) {
+            renderCoachResult({ ok: false, error: "No game id." });
+            return;
+          }
+          const payload = buildCoachPayload();
+          if (!payload.question) {
+            renderCoachResult({ ok: false, error: "Ask a question first." });
+            return;
+          }
+          if (coachResponseEl) coachResponseEl.textContent = "Thinking…";
+          if (coachSuggestionsEl) coachSuggestionsEl.innerHTML = "";
+          try {
+            const resp = await fetch("/coach/" + gameId, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            const data = await resp.json().catch(() => null);
+            renderCoachResult(data);
+          } catch (e) {
+            renderCoachResult({ ok: false, error: "Coach request failed." });
+          }
+        }
+
+        if (coachAskEl) {
+          coachAskEl.addEventListener("click", askCoach);
+        }
+        if (coachQuestionEl) {
+          coachQuestionEl.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              askCoach();
+            }
+          });
+        }
+
         function formatUCIMoves(uciList) {
           if (!uciList || !uciList.length) return "";
           let out = [];
@@ -1142,6 +1338,11 @@
                 releaseBtn.style.display = isSpectator ? "none" : "";
               lastMoveSquares = deriveLastMoveSquares(st.uci || []);
               renderFEN(st.fen);
+              currentState = {
+                fen: st.fen || START_FEN,
+                pgn: st.pgn || "",
+                turn: st.turn || "w",
+              };
               updateTurn(st);
               pgnEl.textContent = formatPGNLines(st.pgn || "");
               movesEl.style.display = (st.pgn || "").trim()
