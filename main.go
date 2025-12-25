@@ -38,6 +38,7 @@ func main() {
 	http.HandleFunc("/move/", h.HandleMove)
 	http.HandleFunc("/react/", h.HandleReact)
 	http.HandleFunc("/release/", h.HandleRelease)
+	http.HandleFunc("/coach", h.HandleCoach)
 	http.HandleFunc("/", h.HandlePage)
 
 	log.Printf("Tiny Chess listening on http://localhost:8080 …")
