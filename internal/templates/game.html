@@ -279,7 +279,6 @@
         text-align: center;
       }
 
-
       .theme {
         display: flex;
         gap: 6px;
@@ -407,788 +406,1022 @@
         }
       }
 
+      /* Coach chat styles */
+      .coach-toggle {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 1000;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        font-size: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      }
+
+      .coach-panel {
+        position: fixed;
+        bottom: 90px;
+        right: 20px;
+        width: 380px;
+        max-height: 500px;
+        background: var(--panel);
+        border: 1px solid var(--btn-border);
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        z-index: 1000;
+        display: none;
+        flex-direction: column;
+      }
+
+      .coach-panel.open {
+        display: flex;
+      }
+
+      .coach-header {
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--btn-border);
+        font-weight: 600;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .coach-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .coach-message {
+        padding: 10px 12px;
+        border-radius: 10px;
+        max-width: 85%;
+      }
+
+      .coach-message.user {
+        background: var(--accent);
+        color: #000;
+        align-self: flex-end;
+        margin-left: auto;
+      }
+
+      .coach-message.assistant {
+        background: var(--tertiary);
+        align-self: flex-start;
+      }
+
+      .coach-input-container {
+        padding: 12px;
+        border-top: 1px solid var(--btn-border);
+        display: flex;
+        gap: 8px;
+      }
+
+      .coach-input {
+        flex: 1;
+        padding: 8px 12px;
+        border: 1px solid var(--btn-border);
+        background: var(--bg);
+        color: var(--text);
+        border-radius: 8px;
+        font-family: inherit;
+        font-size: 14px;
+      }
+
+      .coach-input:focus {
+        outline: 2px solid var(--accent);
+        outline-offset: -2px;
+      }
+
+      .coach-send {
+        padding: 8px 16px;
+      }
     </style>
   </head>
-
   <body>
-    <header>
-      <div class="title">
-        <span class="chess-icon">♙</span>
-        <a href=".." style="color: inherit; text-decoration: none"
-          >Tiny Chess</a
-        >
-      </div>
-      <div style="flex: 1"></div>
-      <div class="theme" id="themectl">
-        <button
-          class="swatch"
-          data-accent="#6ee7ff"
-          style="background: #6ee7ff"
-        ></button>
-        <button
-          class="swatch"
-          data-accent="#a78bfa"
-          style="background: #a78bfa"
-        ></button>
-        <button
-          class="swatch"
-          data-accent="#f472b6"
-          style="background: #f472b6"
-        ></button>
-        <button
-          class="swatch"
-          data-accent="#f59e0b"
-          style="background: #f59e0b"
-        ></button>
-        <button
-          class="swatch"
-          data-accent="#10b981"
-          style="background: #10b981"
-        ></button>
-        <button
-          class="mode"
-          data-theme="light"
-          style="background: #ffffff"
-        ></button>
-        <button
-          class="mode"
-          data-theme="dark"
-          style="background: #000000"
-        ></button>
-      </div>
-      <button class="btn" id="copy">Copy link</button>
-      <a class="btn" href="/new">New game</a>
-    </header>
+    <div id="app"></div>
 
-    <div class="wrap">
-      <div class="play">
-        <div class="board" id="board" aria-label="Chess board"></div>
-        <div class="moves"><pre id="pgn" class="mono"></pre></div>
-      </div>
-      <div class="panel">
-        <div id="captured" class="captured">
-          <div class="row">
-            <strong>White captured:</strong>
-            <span id="cap_by_white" class="caps"></span>
-          </div>
-          <div class="row">
-            <strong>Black captured:</strong>
-            <span id="cap_by_black" class="caps"></span>
-          </div>
-        </div>
-
-        <div class="row"><strong>Turn:</strong> <span id="turn"></span></div>
-        <div class="status" id="status"></div>
-
-        <div class="rx" id="rx"></div>
-        <div class="actions">
-          <div class="row">
-            <button class="react" id="reactbtn" title="Send reaction">😀</button>
-            <div class="recent-emojis" id="recent-emojis"></div>
-          </div>
-          <button class="btn" id="release">Release seat</button>
-        </div>
-      </div>
-    </div>
-    <dialog id="emojiDialog">
-      <emoji-picker id="emojiPicker"></emoji-picker>
-    </dialog>
-    <footer>
-      Version: <a href="https://github.com/dustywusty/tinychess/tree/{{COMMIT}}">{{COMMIT}}</a>
-    </footer>
-    <script
-      defer
-      data-domain="tinychess.bitchimfabulo.us"
-      src="https://plausible.io/js/script.outbound-links.js"
-    ></script>
     <script
       type="module"
       src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js"
     ></script>
-    <script>
-      (function () {
-        const START_FEN =
-          "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
-        // ---- IDs / elements ----
-        const CLIENT_ID_KEY = "tinychess:clientId";
-        let clientId = sessionStorage.getItem(CLIENT_ID_KEY) || "";
-        // If the server didn't substitute {{GAME_ID}}, fall back to the path.
+    <script type="importmap">
+      {
+        "imports": {
+          "react": "https://esm.sh/react@18.3.1",
+          "react-dom": "https://esm.sh/react-dom@18.3.1",
+          "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+          "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import React, { useEffect, useMemo, useRef, useState } from "react";
+      import { createRoot } from "react-dom/client";
+      import {
+        HashbrownProvider,
+        useChat,
+      } from "https://esm.sh/@hashbrownai/react@0.4.1?external=react";
+
+      const h = React.createElement;
+
+      const START_FEN =
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+      const CLIENT_ID_KEY = "tinychess:clientId";
+      const RECENT_EMOJI_KEY = "tinychess:recentEmojis:v1";
+
+      const ACCENTS = ["#6ee7ff", "#a78bfa", "#f472b6", "#f59e0b", "#10b981"];
+
+      const glyph = {
+        P: "\u2659",
+        N: "\u2658",
+        B: "\u2657",
+        R: "\u2656",
+        Q: "\u2655",
+        K: "\u2654",
+        p: "\u265F",
+        n: "\u265E",
+        b: "\u265D",
+        r: "\u265C",
+        q: "\u265B",
+        k: "\u265A",
+      };
+
+      const startCounts = {
+        P: 8,
+        N: 2,
+        B: 2,
+        R: 2,
+        Q: 1,
+        K: 1,
+        p: 8,
+        n: 2,
+        b: 2,
+        r: 2,
+        q: 1,
+        k: 1,
+      };
+
+      function normalizeColor(c) {
+        if (!c) return "white";
+        const v = String(c).toLowerCase();
+        if (v === "w" || v === "white") return "white";
+        if (v === "b" || v === "black") return "black";
+        return "white";
+      }
+
+      function capKey(id) {
+        return `tinychess:${String(id || "")}:captured:v1`;
+      }
+
+      function loadJSON(key, fallback) {
+        try {
+          const raw = localStorage.getItem(key);
+          return raw ? JSON.parse(raw) : fallback;
+        } catch {
+          return fallback;
+        }
+      }
+      function saveJSON(key, val) {
+        try {
+          localStorage.setItem(key, JSON.stringify(val));
+        } catch {}
+      }
+
+      function countsFromFEN(fen) {
+        const boardOnly = (fen || START_FEN).split(" ")[0] || "";
+        const c = {
+          P: 0,
+          N: 0,
+          B: 0,
+          R: 0,
+          Q: 0,
+          K: 0,
+          p: 0,
+          n: 0,
+          b: 0,
+          r: 0,
+          q: 0,
+          k: 0,
+        };
+        for (let i = 0; i < boardOnly.length; i++) {
+          const ch = boardOnly[i];
+          if (/[prnbqkPRNBQK]/.test(ch)) c[ch] = (c[ch] || 0) + 1;
+        }
+        return c;
+      }
+
+      function capturedFromFEN(fen) {
+        const cur = countsFromFEN(fen);
+
+        const lostWhite = { P: 0, N: 0, B: 0, R: 0, Q: 0, K: 0 };
+        for (const k in lostWhite)
+          lostWhite[k] = Math.max(0, (startCounts[k] || 0) - (cur[k] || 0));
+
+        const lostBlack = { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 };
+        for (const k in lostBlack)
+          lostBlack[k] = Math.max(0, (startCounts[k] || 0) - (cur[k] || 0));
+
+        const byWhite = [];
+        const byBlack = [];
+
+        for (const k in lostBlack)
+          for (let i = 0; i < lostBlack[k]; i++) byWhite.push(glyph[k]);
+        for (const k in lostWhite)
+          for (let i = 0; i < lostWhite[k]; i++) byBlack.push(glyph[k]);
+
+        return { byWhite, byBlack };
+      }
+
+      function deriveLastMoveSquares(uciList) {
+        if (!uciList || !uciList.length) return [];
+        const mv = uciList[uciList.length - 1] || "";
+        const base = mv.length >= 4 ? mv.slice(0, 4) : "";
+        if (base.length !== 4) return [];
+        return [base.slice(0, 2), base.slice(2, 4)];
+      }
+
+      function formatPGNLines(pgn) {
+        if (!pgn) return "";
+        const tokens = pgn.trim().split(/\s+/);
+        const lines = [];
+        let line = [];
+        for (let i = 0; i < tokens.length; i++) {
+          const t = tokens[i];
+          if (/^\d+\.$/.test(t)) {
+            if (line.length) lines.push(line.join(" "));
+            line = [t];
+          } else if (/^(1-0|0-1|1\/2-1\/2|\*)$/.test(t)) {
+            if (line.length) {
+              lines.push(line.join(" "));
+              line = [];
+            }
+          } else {
+            line.push(t);
+          }
+        }
+        if (line.length) lines.push(line.join(" "));
+        return lines.join("\n");
+      }
+
+      function useTheme() {
+        const root = document.documentElement;
+        const initialTheme = localStorage.getItem("theme") || "dark";
+        const initialAccent =
+          localStorage.getItem("accent") ||
+          getComputedStyle(root).getPropertyValue("--accent").trim() ||
+          "#6ee7ff";
+
+        const [theme, setTheme] = useState(initialTheme);
+        const [accent, setAccent] = useState(initialAccent);
+
+        useEffect(() => {
+          root.setAttribute("data-theme", theme);
+          localStorage.setItem("theme", theme);
+        }, [theme]);
+
+        useEffect(() => {
+          root.style.setProperty("--accent", accent);
+          localStorage.setItem("accent", accent);
+        }, [accent]);
+
+        return { theme, setTheme, accent, setAccent };
+      }
+
+      function useGame(gameId) {
+        const [clientId, setClientId] = useState(
+          () => sessionStorage.getItem(CLIENT_ID_KEY) || ""
+        );
+        const [playerColor, setPlayerColor] = useState("white");
+        const [playerColorSet, setPlayerColorSet] = useState(false);
+        const [isSpectator, setIsSpectator] = useState(false);
+
+        const [fen, setFen] = useState(START_FEN);
+        const [turn, setTurn] = useState("");
+        const [pgn, setPgn] = useState("");
+        const [uci, setUci] = useState([]);
+        const [status, setStatus] = useState("");
+        const [gameOver, setGameOver] = useState(false);
+        const [lastMoveSquares, setLastMoveSquares] = useState([]);
+
+        // Emoji “effects”
+        const [bigEmoji, setBigEmoji] = useState(null);
+        const [bursts, setBursts] = useState([]);
+
+        const showReaction = (emoji, fromOther = false) => {
+          // Big center flash
+          setBigEmoji(emoji);
+          window.setTimeout(() => setBigEmoji(null), 1200);
+
+          // Small burst list
+          const id = `${Date.now()}-${Math.random()}`;
+          setBursts((xs) => xs.concat([{ id, emoji }]));
+          window.setTimeout(
+            () => setBursts((xs) => xs.filter((x) => x.id !== id)),
+            1600
+          );
+
+          // (you can also decide to ignore own emoji here if you want)
+        };
+
+        useEffect(() => {
+          if (!gameId) return;
+
+          let url = `/sse/${gameId}`;
+          if (clientId) url += `?clientId=${encodeURIComponent(clientId)}`;
+
+          const es = new EventSource(url);
+
+          es.onmessage = (ev) => {
+            const st = JSON.parse(ev.data || "{}");
+            if (st.kind === "emoji") {
+              if (st.sender !== clientId) showReaction(st.emoji, true);
+              return;
+            }
+            if (st.kind !== "state") return;
+
+            // client id assignment
+            if (!clientId && st.clientId) {
+              setClientId(st.clientId);
+              try {
+                sessionStorage.setItem(CLIENT_ID_KEY, st.clientId);
+              } catch {}
+            }
+
+            if (st.role === "spectator") setIsSpectator(true);
+
+            if (!playerColorSet && st.color) {
+              setPlayerColor(normalizeColor(st.color));
+              setPlayerColorSet(true);
+            }
+
+            setFen(st.fen || START_FEN);
+            setTurn(normalizeColor(st.turn));
+            setPgn(st.pgn || "");
+            setUci(Array.isArray(st.uci) ? st.uci : []);
+            setStatus(st.status || "");
+            setGameOver(!!st.status);
+            setLastMoveSquares(
+              deriveLastMoveSquares(Array.isArray(st.uci) ? st.uci : [])
+            );
+          };
+
+          es.onerror = () => {
+            // you can expose a “disconnected” flag if you want
+          };
+
+          return () => es.close();
+          // NOTE: we intentionally do NOT depend on playerColorSet here
+          // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, [gameId, clientId]);
+
+        return {
+          clientId,
+          setClientId,
+          playerColor,
+          isSpectator,
+          setIsSpectator,
+          playerColorSet,
+          setPlayerColorSet,
+          fen,
+          turn,
+          pgn,
+          uci,
+          status,
+          gameOver,
+          lastMoveSquares,
+          bigEmoji,
+          bursts,
+          showReaction,
+        };
+      }
+
+      function cellSquare(displayRow, displayCol, playerColor) {
+        // displayRow 0..7 top-to-bottom, displayCol 0..7 left-to-right
+        if (playerColor === "black") {
+          const file = String.fromCharCode(
+            "a".charCodeAt(0) + (7 - displayCol)
+          );
+          const rank = String(displayRow + 1);
+          return file + rank;
+        }
+        const file = String.fromCharCode("a".charCodeAt(0) + displayCol);
+        const rank = String(8 - displayRow);
+        return file + rank;
+      }
+
+      function boardFromFEN(fen, playerColor) {
+        const ranks = (fen || START_FEN).split(" ")[0].split("/");
+        const out = [];
+        for (let r = 0; r < 8; r++) {
+          const fenRank = ranks[playerColor === "black" ? 7 - r : r];
+          const cells = [];
+          for (let i = 0; i < fenRank.length; i++) {
+            const ch = fenRank[i];
+            if (/\d/.test(ch)) {
+              const n = parseInt(ch, 10);
+              for (let k = 0; k < n; k++) cells.push("");
+            } else {
+              cells.push(ch);
+            }
+          }
+          const row = [];
+          for (let c = 0; c < 8; c++) {
+            row.push(cells[playerColor === "black" ? 7 - c : c] || "");
+          }
+          out.push(row);
+        }
+        return out; // 8x8 of piece chars (or "")
+      }
+
+      function ThemeControls({ theme, setTheme, accent, setAccent }) {
+        return h(
+          "div",
+          { className: "theme", id: "themectl" },
+          ...ACCENTS.map((a) =>
+            h("button", {
+              key: a,
+              className: `swatch ${a === accent ? "active" : ""}`,
+              "data-accent": a,
+              style: { background: a },
+              onClick: () => setAccent(a),
+            })
+          ),
+          h("button", {
+            className: `mode ${theme === "light" ? "active" : ""}`,
+            "data-theme": "light",
+            style: { background: "#ffffff" },
+            onClick: () => setTheme("light"),
+          }),
+          h("button", {
+            className: `mode ${theme === "dark" ? "active" : ""}`,
+            "data-theme": "dark",
+            style: { background: "#000000" },
+            onClick: () => setTheme("dark"),
+          })
+        );
+      }
+
+      // a stable “message type” so you can filter these out of the visible chat UI
+      const COACH_EVENT = "tinychess:coach_after_move_v1";
+
+      function CoachChat({ gameState }) {
+        // gameState should come from your React-ified SSE layer:
+        // { fen, uci: string[], pgn, playerColor, isSpectator, gameId }
+        const { fen, uci, playerColor, isSpectator, gameId } = gameState;
+
+        const chat = useChat({
+          model: "gpt-4o-mini",
+          system: [
+            "You are Scooter, a friendly chess coach integrated into Tiny Chess.",
+            "",
+            "HARD RULES (anti-cheat):",
+            "- You may ONLY comment on the player's MOST RECENT move that has ALREADY been played.",
+            "- You may suggest a BETTER alternative ONLY from the position BEFORE that move.",
+            "- Do NOT suggest what to play next from the current position.",
+            "- If asked 'what's the best move now' or similar, refuse briefly.",
+            "",
+            "When you receive JSON with type 'tinychess:coach_after_move_v1', use it as the source of truth.",
+            "Keep replies short: 2–5 sentences, optionally one concrete tactical/strategic reason.",
+          ].join("\n"),
+          tools: [],
+        });
+
+        // Track previous state so we can supply beforeFen and avoid duplicate coach calls.
+        const prevFenRef = useRef(fen);
+        const prevUciLenRef = useRef(Array.isArray(uci) ? uci.length : 0);
+        const lastCoachedPlyRef = useRef(-1);
+
+        useEffect(() => {
+          const curLen = Array.isArray(uci) ? uci.length : 0;
+          const prevLen = prevUciLenRef.current;
+
+          if (!gameId || isSpectator) {
+            prevFenRef.current = fen;
+            prevUciLenRef.current = curLen;
+            return;
+          }
+
+          // a move happened
+          if (curLen > prevLen) {
+            const ply = curLen; // 1-based ply count
+            const lastMove = uci[curLen - 1];
+
+            // “was this move made by me?” using parity + my color
+            const lastIndex = curLen - 1; // 0-based index in uci list
+            const byWhite = lastIndex % 2 === 0;
+            const byMe =
+              (playerColor === "white" && byWhite) ||
+              (playerColor === "black" && !byWhite);
+
+            // only coach my moves, and only once per ply
+            if (byMe && lastCoachedPlyRef.current !== ply) {
+              lastCoachedPlyRef.current = ply;
+
+              const payload = {
+                type: COACH_EVENT,
+                gameId,
+                ply,
+                playerColor,
+                beforeFen: prevFenRef.current, // position BEFORE my move
+                moveUci: lastMove,
+              };
+
+              // send as a structured JSON user message (Hashbrown supports this)
+              chat.sendMessage({ role: "user", content: payload });
+            }
+          }
+
+          prevFenRef.current = fen;
+          prevUciLenRef.current = curLen;
+        }, [fen, uci, playerColor, isSpectator, gameId]);
+
+        // Render only *human* user messages + assistant messages.
+        // (Filter out the JSON “coach events” so the chat UI doesn’t look weird.)
+        const visible = (chat.messages || []).filter((m) => {
+          if (m.role !== "user") return true;
+          if (typeof m.content === "string") return true;
+          return !(m.content && m.content.type === COACH_EVENT);
+        });
+
+        return React.createElement(
+          "div",
+          { className: "coach-panel open" },
+          React.createElement(
+            "div",
+            { className: "coach-messages" },
+            visible.map((m, i) =>
+              React.createElement(
+                "div",
+                { key: i, className: `coach-message ${m.role}` },
+                typeof m.content === "string"
+                  ? m.content
+                  : JSON.stringify(m.content)
+              )
+            )
+          )
+        );
+      }
+
+      function App() {
+        // gameId fallback logic (same as your vanilla)
         const idFromServerRaw = "{{GAME_ID}}";
         const gameId =
           idFromServerRaw && idFromServerRaw !== "{{GAME_ID}}"
             ? idFromServerRaw
             : location.pathname.replace(/^\/+/, "");
-        const boardEl = document.getElementById("board");
-        const statusEl = document.getElementById("status");
-        const turnEl = document.getElementById("turn");
-        const pgnEl = document.getElementById("pgn");
-        const movesEl = document.querySelector(".moves");
-        const lanEl = document.getElementById("lan");
-        const capWhiteEl = document.getElementById("cap_by_white");
-        const capBlackEl = document.getElementById("cap_by_black");
-        const rxEl = document.getElementById("rx");
-        const reactBtn = document.getElementById("reactbtn");
-        const emojiDialog = document.getElementById("emojiDialog");
-        const emojiPicker = document.getElementById("emojiPicker");
-        const recentEl = document.getElementById("recent-emojis");
-        const RECENT_EMOJI_KEY = "tinychess:recentEmojis:v1";
 
-        // Orientation (default white; updated from server message)
-        let playerColor = "white";
-        let playerColorSet = false;
-        let isSpectator = false;
-        let gameOver = false;
-        let prevCaptured = { byWhite: [], byBlack: [] };
+        const { theme, setTheme, accent, setAccent } = useTheme();
+        const game = useGame(gameId);
 
-        function loadRecent() {
-          try {
-            return JSON.parse(localStorage.getItem(RECENT_EMOJI_KEY) || "[]");
-          } catch {
-            return [];
+        const [selected, setSelected] = useState(null);
+
+        const board = useMemo(
+          () => boardFromFEN(game.fen, game.playerColor),
+          [game.fen, game.playerColor]
+        );
+        const caps = useMemo(() => capturedFromFEN(game.fen), [game.fen]);
+
+        // Persist captured per game (and prefill on first mount)
+        const [persistedCaps, setPersistedCaps] = useState(() =>
+          loadJSON(capKey(gameId), null)
+        );
+
+        useEffect(() => {
+          if (persistedCaps && persistedCaps.byWhite && persistedCaps.byBlack) {
+            // no-op; used for initial render while SSE is coming in
           }
-        }
-        function saveRecent(list) {
-          try {
-            localStorage.setItem(RECENT_EMOJI_KEY, JSON.stringify(list));
-          } catch {}
-        }
-        function renderRecent(list) {
-          if (!recentEl) return;
-          recentEl.innerHTML = "";
-          for (const em of list) {
-            const b = document.createElement("button");
-            b.className = "react";
-            b.textContent = em;
-            b.addEventListener("click", () => sendReaction(em, b));
-            recentEl.appendChild(b);
-          }
-        }
-        function rememberEmoji(em) {
-          let arr = loadRecent();
-          arr = arr.filter((x) => x !== em);
+          // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, []);
+
+        useEffect(() => {
+          setPersistedCaps(caps);
+          saveJSON(capKey(gameId), caps);
+        }, [caps, gameId]);
+
+        const COOLDOWN_MS = 5000;
+        const lastReactRef = useRef(0);
+        const [reactDisabled, setReactDisabled] = useState(false);
+
+        const recent = useMemo(() => loadJSON(RECENT_EMOJI_KEY, []), []);
+        const [recentEmojis, setRecentEmojis] = useState(recent);
+
+        const rememberEmoji = (em) => {
+          let arr = (recentEmojis || []).filter((x) => x !== em);
           arr.unshift(em);
           if (arr.length > 15) arr = arr.slice(0, 15);
-          saveRecent(arr);
-          renderRecent(arr);
-        }
-        renderRecent(loadRecent());
-
-        function normalizeColor(c) {
-          if (!c) return "white";
-          const v = String(c).toLowerCase();
-          if (v === "w" || v === "white") return "white";
-          if (v === "b" || v === "black") return "black";
-          return "white";
-        }
-
-        // Theme picker
-        const root = document.documentElement;
-        let theme = localStorage.getItem("theme") || "dark";
-        let accent =
-          localStorage.getItem("accent") ||
-          getComputedStyle(root).getPropertyValue("--accent").trim() ||
-          "#6ee7ff";
-        root.setAttribute("data-theme", theme);
-        root.style.setProperty("--accent", accent);
-        function markActive() {
-          var sw = document.querySelectorAll(".swatch");
-          for (var i = 0; i < sw.length; i++) {
-            if (sw[i].getAttribute("data-accent") === accent)
-              sw[i].classList.add("active");
-            else sw[i].classList.remove("active");
-          }
-          var md = document.querySelectorAll(".mode");
-          for (var j = 0; j < md.length; j++) {
-            if (md[j].getAttribute("data-theme") === theme)
-              md[j].classList.add("active");
-            else md[j].classList.remove("active");
-          }
-        }
-        markActive();
-        document.addEventListener("click", (e) => {
-          const t = e.target;
-          if (t.matches(".swatch")) {
-            accent = t.getAttribute("data-accent");
-            root.style.setProperty("--accent", accent);
-            localStorage.setItem("accent", accent);
-            markActive();
-          } else if (t.matches(".mode")) {
-            theme = t.getAttribute("data-theme");
-            root.setAttribute("data-theme", theme);
-            localStorage.setItem("theme", theme);
-            markActive();
-          }
-        });
-
-        // ----- Pieces -----
-        const glyph = {
-          P: "\u2659",
-          N: "\u2658",
-          B: "\u2657",
-          R: "\u2656",
-          Q: "\u2655",
-          K: "\u2654",
-          p: "\u265F",
-          n: "\u265E",
-          b: "\u265D",
-          r: "\u265C",
-          q: "\u265B",
-          k: "\u265A",
+          setRecentEmojis(arr);
+          saveJSON(RECENT_EMOJI_KEY, arr);
         };
-        let selected = null;
-        let lastMoveSquares = []; // [from, to]
 
-        // Reactions
-        const COOLDOWN_MS = 5000;
-        let lastReact = 0;
-        if (reactBtn && emojiDialog && emojiPicker) {
-          reactBtn.addEventListener("click", function () {
-            emojiDialog.showModal();
-          });
-          emojiPicker.addEventListener("emoji-click", function (ev) {
-            emojiDialog.close();
-            sendReaction(ev.detail.unicode, reactBtn);
-          });
-        }
+        const [statusMsg, setStatusMsg] = useState("");
+        const [statusErr, setStatusErr] = useState(false);
 
-        function showReaction(e) {
-          // Big flash (center screen)
-          const big = document.createElement("div");
-          big.textContent = e;
-          big.className = "big-emoji";
-          document.body.appendChild(big);
-          setTimeout(() => big.remove(), 1200);
+        const setStatus = (msg, isErr = false) => {
+          setStatusMsg(msg || "");
+          setStatusErr(!!isErr);
+        };
 
-          // Small burst under reactions area
-          if (rxEl) {
-            const small = document.createElement("span");
-            small.textContent = e;
-            small.className = "burst";
-            rxEl.appendChild(small);
-            setTimeout(() => small.remove(), 1600);
-          }
-        }
+        useEffect(() => {
+          setStatus(game.status || "", false);
+        }, [game.status]);
 
-        async function sendReaction(emoji, btn) {
-          rememberEmoji(emoji);
-          if (!gameId) return;
-          const now = Date.now();
-          if (now - lastReact < COOLDOWN_MS) {
-            if (btn) {
-              btn.style.background = "var(--err)";
-              setTimeout(() => (btn.style.background = ""), 600);
-            }
-            status("Hold up… cooldown", true);
-            return;
-          }
-          lastReact = now;
-          if (btn) {
-            btn.disabled = true;
-            setTimeout(() => (btn.disabled = false), COOLDOWN_MS);
-          }
-
-          try {
-            const res = await fetch("/react/" + gameId, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ emoji: emoji, sender: clientId }),
-            });
-            const j = await res.json();
-            if (!j.ok) {
-              if (btn) {
-                btn.style.background = "var(--err)";
-                setTimeout(() => (btn.style.background = ""), 600);
-              }
-              status(j.error || "reaction failed", true);
-            } else {
-              if (btn) {
-                btn.style.background = "var(--ok)";
-                setTimeout(() => (btn.style.background = ""), 600);
-              }
-              // Show locally immediately so the sender also sees it
-              showReaction(emoji);
-            }
-          } catch (_) {
-            if (btn) {
-              btn.style.background = "var(--err)";
-              setTimeout(() => (btn.style.background = ""), 600);
-            }
-          }
-        }
-
-
-        // --- board helpers ---
-        function cellSquare(row, col) {
-          if (playerColor === "black") {
-            const file = String.fromCharCode("a".charCodeAt(0) + (7 - col));
-            const rank = String(row + 1);
-            return file + rank;
-          }
-          const file = String.fromCharCode("a".charCodeAt(0) + col);
-          const rank = String(8 - row);
-          return file + rank;
-        }
-
-        function renderFEN(fen) {
-          const board = fen.split(" ")[0].split("/");
-          boardEl.innerHTML = "";
-
-          for (let r = 0; r < 8; r++) {
-            const row = document.createElement("div");
-            row.className = "rank";
-            const fenRank = board[playerColor === "black" ? 7 - r : r];
-            const cells = [];
-
-            for (let i = 0; i < fenRank.length; i++) {
-              const ch = fenRank[i];
-              if (/\d/.test(ch)) {
-                const n = parseInt(ch, 10);
-                for (let k = 0; k < n; k++) cells.push("");
-              } else {
-                cells.push(ch);
-              }
-            }
-
-            for (let c = 0; c < 8; c++) {
-              const piece = cells[playerColor === "black" ? 7 - c : c] || "";
-              const cell = document.createElement("div");
-              cell.className = "cell " + ((r + c) % 2 === 1 ? "light" : "dark"); // a8 dark
-              const sq = cellSquare(r, c);
-              cell.dataset.square = sq;
-
-              if (piece) {
-                const isWhite = piece === piece.toUpperCase();
-                cell.textContent = glyph[piece] || "";
-                cell.classList.add(isWhite ? "white-piece" : "black-piece");
-              } else {
-                cell.textContent = "";
-              }
-
-              // coordinates
-              if (
-                (playerColor === "white" && r === 7) ||
-                (playerColor === "black" && r === 0)
-              ) {
-                const f = document.createElement("span");
-                f.className = "coord coord-file";
-                f.textContent = sq[0];
-                cell.appendChild(f);
-              }
-              if (
-                (playerColor === "white" && c === 0) ||
-                (playerColor === "black" && c === 7)
-              ) {
-                const rr = document.createElement("span");
-                rr.className = "coord coord-rank";
-                rr.textContent = sq[1];
-                cell.appendChild(rr);
-              }
-
-              if (selected && sq === selected) cell.classList.add("sel");
-              if (
-                lastMoveSquares.length &&
-                (sq === lastMoveSquares[0] || sq === lastMoveSquares[1])
-              ) {
-                cell.classList.add("last-move");
-              }
-              row.appendChild(cell);
-            }
-            boardEl.appendChild(row);
-          }
-        }
-
-        function renderSelected() {
-          document.querySelectorAll(".cell").forEach(function (el) {
-            el.classList.toggle("sel", el.dataset.square === selected);
-          });
-        }
+        const myTurnText = useMemo(() => {
+          if (game.status) return "Game over";
+          const t = normalizeColor(game.turn);
+          if (game.isSpectator) return t || "";
+          if (t === game.playerColor) return "Your turn";
+          return "Their turn";
+        }, [game.status, game.turn, game.isSpectator, game.playerColor]);
 
         async function makeMove(uci) {
-          if (!gameId) {
-            status("No game id");
-            return;
-          }
-          console.log("Attempting move:", uci);
+          if (!gameId) return setStatus("No game id", true);
           try {
-            const res = await fetch("/move/" + gameId, {
+            const res = await fetch(`/move/${gameId}`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ uci: uci, clientId: clientId }),
+              body: JSON.stringify({ uci, clientId: game.clientId }),
+            });
+            const j = await res.json();
+            if (!j.ok)
+              setStatus("Illegal move: " + (j.error || "unknown"), true);
+          } catch (e) {
+            setStatus("Network error", true);
+          }
+        }
+
+        async function sendReaction(emoji) {
+          rememberEmoji(emoji);
+          if (!gameId) return;
+
+          const now = Date.now();
+          if (now - lastReactRef.current < COOLDOWN_MS) {
+            setStatus("Hold up… cooldown", true);
+            return;
+          }
+          lastReactRef.current = now;
+          setReactDisabled(true);
+          window.setTimeout(() => setReactDisabled(false), COOLDOWN_MS);
+
+          try {
+            const res = await fetch(`/react/${gameId}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ emoji, sender: game.clientId }),
             });
             const j = await res.json();
             if (!j.ok) {
-              console.log("Move failed:", j.error);
-              status("Illegal move: " + (j.error || "unknown"), true);
+              setStatus(j.error || "reaction failed", true);
             } else {
-              console.log("Move successful");
+              // show locally
+              game.showReaction(emoji, false);
             }
-          } catch (err) {
-            console.log("Network error:", err);
-            status("Network error", true);
+          } catch {
+            setStatus("reaction failed", true);
           }
         }
 
-        // Board-level click handler
-        boardEl.addEventListener("click", (e) => {
-          if (isSpectator || gameOver) return;
-          const rect = boardEl.getBoundingClientRect();
-          const x = Math.min(
-            Math.max(0, e.clientX - rect.left),
-            rect.width - 0.01
-          );
-          const y = Math.min(
-            Math.max(0, e.clientY - rect.top),
-            rect.height - 0.01
-          );
-          let col = Math.floor((x / rect.width) * 8);
-          let row = Math.floor((y / rect.height) * 8);
-          const sq = cellSquare(row, col); // uses playerColor for orientation
-
-          console.log("Click at row:", row, "col:", col, "square:", sq);
-
-          if (!selected) {
-            selected = sq;
-            console.log("Selected:", sq);
-            renderSelected();
-            return;
-          }
-          if (selected === sq) {
-            selected = null;
-            console.log("Deselected");
-            renderSelected();
-            return;
-          }
-          const uci = (selected + sq).toLowerCase();
-          console.log("Making move from", selected, "to", sq, "UCI:", uci);
-          selected = null;
-          renderSelected();
-          makeMove(uci);
-        });
-
-        function status(msg, isErr) {
-          statusEl.textContent = msg || "";
-          statusEl.style.color = isErr ? "var(--err)" : "inherit";
-        }
-
-        function updateTurn(st) {
-          if (!turnEl) return;
-          if (st.status) {
-            turnEl.textContent = "Game over";
-            return;
-          }
-          const t = normalizeColor(st.turn);
-          if (isSpectator) {
-            turnEl.textContent = t || "";
-          } else if (t === playerColor) {
-            turnEl.textContent = "Your turn";
-          } else {
-            turnEl.textContent = "Their turn";
-          }
-        }
-
-        // ---- Captured pieces (derived from FEN) + persisted per game ----
-        var startCounts = {
-          P: 8,
-          N: 2,
-          B: 2,
-          R: 2,
-          Q: 1,
-          K: 1,
-          p: 8,
-          n: 2,
-          b: 2,
-          r: 2,
-          q: 1,
-          k: 1,
-        };
-
-        function countsFromFEN(fen) {
-          var boardOnly = fen.split(" ")[0];
-          var c = {
-            P: 0,
-            N: 0,
-            B: 0,
-            R: 0,
-            Q: 0,
-            K: 0,
-            p: 0,
-            n: 0,
-            b: 0,
-            r: 0,
-            q: 0,
-            k: 0,
-          };
-          for (var i = 0; i < boardOnly.length; i++) {
-            var ch = boardOnly[i];
-            if (/[prnbqkPRNBQK]/.test(ch)) c[ch] = (c[ch] || 0) + 1;
-          }
-          return c;
-        }
-
-        function capturedFromFEN(fen) {
-          var cur = countsFromFEN(fen);
-
-          var lostWhite = { P: 0, N: 0, B: 0, R: 0, Q: 0, K: 0 };
-          for (var k in lostWhite) {
-            lostWhite[k] = Math.max(0, (startCounts[k] || 0) - (cur[k] || 0));
-          }
-
-          var lostBlack = { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 };
-          for (var k2 in lostBlack) {
-            lostBlack[k2] = Math.max(
-              0,
-              (startCounts[k2] || 0) - (cur[k2] || 0)
-            );
-          }
-
-          var byWhite = [];
-          var byBlack = [];
-
-          for (var k3 in lostBlack) {
-            for (var i = 0; i < lostBlack[k3]; i++) byWhite.push(glyph[k3]);
-          }
-          for (var k4 in lostWhite) {
-            for (var j = 0; j < lostWhite[k4]; j++) byBlack.push(glyph[k4]);
-          }
-          return { byWhite: byWhite, byBlack: byBlack };
-        }
-
-        // --- formatting helpers ---
-        function formatPGNLines(pgn) {
-          if (!pgn) return "";
-          const tokens = pgn.trim().split(/\s+/);
-          const lines = [];
-          let line = [];
-          for (let i = 0; i < tokens.length; i++) {
-            const t = tokens[i];
-            if (/^\d+\.$/.test(t)) {
-              if (line.length) lines.push(line.join(" "));
-              line = [t];
-            } else if (/^(1-0|0-1|1\/2-1\/2|\*)$/.test(t)) {
-              if (line.length) {
-                lines.push(line.join(" "));
-                line = [];
-              }
+        async function releaseSeat() {
+          if (!gameId || !game.clientId) return;
+          try {
+            const resp = await fetch(`/release/${gameId}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                clientId: game.clientId,
+                targetId: game.clientId,
+              }),
+            });
+            const data = await resp.json().catch(() => null);
+            if (data && data.ok) {
+              game.setIsSpectator(true);
+              game.setPlayerColorSet(false);
+              setStatus("Seat released", false);
             } else {
-              line.push(t);
+              setStatus("Release failed", true);
             }
+          } catch {
+            setStatus("Release failed", true);
           }
-          if (line.length) lines.push(line.join(" "));
-          return lines.join("\n");
         }
 
-        function formatUCIMoves(uciList) {
-          if (!uciList || !uciList.length) return "";
-          let out = [];
-          for (let i = 0, n = 1; i < uciList.length; i += 2, n++) {
-            const w = uciList[i] || "";
-            const b = uciList[i + 1] || "";
-            out.push(b ? n + ". " + w + " " + b : n + ". " + w);
-          }
-          return out.join("\n");
-        }
-
-        function renderCaptured(byWhite, byBlack) {
-          capWhiteEl.textContent = "";
-          capBlackEl.textContent = "";
-          for (var i = 0; i < byWhite.length; i++) {
-            var s1 = document.createElement("span");
-            s1.textContent = byWhite[i];
-            s1.classList.add("black-piece");
-            if (i >= prevCaptured.byWhite.length) s1.classList.add("recent");
-            capWhiteEl.appendChild(s1);
-          }
-          for (var j = 0; j < byBlack.length; j++) {
-            var s2 = document.createElement("span");
-            s2.textContent = byBlack[j];
-            s2.classList.add("white-piece");
-            if (j >= prevCaptured.byBlack.length) s2.classList.add("recent");
-            capBlackEl.appendChild(s2);
-          }
-          prevCaptured.byWhite = byWhite.slice();
-          prevCaptured.byBlack = byBlack.slice();
-        }
-
-        function capKey(id) {
-          return "tinychess:" + String(id || "") + ":captured:v1";
-        }
-
-        // Prefill from storage to avoid blank on reload
-        try {
-          var saved = JSON.parse(
-            localStorage.getItem(capKey(gameId)) || "null"
-          );
-          if (saved && saved.byWhite && saved.byBlack)
-            renderCaptured(saved.byWhite, saved.byBlack);
-        } catch (e) {}
-
-        const releaseBtn = document.getElementById("release");
-        if (releaseBtn)
-          releaseBtn.addEventListener("click", async () => {
-            if (!gameId || !clientId) return;
-            try {
-              const resp = await fetch("/release/" + gameId, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  clientId: clientId,
-                  targetId: clientId,
-                }),
-              });
-              const data = await resp.json().catch(() => null);
-              if (data && data.ok) {
-                isSpectator = true;
-                playerColorSet = false;
-                releaseBtn.style.display = "none";
-                status("Seat released");
-              } else {
-                status("Release failed", true);
-              }
-            } catch (e) {
-              status("Release failed", true);
-            }
-          });
-        document.getElementById("copy").addEventListener("click", async () => {
+        async function copyLink() {
           try {
             await navigator.clipboard.writeText(location.href);
-            status("Link copied!");
-            setTimeout(() => status(""), 1200);
+            setStatus("Link copied!", false);
+            window.setTimeout(() => setStatus("", false), 1200);
           } catch {
-            status("Copy failed", true);
+            setStatus("Copy failed", true);
           }
-        });
+        }
 
-        // ---- local game index (per-browser) ----
-        const INDEX_KEY = "tinychess:games:v1";
-        function loadIndex() {
-          try {
-            return JSON.parse(localStorage.getItem(INDEX_KEY) || "{}");
-          } catch {
-            return {};
-          }
-        }
-        function saveIndex(m) {
-          try {
-            localStorage.setItem(INDEX_KEY, JSON.stringify(m));
-          } catch {}
-        }
-        function rememberGame(id) {
-          if (!id) return;
-          var m = loadIndex();
-          if (!m[id])
-            m[id] = {
-              id: id,
-              createdAt: Date.now(),
-              lastSeen: Date.now(),
-              moves: 0,
-              result: null,
-              status: "",
-            };
-          else m[id].lastSeen = Date.now();
-          saveIndex(m);
-        }
-        function setGameState(id, fields) {
-          if (!id) return;
-          var m = loadIndex();
-          m[id] = Object.assign(
-            m[id] || { id: id, createdAt: Date.now() },
-            fields
+        // Emoji picker dialog
+        const dialogRef = useRef(null);
+        const pickerRef = useRef(null);
+        useEffect(() => {
+          const picker = pickerRef.current;
+          if (!picker) return;
+          const onPick = (ev) => {
+            dialogRef.current?.close?.();
+            const unicode = ev?.detail?.unicode;
+            if (unicode) sendReaction(unicode);
+          };
+          picker.addEventListener("emoji-click", onPick);
+          return () => picker.removeEventListener("emoji-click", onPick);
+          // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, [sendReaction]);
+
+        const gameContext = useMemo(
+          () => ({
+            fen: game.fen,
+            turn: game.turn,
+            color: game.playerColor,
+            status: game.status,
+            uci: game.uci,
+          }),
+          [game.fen, game.turn, game.playerColor, game.status, game.uci]
+        );
+
+        const renderCell = (r, c) => {
+          const sq = cellSquare(r, c, game.playerColor);
+          const piece = board[r][c] || "";
+          const isWhitePiece = piece && piece === piece.toUpperCase();
+          const isLight = (r + c) % 2 === 1; // same as your vanilla: a8 dark
+
+          const showFile =
+            (game.playerColor === "white" && r === 7) ||
+            (game.playerColor === "black" && r === 0);
+          const showRank =
+            (game.playerColor === "white" && c === 0) ||
+            (game.playerColor === "black" && c === 7);
+
+          const isSelected = selected === sq;
+          const isLastMove =
+            game.lastMoveSquares.length &&
+            (sq === game.lastMoveSquares[0] || sq === game.lastMoveSquares[1]);
+
+          const onClick = () => {
+            if (game.isSpectator || game.gameOver) return;
+
+            if (!selected) return setSelected(sq);
+            if (selected === sq) return setSelected(null);
+
+            const uci = (selected + sq).toLowerCase();
+            setSelected(null);
+            makeMove(uci);
+          };
+
+          return h(
+            "div",
+            {
+              key: sq,
+              className:
+                "cell " +
+                (isLight ? "light" : "dark") +
+                (isSelected ? " sel" : "") +
+                (isLastMove ? " last-move" : ""),
+              "data-square": sq,
+              onClick,
+            },
+            piece
+              ? h(
+                  "span",
+                  { className: isWhitePiece ? "white-piece" : "black-piece" },
+                  glyph[piece] || ""
+                )
+              : null,
+            showFile
+              ? h("span", { className: "coord coord-file" }, sq[0])
+              : null,
+            showRank
+              ? h("span", { className: "coord coord-rank" }, sq[1])
+              : null
           );
-          saveIndex(m);
-        }
-        rememberGame(gameId);
+        };
 
-        // live updates
-        function deriveLastMoveSquares(uciList) {
-          if (!uciList || !uciList.length) return [];
-          const mv = uciList[uciList.length - 1] || "";
-          if (!mv) return [];
-          const base = mv.length >= 4 ? mv.slice(0, 4) : "";
-          if (base.length !== 4) return [];
-          return [base.slice(0, 2), base.slice(2, 4)];
-        }
+        const header = h(
+          "header",
+          null,
+          h(
+            "div",
+            { className: "title" },
+            h("span", { className: "chess-icon" }, "♙"),
+            h(
+              "a",
+              {
+                href: "..",
+                style: { color: "inherit", textDecoration: "none" },
+              },
+              "Tiny Chess"
+            )
+          ),
+          h("div", { style: { flex: 1 } }),
+          h(ThemeControls, { theme, setTheme, accent, setAccent }),
+          h("button", { className: "btn", onClick: copyLink }, "Copy link"),
+          h("a", { className: "btn", href: "/new" }, "New game")
+        );
 
-        // Render start position immediately (prevents blank board)
-        renderFEN(START_FEN);
-        turnEl.textContent = "";
-        status("");
+        const moves = (game.pgn || "").trim()
+          ? h(
+              "div",
+              { className: "moves", style: { display: "block" } },
+              h(
+                "pre",
+                { id: "pgn", className: "mono" },
+                formatPGNLines(game.pgn || "")
+              )
+            )
+          : h(
+              "div",
+              { className: "moves" },
+              h("pre", { id: "pgn", className: "mono" }, "")
+            );
 
-        if (gameId) {
-          let sseURL = "/sse/" + gameId;
-          if (clientId) sseURL += "?clientId=" + encodeURIComponent(clientId);
-          const es = new EventSource(sseURL);
-          es.onmessage = (ev) => {
-            const st = JSON.parse(ev.data || "{}");
-            if (st.kind === "emoji") {
-              if (st.sender !== clientId) showReaction(st.emoji);
-              return;
-            }
-            if (st.kind === "state") {
-              if (!clientId && st.clientId) {
-                clientId = st.clientId;
-                try {
-                  sessionStorage.setItem(CLIENT_ID_KEY, clientId);
-                } catch {}
-              }
-              if (st.role === "spectator") {
-                isSpectator = true;
-              }
-              if (!playerColorSet) {
-                playerColor = normalizeColor(st.color);
-                playerColorSet = true;
-              }
-              if (releaseBtn)
-                releaseBtn.style.display = isSpectator ? "none" : "";
-              lastMoveSquares = deriveLastMoveSquares(st.uci || []);
-              renderFEN(st.fen);
-              updateTurn(st);
-              pgnEl.textContent = formatPGNLines(st.pgn || "");
-              movesEl.style.display = (st.pgn || "").trim()
-                ? "block"
-                : "none";
-              lanEl.textContent = formatUCIMoves(st.uci || []);
-              status(st.status || "");
-              gameOver = !!st.status;
-              const caps = capturedFromFEN(st.fen);
-              renderCaptured(caps.byWhite, caps.byBlack);
-              try {
-                localStorage.setItem(capKey(gameId), JSON.stringify(caps));
-              } catch {}
+        const captured = persistedCaps || caps;
 
-              // Persist summary to recent list
-              var resultFromPGN = (function () {
-                var txt = (st.pgn || "").trim();
-                var m = txt.match(/\b(1-0|0-1|1\/2-1\/2|\*)\b\s*$/);
-                return m ? (m[1] === "*" ? null : m[1]) : null;
-              })();
-              var finishedNow =
-                !!resultFromPGN ||
-                (!!st.status && /(1-0|0-1|1\/2-1\/2)/.test(st.status || ""));
-              setGameState(gameId, {
-                moves: Array.isArray(st.uci) ? st.uci.length : 0,
-                status: st.status || "",
-                result:
-                  resultFromPGN ||
-                  (function () {
-                    var m = (st.status || "").match(/(1-0|0-1|1\/2-1\/2)/);
-                    return m ? m[1] : null;
-                  })(),
-                finishedAt: finishedNow ? Date.now() : undefined,
-                lastSeen: st.lastSeen,
-                color: st.color ? normalizeColor(st.color) : null,
-                role: st.role || "",
-              });
-            }
-          };
-          es.onopen = () => {
-            status("");
-          };
-          es.onerror = () => {
-            status("Disconnected. Reconnecting…", true);
-          };
-        }
-      })();
+        const panel = h(
+          "div",
+          { className: "panel" },
+          h(
+            "div",
+            { id: "captured", className: "captured" },
+            h(
+              "div",
+              { className: "row" },
+              h("strong", null, "White captured:"),
+              h(
+                "span",
+                { id: "cap_by_white", className: "caps" },
+                ...(captured.byWhite || []).map((em, i) =>
+                  h("span", { key: `w-${i}`, className: "black-piece" }, em)
+                )
+              )
+            ),
+            h(
+              "div",
+              { className: "row" },
+              h("strong", null, "Black captured:"),
+              h(
+                "span",
+                { id: "cap_by_black", className: "caps" },
+                ...(captured.byBlack || []).map((em, i) =>
+                  h("span", { key: `b-${i}`, className: "white-piece" }, em)
+                )
+              )
+            )
+          ),
+
+          h(
+            "div",
+            { className: "row" },
+            h("strong", null, "Turn:"),
+            " ",
+            h("span", { id: "turn" }, myTurnText)
+          ),
+          h(
+            "div",
+            {
+              className: "status",
+              id: "status",
+              style: { color: statusErr ? "var(--err)" : "inherit" },
+            },
+            statusMsg
+          ),
+
+          h(
+            "div",
+            { className: "rx", id: "rx" },
+            ...(game.bursts || []).map((b) =>
+              h("span", { key: b.id, className: "burst" }, b.emoji)
+            )
+          ),
+
+          h(
+            "div",
+            { className: "actions" },
+            h(
+              "div",
+              { className: "row" },
+              h(
+                "button",
+                {
+                  className: "react",
+                  id: "reactbtn",
+                  title: "Send reaction",
+                  disabled: reactDisabled,
+                  onClick: () => dialogRef.current?.showModal?.(),
+                },
+                "😀"
+              ),
+              h(
+                "div",
+                { className: "recent-emojis", id: "recent-emojis" },
+                ...(recentEmojis || []).map((em) =>
+                  h(
+                    "button",
+                    {
+                      key: em,
+                      className: "react",
+                      onClick: () => sendReaction(em),
+                      disabled: reactDisabled,
+                    },
+                    em
+                  )
+                )
+              )
+            ),
+            game.isSpectator
+              ? null
+              : h(
+                  "button",
+                  { className: "btn", id: "release", onClick: releaseSeat },
+                  "Release seat"
+                )
+          )
+        );
+
+        const boardEl = h(
+          "div",
+          { className: "board", id: "board", "aria-label": "Chess board" },
+          ...Array.from({ length: 8 }).map((_, r) =>
+            h(
+              "div",
+              { key: `rank-${r}`, className: "rank" },
+              ...Array.from({ length: 8 }).map((_, c) => renderCell(r, c))
+            )
+          )
+        );
+
+        return h(
+          React.Fragment,
+          null,
+          header,
+          h(
+            "div",
+            { className: "wrap" },
+            h("div", { className: "play" }, boardEl, moves),
+            panel
+          ),
+
+          // Emoji dialog + picker custom element
+          h(
+            "dialog",
+            { id: "emojiDialog", ref: dialogRef },
+            h("emoji-picker", { id: "emojiPicker", ref: pickerRef })
+          ),
+
+          // Big emoji overlay (center screen)
+          game.bigEmoji
+            ? h("div", { className: "big-emoji" }, game.bigEmoji)
+            : null,
+
+          // Coach (wrapped in provider below)
+          h(CoachChat, { gameId, clientId: game.clientId, gameContext }),
+
+          h(
+            "footer",
+            null,
+            "Version: ",
+            h(
+              "a",
+              {
+                href: "https://github.com/dustywusty/tinychess/tree/{{COMMIT}}",
+              },
+              "{{COMMIT}}"
+            )
+          )
+        );
+      }
+
+      // Mount
+      const root = createRoot(document.getElementById("app"));
+
+      // If you keep the coach endpoint same-origin, you avoid CORS headaches.
+      // If you *want* localhost:3000 in dev, swap url accordingly.
+      root.render(
+        h(
+          HashbrownProvider,
+          {
+            url: "/api/chat",
+            models: [
+              {
+                id: "gpt-4o-mini",
+                capabilities: { streaming: true, chat: true },
+              },
+            ],
+          },
+          h(App)
+        )
+      );
     </script>
   </body>
 </html>
