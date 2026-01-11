@@ -1,0 +1,33 @@
+name: E2E
+
+on:
+  pull_request:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Run e2e tests
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
+          CHROMEDP_NO_SANDBOX: "1"
+          E2E_RECORD: "1"
+          E2E_RECORD_FORMAT: gif
+          E2E_RECORD_FPS: "6"
+        run: make test-e2e
+      - name: Upload e2e gifs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-gifs
+          path: e2e-artifacts
+          if-no-files-found: warn
+          retention-days: 7
