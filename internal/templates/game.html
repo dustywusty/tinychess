@@ -725,6 +725,7 @@
         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
       const CLIENT_ID_KEY = "tinychess:clientId";
       const RECENT_EMOJI_KEY = "tinychess:recentEmojis:v1";
+      const RECENT_GAMES_KEY = "tinychess:games:v1";
 
       const ACCENTS = ["#6ee7ff", "#a78bfa", "#f472b6", "#f59e0b", "#10b981"];
 
@@ -793,6 +794,33 @@
         try {
           localStorage.setItem(key, JSON.stringify(val));
         } catch {}
+      }
+
+      function saveRecentGame(gameId, st) {
+        if (!gameId || !st) return;
+        let map = {};
+        try {
+          map = JSON.parse(localStorage.getItem(RECENT_GAMES_KEY) || "{}");
+        } catch {
+          map = {};
+        }
+
+        const now = Date.now();
+        const status = st.status || "";
+        const match = status.match(/(1-0|0-1|1\/2-1\/2)/);
+        const result = match ? match[1] : "";
+        const prev = map[gameId] || {};
+
+        map[gameId] = {
+          id: gameId,
+          createdAt: prev.createdAt || now,
+          lastSeen: st.lastSeen || now,
+          lastSeenLocal: now,
+          status,
+          result: result || prev.result || "",
+        };
+
+        saveJSON(RECENT_GAMES_KEY, map);
       }
 
       function countsFromFEN(fen) {
@@ -1041,6 +1069,7 @@
               return;
             }
             if (st.kind !== "state") return;
+            saveRecentGame(gameId, st);
 
             // client id assignment
             if (!clientId && st.clientId) {
