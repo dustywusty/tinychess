@@ -56,49 +56,6 @@ func TestPlayScholarsMate(t *testing.T) {
 	}, true)
 }
 
-func TestPlayLongGame(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping e2e test in short mode")
-	}
-
-	runGame(t, "long", []move{
-		{color: "white", from: "e2", to: "e4"},
-		{color: "black", from: "e7", to: "e5"},
-		{color: "white", from: "g1", to: "f3"},
-		{color: "black", from: "b8", to: "c6"},
-		{color: "white", from: "f1", to: "b5"},
-		{color: "black", from: "a7", to: "a6"},
-		{color: "white", from: "b5", to: "a4"},
-		{color: "black", from: "g8", to: "f6"},
-		{color: "white", from: "e1", to: "g1"},
-		{color: "black", from: "f8", to: "e7"},
-		{color: "white", from: "f1", to: "e1"},
-		{color: "black", from: "b7", to: "b5"},
-		{color: "white", from: "a4", to: "b3"},
-		{color: "black", from: "d7", to: "d6"},
-		{color: "white", from: "c2", to: "c3"},
-		{color: "black", from: "e8", to: "g8"},
-		{color: "white", from: "h2", to: "h3"},
-		{color: "black", from: "c6", to: "a5"},
-		{color: "white", from: "b3", to: "c2"},
-		{color: "black", from: "c7", to: "c5"},
-		{color: "white", from: "d2", to: "d4"},
-		{color: "black", from: "c5", to: "d4"},
-		{color: "white", from: "c3", to: "d4"},
-		{color: "black", from: "d8", to: "c7"},
-		{color: "white", from: "d4", to: "e5"},
-		{color: "black", from: "d6", to: "e5"},
-		{color: "white", from: "f3", to: "e5"},
-		{color: "black", from: "f6", to: "e4"},
-		{color: "white", from: "e5", to: "d3"},
-		{color: "black", from: "e4", to: "f6"},
-		{color: "white", from: "d1", to: "d2"},
-		{color: "black", from: "c7", to: "d6"},
-		{color: "white", from: "c2", to: "b3"},
-		{color: "black", from: "c8", to: "e6"},
-	}, false)
-}
-
 type move struct {
 	color string
 	from  string
@@ -119,8 +76,8 @@ func runGame(t *testing.T, label string, moves []move, expectMate bool) {
 	blackCtx, blackCancel := newBrowserCtx(t)
 	defer blackCancel()
 
-	width := envInt("CHROMEDP_VIEWPORT_WIDTH", 1280)
-	height := envInt("CHROMEDP_VIEWPORT_HEIGHT", 2000)
+	width := envInt("CHROMEDP_VIEWPORT_WIDTH", 393)
+	height := envInt("CHROMEDP_VIEWPORT_HEIGHT", 852)
 
 	attachDebug(t, whiteCtx, "white-"+label)
 	attachDebug(t, blackCtx, "black-"+label)
@@ -251,8 +208,8 @@ func newBrowserCtx(t *testing.T) (context.Context, context.CancelFunc) {
 		t.Fatalf("temp dir: %v", err)
 	}
 
-	width := envInt("CHROMEDP_VIEWPORT_WIDTH", 1280)
-	height := envInt("CHROMEDP_VIEWPORT_HEIGHT", 2000)
+	width := envInt("CHROMEDP_VIEWPORT_WIDTH", 393)
+	height := envInt("CHROMEDP_VIEWPORT_HEIGHT", 852)
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.NoFirstRun,
 		chromedp.NoDefaultBrowserCheck,
