@@ -27,6 +27,9 @@ go.work.sum
 # env file
 .env
 
+# e2e artifacts
+e2e-artifacts/
+
 # Editor/IDE
 # .idea/
 # .vscode/

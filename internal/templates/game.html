@@ -781,10 +781,6 @@
         return "white";
       }
 
-      function capKey(id) {
-        return `tinychess:${String(id || "")}:captured:v1`;
-      }
-
       function loadJSON(key, fallback) {
         try {
           const raw = localStorage.getItem(key);
@@ -1316,23 +1312,6 @@
         );
         const caps = useMemo(() => capturedFromFEN(game.fen), [game.fen]);
 
-        // Persist captured per game (and prefill on first mount)
-        const [persistedCaps, setPersistedCaps] = useState(() =>
-          loadJSON(capKey(gameId), null)
-        );
-
-        useEffect(() => {
-          if (persistedCaps && persistedCaps.byWhite && persistedCaps.byBlack) {
-            // no-op; used for initial render while SSE is coming in
-          }
-          // eslint-disable-next-line react-hooks/exhaustive-deps
-        }, []);
-
-        useEffect(() => {
-          setPersistedCaps(caps);
-          saveJSON(capKey(gameId), caps);
-        }, [caps, gameId]);
-
         const COOLDOWN_MS = 5000;
         const lastReactRef = useRef(0);
         const [reactDisabled, setReactDisabled] = useState(false);
@@ -1464,17 +1443,6 @@
           return () => picker.removeEventListener("emoji-click", onPick);
           // eslint-disable-next-line react-hooks/exhaustive-deps
         }, [sendReaction]);
-
-        const gameContext = useMemo(
-          () => ({
-            fen: game.fen,
-            turn: game.turn,
-            color: game.playerColor,
-            status: game.status,
-            uci: game.uci,
-          }),
-          [game.fen, game.turn, game.playerColor, game.status, game.uci]
-        );
 
         const gameState = useMemo(
           () => ({
