@@ -74,7 +74,6 @@ Notes:
 - Famous quick mates:
   - Fool's Mate: `go test -tags e2e ./internal/e2e -run TestPlayFullGame`
   - Scholar's Mate: `go test -tags e2e ./internal/e2e -run TestPlayScholarsMate`
-- A longer demo test is available: `go test -tags e2e ./internal/e2e -run TestPlayLongGame`.
 - Optional recording:
   - Set `E2E_RECORD=1` to capture screenshots before each move (white client).
   - Output defaults to `e2e-artifacts/` (override with `E2E_RECORD_DIR`).
@@ -91,7 +90,7 @@ E2E_RECORD=1 E2E_RECORD_FORMAT=gif E2E_RECORD_FPS=6 make test-e2e
 
 Defaults can be overridden:
 - `CHROMEDP_HEADLESS=0` to watch the run.
-- `CHROMEDP_VIEWPORT_WIDTH` and `CHROMEDP_VIEWPORT_HEIGHT` for mobile/aspect testing.
+- `CHROMEDP_VIEWPORT_WIDTH` and `CHROMEDP_VIEWPORT_HEIGHT` for mobile/aspect testing (defaults to iPhone 15 Pro: 393x852).
 - `E2E_MOVE_DELAY_MS` and `E2E_START_DELAY_MS` for timing.
 - `E2E_CAPTURE_DELAY_MS` to wait for SSE/UI updates before each capture.
 - `E2E_RECORD_HOLD_MS` to extend the final frame.
