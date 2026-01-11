@@ -67,6 +67,62 @@
         background: var(--panel);
         position: sticky;
         top: 0;
+        z-index: 20;
+      }
+
+      .header-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .header-menu-toggle {
+        display: none;
+        width: 36px;
+        height: 36px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        border: 1px solid var(--accent);
+        background: var(--accent);
+        color: var(--bg);
+        cursor: pointer;
+        font-size: 20px;
+        font-weight: 700;
+      }
+
+      @media (max-width: 720px) {
+        .header-menu-toggle {
+          display: inline-flex;
+        }
+
+        .header-actions {
+          display: none;
+          position: absolute;
+          right: 12px;
+          top: 52px;
+          flex-direction: column;
+          align-items: stretch;
+          background: var(--panel);
+          border: 1px solid var(--btn-border);
+          padding: 10px;
+          border-radius: 12px;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+          z-index: 25;
+          min-width: 180px;
+        }
+
+        .header-actions.open {
+          display: flex;
+        }
+
+        .header-actions .btn {
+          width: 100%;
+        }
+
+        .header-actions .theme {
+          margin-right: 0;
+        }
       }
 
       .title {
@@ -75,11 +131,13 @@
         display: flex;
         align-items: center;
         gap: 6px;
+        font-size: 18px;
       }
 
       .chess-icon {
         color: #fff;
         -webkit-text-stroke: 1px #000;
+        font-size: 24px;
       }
 
       .wrap {
@@ -167,11 +225,16 @@
       /* Fixed piece colors so they never flip on dark/light squares */
       .white-piece {
         color: #ffffff;
-        -webkit-text-stroke: 1px #000000;
+        font-family: "Noto Sans Symbols 2", "Noto Sans Symbols",
+          "Segoe UI Symbol", "Apple Symbols", sans-serif;
+        font-variant-emoji: text;
       }
 
       .black-piece {
         color: #000000;
+        font-family: "Noto Sans Symbols 2", "Noto Sans Symbols",
+          "Segoe UI Symbol", "Apple Symbols", sans-serif;
+        font-variant-emoji: text;
       }
 
       .cell.sel {
@@ -239,6 +302,12 @@
         border-radius: 10px;
         padding: 8px 12px;
         font-weight: 600;
+        min-height: 36px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+        box-sizing: border-box;
       }
 
       .btn:hover {
@@ -284,6 +353,7 @@
         gap: 6px;
         align-items: center;
         margin-right: 8px;
+        position: relative;
       }
 
       .swatch,
@@ -305,6 +375,49 @@
         cursor: pointer;
       }
 
+      .theme-toggle {
+        display: none;
+        width: 28px;
+        height: 28px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        border: 1px solid var(--btn-border);
+        background: var(--btn-bg);
+        cursor: pointer;
+        font-size: 16px;
+      }
+
+      .theme-menu {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+
+      @media (max-width: 720px) {
+        .theme-toggle {
+          display: inline-flex;
+        }
+
+        .theme-menu {
+          display: none;
+          position: absolute;
+          right: 0;
+          top: 34px;
+          padding: 8px;
+          border-radius: 10px;
+          background: var(--panel);
+          border: 1px solid var(--btn-border);
+          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+          z-index: 5;
+        }
+
+        .theme.open .theme-menu {
+          display: flex;
+          flex-wrap: wrap;
+        }
+      }
+
       .active {
         outline: 2px solid var(--accent);
         outline-offset: 2px;
@@ -317,6 +430,78 @@
         flex-wrap: wrap;
         font-size: 20px;
         line-height: 1;
+        font-family: "Noto Sans Symbols 2", "Noto Sans Symbols",
+          "Segoe UI Symbol", "Apple Symbols", sans-serif;
+      }
+
+      .caps span {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2px 4px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .piece-icon {
+        --piece-fill: #ffffff;
+        --piece-stroke: #000000;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .piece-icon.black {
+        --piece-fill: #000000;
+        --piece-stroke: #000000;
+      }
+
+      .piece-icon svg {
+        display: block;
+      }
+
+      .piece-icon.cap svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      .piece-icon.board svg {
+        width: 40px;
+        height: 40px;
+      }
+
+      .piece-icon path,
+      .piece-icon circle,
+      .piece-icon rect,
+      .piece-icon polygon {
+        fill: var(--piece-fill);
+        stroke: var(--piece-stroke);
+        stroke-width: 1.2;
+        stroke-linejoin: round;
+      }
+
+      .piece-icon.black path,
+      .piece-icon.black circle,
+      .piece-icon.black rect,
+      .piece-icon.black polygon {
+        stroke-width: 0;
+      }
+
+      .caps .caps-empty {
+        color: rgba(255, 255, 255, 0.65);
+        font-size: 12px;
+        padding: 4px 6px;
+        background: transparent;
+        border: 1px dashed rgba(255, 255, 255, 0.2);
+      }
+
+      .caps .white-piece {
+        color: #ffffff;
+      }
+
+      .caps .black-piece {
+        color: #000000;
+        text-shadow: none;
       }
 
       .caps span.recent {
@@ -533,6 +718,8 @@
       } from "https://esm.sh/@hashbrownai/react@0.4.1?external=react";
 
       const h = React.createElement;
+      const COACH_ENABLED = {{COACH_ENABLED}};
+      const COACH_URL = "{{COACH_URL}}";
 
       const START_FEN =
         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -548,6 +735,21 @@
         R: "\u2656",
         Q: "\u2655",
         K: "\u2654",
+        p: "\u265F",
+        n: "\u265E",
+        b: "\u265D",
+        r: "\u265C",
+        q: "\u265B",
+        k: "\u265A",
+      };
+
+      const solidGlyph = {
+        P: "\u265F",
+        N: "\u265E",
+        B: "\u265D",
+        R: "\u265C",
+        Q: "\u265B",
+        K: "\u265A",
         p: "\u265F",
         n: "\u265E",
         b: "\u265D",
@@ -635,9 +837,9 @@
         const byBlack = [];
 
         for (const k in lostBlack)
-          for (let i = 0; i < lostBlack[k]; i++) byWhite.push(glyph[k]);
+          for (let i = 0; i < lostBlack[k]; i++) byWhite.push(k);
         for (const k in lostWhite)
-          for (let i = 0; i < lostWhite[k]; i++) byBlack.push(glyph[k]);
+          for (let i = 0; i < lostWhite[k]; i++) byBlack.push(k.toUpperCase());
 
         return { byWhite, byBlack };
       }
@@ -648,6 +850,101 @@
         const base = mv.length >= 4 ? mv.slice(0, 4) : "";
         if (base.length !== 4) return [];
         return [base.slice(0, 2), base.slice(2, 4)];
+      }
+
+      function renderPieceIcon(piece, sizeClass, forcedColorClass) {
+        const raw = String(piece || "");
+        const key = raw.toUpperCase();
+        const colorClass =
+          forcedColorClass || (raw === raw.toUpperCase() ? "white" : "black");
+        switch (key) {
+          case "P":
+            return h(
+              "span",
+              { className: `piece-icon ${sizeClass} ${colorClass}` },
+              h(
+                "svg",
+                { viewBox: "0 0 45 45", "aria-hidden": "true" },
+                h("circle", { cx: 22.5, cy: 14, r: 6 }),
+                h("rect", { x: 14, y: 22, width: 17, height: 12, rx: 3 }),
+                h("rect", { x: 10, y: 36, width: 25, height: 5, rx: 2 })
+              )
+            );
+          case "N":
+            return h(
+              "span",
+              { className: `piece-icon ${sizeClass} ${colorClass}` },
+              h(
+                "svg",
+                { viewBox: "0 0 45 45", "aria-hidden": "true" },
+                h("path", {
+                  d: "M12 39h21v4H12z M13 33h19v5H13z M14 31l6-12 8-6 6 5-6 5 4 5-4 4-6-4-6 5z",
+                })
+              )
+            );
+          case "B":
+            return h(
+              "span",
+              { className: `piece-icon ${sizeClass} ${colorClass}` },
+              h(
+                "svg",
+                { viewBox: "0 0 45 45", "aria-hidden": "true" },
+                h("circle", { cx: 22.5, cy: 12, r: 5 }),
+                h("polygon", { points: "22.5,18 30,30 15,30" }),
+                h("rect", { x: 13, y: 30, width: 19, height: 6, rx: 2 }),
+                h("rect", { x: 10, y: 36, width: 25, height: 5, rx: 2 })
+              )
+            );
+          case "R":
+            return h(
+              "span",
+              { className: `piece-icon ${sizeClass} ${colorClass}` },
+              h(
+                "svg",
+                { viewBox: "0 0 45 45", "aria-hidden": "true" },
+                h("rect", { x: 11, y: 18, width: 23, height: 16, rx: 2 }),
+                h("rect", { x: 10, y: 34, width: 25, height: 6, rx: 2 }),
+                h("rect", { x: 11, y: 12, width: 4, height: 6 }),
+                h("rect", { x: 20, y: 12, width: 4, height: 6 }),
+                h("rect", { x: 30, y: 12, width: 4, height: 6 })
+              )
+            );
+          case "Q":
+            return h(
+              "span",
+              { className: `piece-icon ${sizeClass} ${colorClass}` },
+              h(
+                "svg",
+                { viewBox: "0 0 45 45", "aria-hidden": "true" },
+                h("circle", { cx: 12, cy: 16, r: 3 }),
+                h("circle", { cx: 22.5, cy: 12, r: 3 }),
+                h("circle", { cx: 33, cy: 16, r: 3 }),
+                h("polygon", { points: "10,18 35,18 31,30 14,30" }),
+                h("rect", { x: 12, y: 30, width: 21, height: 6, rx: 2 }),
+                h("rect", { x: 10, y: 36, width: 25, height: 5, rx: 2 })
+              )
+            );
+          case "K":
+            return h(
+              "span",
+              { className: `piece-icon ${sizeClass} ${colorClass}` },
+              h(
+                "svg",
+                { viewBox: "0 0 45 45", "aria-hidden": "true" },
+                h("rect", { x: 21, y: 8, width: 3, height: 8 }),
+                h("rect", { x: 18, y: 11, width: 9, height: 3 }),
+                h("rect", { x: 14, y: 18, width: 17, height: 12, rx: 3 }),
+                h("rect", { x: 12, y: 30, width: 21, height: 6, rx: 2 }),
+                h("rect", { x: 10, y: 36, width: 25, height: 5, rx: 2 })
+              )
+            );
+          default:
+            return h(
+              "span",
+              { className: `piece-icon ${sizeClass} ${colorClass}` },
+              key
+            );
+        }
       }
 
       function formatPGNLines(pgn) {
@@ -843,31 +1140,58 @@
         return out; // 8x8 of piece chars (or "")
       }
 
-      function ThemeControls({ theme, setTheme, accent, setAccent }) {
+      function ThemeControls({ theme, setTheme, accent, setAccent, menuOpen }) {
+        const [open, setOpen] = useState(false);
+        useEffect(() => {
+          if (!menuOpen) setOpen(false);
+        }, [menuOpen]);
+        const close = () => setOpen(false);
         return h(
           "div",
-          { className: "theme", id: "themectl" },
-          ...ACCENTS.map((a) =>
-            h("button", {
-              key: a,
-              className: `swatch ${a === accent ? "active" : ""}`,
-              "data-accent": a,
-              style: { background: a },
-              onClick: () => setAccent(a),
-            })
+          { className: `theme ${open ? "open" : ""}`, id: "themectl" },
+          h(
+            "button",
+            {
+              className: "theme-toggle",
+              "aria-label": "Theme options",
+              onClick: () => setOpen((v) => !v),
+            },
+            "🎨"
           ),
-          h("button", {
-            className: `mode ${theme === "light" ? "active" : ""}`,
-            "data-theme": "light",
-            style: { background: "#ffffff" },
-            onClick: () => setTheme("light"),
-          }),
-          h("button", {
-            className: `mode ${theme === "dark" ? "active" : ""}`,
-            "data-theme": "dark",
-            style: { background: "#000000" },
-            onClick: () => setTheme("dark"),
-          })
+          h(
+            "div",
+            { className: "theme-menu" },
+            ...ACCENTS.map((a) =>
+              h("button", {
+                key: a,
+                className: `swatch ${a === accent ? "active" : ""}`,
+                "data-accent": a,
+                style: { background: a },
+                onClick: () => {
+                  setAccent(a);
+                  close();
+                },
+              })
+            ),
+            h("button", {
+              className: `mode ${theme === "light" ? "active" : ""}`,
+              "data-theme": "light",
+              style: { background: "#ffffff" },
+              onClick: () => {
+                setTheme("light");
+                close();
+              },
+            }),
+            h("button", {
+              className: `mode ${theme === "dark" ? "active" : ""}`,
+              "data-theme": "dark",
+              style: { background: "#000000" },
+              onClick: () => {
+                setTheme("dark");
+                close();
+              },
+            })
+          )
         );
       }
 
@@ -984,6 +1308,7 @@
         const game = useGame(gameId);
 
         const [selected, setSelected] = useState(null);
+        const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
 
         const board = useMemo(
           () => boardFromFEN(game.fen, game.playerColor),
@@ -1151,6 +1476,17 @@
           [game.fen, game.turn, game.playerColor, game.status, game.uci]
         );
 
+        const gameState = useMemo(
+          () => ({
+            fen: game.fen,
+            uci: game.uci,
+            playerColor: game.playerColor,
+            isSpectator: game.isSpectator,
+            gameId,
+          }),
+          [game.fen, game.uci, game.playerColor, game.isSpectator, gameId]
+        );
+
         const renderCell = (r, c) => {
           const sq = cellSquare(r, c, game.playerColor);
           const piece = board[r][c] || "";
@@ -1196,7 +1532,7 @@
               ? h(
                   "span",
                   { className: isWhitePiece ? "white-piece" : "black-piece" },
-                  glyph[piece] || ""
+                  solidGlyph[piece] || glyph[piece] || ""
                 )
               : null,
             showFile
@@ -1225,12 +1561,63 @@
             )
           ),
           h("div", { style: { flex: 1 } }),
-          h(ThemeControls, { theme, setTheme, accent, setAccent }),
-          h("button", { className: "btn", onClick: copyLink }, "Copy link"),
-          h("a", { className: "btn", href: "/new" }, "New game")
+          h(
+            "button",
+            {
+              className: "header-menu-toggle",
+              "aria-label": "Menu",
+              onClick: () => setHeaderMenuOpen((v) => !v),
+            },
+            "☰"
+          ),
+          h(
+            "div",
+            { className: `header-actions ${headerMenuOpen ? "open" : ""}` },
+            h(ThemeControls, {
+              theme,
+              setTheme,
+              accent,
+              setAccent,
+              menuOpen: headerMenuOpen,
+            }),
+            h(
+              "button",
+              {
+                className: "btn",
+                onClick: () => {
+                  copyLink();
+                  setHeaderMenuOpen(false);
+                },
+              },
+              "Copy link"
+            ),
+            h(
+              "a",
+              {
+                className: "btn",
+                href: "/new",
+                onClick: () => setHeaderMenuOpen(false),
+              },
+              "New game"
+            ),
+            game.isSpectator
+              ? null
+              : h(
+                  "button",
+                  {
+                    className: "btn",
+                    onClick: () => {
+                      releaseSeat();
+                      setHeaderMenuOpen(false);
+                    },
+                  },
+                  "Release seat"
+                )
+          )
         );
 
-        const moves = (game.pgn || "").trim()
+        const hasMoves = Array.isArray(game.uci) && game.uci.length > 0;
+        const moves = hasMoves
           ? h(
               "div",
               { className: "moves", style: { display: "block" } },
@@ -1240,13 +1627,11 @@
                 formatPGNLines(game.pgn || "")
               )
             )
-          : h(
-              "div",
-              { className: "moves" },
-              h("pre", { id: "pgn", className: "mono" }, "")
-            );
+          : null;
 
-        const captured = persistedCaps || caps;
+        const captured = caps;
+        const whiteCapCount = (captured.byWhite || []).length;
+        const blackCapCount = (captured.byBlack || []).length;
 
         const panel = h(
           "div",
@@ -1257,25 +1642,37 @@
             h(
               "div",
               { className: "row" },
-              h("strong", null, "White captured:"),
+              h("strong", null, `White captured: (${whiteCapCount})`),
               h(
                 "span",
                 { id: "cap_by_white", className: "caps" },
-                ...(captured.byWhite || []).map((em, i) =>
-                  h("span", { key: `w-${i}`, className: "black-piece" }, em)
-                )
+                whiteCapCount
+                  ? (captured.byWhite || []).map((piece, i) =>
+                      h(
+                        React.Fragment,
+                        { key: `w-${i}` },
+                        renderPieceIcon(piece, "cap")
+                      )
+                    )
+                  : h("span", { className: "caps-empty" }, "none")
               )
             ),
             h(
               "div",
               { className: "row" },
-              h("strong", null, "Black captured:"),
+              h("strong", null, `Black captured: (${blackCapCount})`),
               h(
                 "span",
                 { id: "cap_by_black", className: "caps" },
-                ...(captured.byBlack || []).map((em, i) =>
-                  h("span", { key: `b-${i}`, className: "white-piece" }, em)
-                )
+                blackCapCount
+                  ? (captured.byBlack || []).map((piece, i) =>
+                      h(
+                        React.Fragment,
+                        { key: `b-${i}` },
+                        renderPieceIcon(piece, "cap")
+                      )
+                    )
+                  : h("span", { className: "caps-empty" }, "none")
               )
             )
           ),
@@ -1339,13 +1736,7 @@
                 )
               )
             ),
-            game.isSpectator
-              ? null
-              : h(
-                  "button",
-                  { className: "btn", id: "release", onClick: releaseSeat },
-                  "Release seat"
-                )
+            null
           )
         );
 
@@ -1385,7 +1776,7 @@
             : null,
 
           // Coach (wrapped in provider below)
-          h(CoachChat, { gameId, clientId: game.clientId, gameContext }),
+          COACH_ENABLED ? h(CoachChat, { gameState }) : null,
 
           h(
             "footer",
@@ -1405,23 +1796,28 @@
       // Mount
       const root = createRoot(document.getElementById("app"));
 
-      // If you keep the coach endpoint same-origin, you avoid CORS headaches.
-      // If you *want* localhost:3000 in dev, swap url accordingly.
-      root.render(
-        h(
-          HashbrownProvider,
-          {
-            url: "/api/chat",
-            models: [
-              {
-                id: "gpt-4o-mini",
-                capabilities: { streaming: true, chat: true },
-              },
-            ],
-          },
-          h(App)
-        )
-      );
+      const appTree = h(App);
+      if (COACH_ENABLED) {
+        // If you keep the coach endpoint same-origin, you avoid CORS headaches.
+        // If you *want* localhost:3000 in dev, swap url accordingly.
+        root.render(
+          h(
+            HashbrownProvider,
+            {
+              url: COACH_URL,
+              models: [
+                {
+                  id: "gpt-4o-mini",
+                  capabilities: { streaming: true, chat: true },
+                },
+              ],
+            },
+            appTree
+          )
+        );
+      } else {
+        root.render(appTree);
+      }
     </script>
   </body>
 </html>

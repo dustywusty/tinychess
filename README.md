@@ -14,6 +14,91 @@ Anyone else who opens the link is a spectator.
 
 Players can react with any emoji using the built-in emoji picker.
 
+## Local development
+
+### Bootstrap
+
+- Go 1.22+
+- Make
+- Optional: `air` for live reload (`go install github.com/cosmtrek/air@latest`)
+- Optional: Postgres if you want persistence
+
+### Install + run
+
+```sh
+go mod download
+make run
+```
+
+Open http://localhost:8080.
+
+### Live reload (optional)
+
+```sh
+make dev
+```
+
+### Database (optional)
+
+Set `DATABASE_URL` to enable persistence (Postgres DSN), for example:
+
+```sh
+export DATABASE_URL="postgres://user:pass@localhost:5432/tinychess?sslmode=disable"
+```
+
+## Tests
+
+### Unit tests
+
+```sh
+go test ./...
+```
+
+### Browser e2e test (full game)
+
+Runs a headless browser test that opens two clients and plays a complete legal
+game (Fool's Mate) to verify a game can finish.
+
+```sh
+go test -tags e2e ./internal/e2e -run TestPlayFullGame
+```
+
+Notes:
+- Requires a local Chrome/Chromium install.
+- If Chrome isn't on your PATH, set `CHROME_BIN` to the browser executable.
+- If your environment needs it, set `CHROMEDP_NO_SANDBOX=1`.
+- To watch the game being played, run headed with `CHROMEDP_HEADLESS=0`.
+- To slow down moves, set `E2E_MOVE_DELAY_MS` (milliseconds between moves).
+- To pause before the first move, set `E2E_START_DELAY_MS`.
+- To wait for UI updates before capturing, set `E2E_CAPTURE_DELAY_MS`.
+- Famous quick mates:
+  - Fool's Mate: `go test -tags e2e ./internal/e2e -run TestPlayFullGame`
+  - Scholar's Mate: `go test -tags e2e ./internal/e2e -run TestPlayScholarsMate`
+- A longer demo test is available: `go test -tags e2e ./internal/e2e -run TestPlayLongGame`.
+- Optional recording:
+  - Set `E2E_RECORD=1` to capture screenshots before each move (white client).
+  - Output defaults to `e2e-artifacts/` (override with `E2E_RECORD_DIR`).
+  - Use `E2E_RECORD_FORMAT=mp4` (default), `gif`, or `frames` (PNGs only).
+  - Set `E2E_RECORD_FPS` to control playback (default `6`).
+  - Set `E2E_RECORD_HOLD_MS` to hold the final frame (default `2000`).
+  - Requires `ffmpeg` on PATH for mp4/gif.
+
+### Make target (run all e2e tests + stitch gifs)
+
+```sh
+E2E_RECORD=1 E2E_RECORD_FORMAT=gif E2E_RECORD_FPS=6 make test-e2e
+```
+
+Defaults can be overridden:
+- `CHROMEDP_HEADLESS=0` to watch the run.
+- `CHROMEDP_VIEWPORT_WIDTH` and `CHROMEDP_VIEWPORT_HEIGHT` for mobile/aspect testing.
+- `E2E_MOVE_DELAY_MS` and `E2E_START_DELAY_MS` for timing.
+- `E2E_CAPTURE_DELAY_MS` to wait for SSE/UI updates before each capture.
+- `E2E_RECORD_HOLD_MS` to extend the final frame.
+- `E2E_RECORD_FORMAT=frames` to skip stitching (no ffmpeg needed).
+- `E2E_SEND_EMOJI=0` to skip the emoji taunt (default on).
+- `E2E_EMOJI` to override the emoji character.
+
 ## Links
 
 - Production: https://tinychess.dusty.wtf/

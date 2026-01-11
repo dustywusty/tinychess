@@ -1,6 +1,7 @@
 package templates
 
 import (
+	"fmt"
 	"html/template"
 	"net/http"
 	"os"
@@ -42,6 +43,9 @@ func WriteGameHTML(w http.ResponseWriter, gameID string) {
 
 	html := strings.ReplaceAll(string(content), "{{GAME_ID}}", gameID)
 	html = strings.ReplaceAll(html, "{{COMMIT}}", commit)
+	coachEnabled := os.Getenv("OPENAI_API_KEY") != ""
+	html = strings.ReplaceAll(html, "{{COACH_ENABLED}}", fmt.Sprintf("%t", coachEnabled))
+	html = strings.ReplaceAll(html, "{{COACH_URL}}", "/coach")
 	_, _ = w.Write([]byte(html))
 }
 
