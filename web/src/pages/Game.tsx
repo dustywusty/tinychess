@@ -1,9 +1,13 @@
 import { useCallback, useEffect } from "react";
 import { Board } from "../components/Board/Board";
+import { EmojiPicker } from "../components/EmojiPicker/EmojiPicker";
 import { GameStatus } from "../components/GameStatus/GameStatus";
+import { Header } from "../components/Header/Header";
+import { ReactionsLayer } from "../components/Reactions/ReactionsLayer";
 import { ShareLink } from "../components/ShareLink/ShareLink";
-import { postMove } from "../api/game";
+import { postMove, postReact } from "../api/game";
 import { subscribeSSE } from "../api/sse";
+import { useReactions } from "../hooks/useReactions";
 import { getOrCreateClientId } from "../lib/session";
 import { recordGameSeen } from "../lib/recentGames";
 import { useGameStore } from "../state/gameStore";
@@ -27,7 +31,8 @@ export function Game({ gameId }: { gameId: string }) {
   const setStatus = useUiStore((s) => s.setStatus);
   const clearStatus = useUiStore((s) => s.clearStatus);
 
-  // SSE subscription lifecycle
+  const { active: reactions, show: showReaction } = useReactions();
+
   useEffect(() => {
     if (!gameId) return;
     reset();
@@ -42,12 +47,13 @@ export function Game({ gameId }: { gameId: string }) {
           pgn: event.pgn,
         });
       },
-      onEmoji: () => {
-        // PR 4 wires emoji animations
+      onEmoji: (event) => {
+        if (event.sender === cid) return; // already shown locally
+        showReaction(event.emoji, "remote");
       },
     });
     return () => sub.close();
-  }, [gameId, applyServerState, reset, setClientId]);
+  }, [gameId, applyServerState, reset, setClientId, showReaction]);
 
   const submitMove = useCallback(
     async (from: Square, to: Square) => {
@@ -64,6 +70,22 @@ export function Game({ gameId }: { gameId: string }) {
       }
     },
     [clientId, gameId, clearStatus, setStatus],
+  );
+
+  const sendReaction = useCallback(
+    async (emoji: string) => {
+      if (!clientId) return;
+      showReaction(emoji, "self");
+      try {
+        const res = await postReact(gameId, emoji, clientId);
+        if (!res.ok) {
+          setStatus(res.error ?? "Reaction failed", true);
+        }
+      } catch {
+        setStatus("Network error", true);
+      }
+    },
+    [clientId, gameId, setStatus, showReaction],
   );
 
   const handleSquareClick = useCallback(
@@ -102,14 +124,17 @@ export function Game({ gameId }: { gameId: string }) {
 
   return (
     <main className="min-h-screen bg-bg text-text">
-      <header className="px-4 py-3 border-b border-[color:var(--btn-border,_rgba(255,255,255,0.1))] flex items-center justify-between">
-        <a href="/" className="text-base font-semibold">
-          Tiny Chess
-        </a>
-        <div className="flex items-center gap-2">
-          <ShareLink />
-        </div>
-      </header>
+      <Header
+        rightSlot={
+          <>
+            <EmojiPicker
+              disabled={!clientId}
+              onSend={(e) => void sendReaction(e)}
+            />
+            <ShareLink />
+          </>
+        }
+      />
       <section className="max-w-md mx-auto p-4 space-y-4">
         <GameStatus />
         <Board
@@ -123,6 +148,7 @@ export function Game({ gameId }: { gameId: string }) {
         />
         <PgnPanel />
       </section>
+      <ReactionsLayer reactions={reactions} />
     </main>
   );
 }

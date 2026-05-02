@@ -35,3 +35,32 @@
       Cantarell, "Noto Sans", sans-serif;
   }
 }
+
+@layer components {
+  .big-emoji {
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    width: max-content;
+    height: max-content;
+    font-size: clamp(80px, 18vw, 160px);
+    pointer-events: none;
+    z-index: 50;
+    animation: big-emoji-pop 1.6s ease-out forwards;
+  }
+
+  @keyframes big-emoji-pop {
+    0% {
+      transform: scale(0.4);
+      opacity: 0;
+    }
+    20% {
+      transform: scale(1.05);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(0.6);
+      opacity: 0;
+    }
+  }
+}
