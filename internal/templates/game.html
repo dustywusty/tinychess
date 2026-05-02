@@ -591,103 +591,6 @@
         }
       }
 
-      /* Coach chat styles */
-      .coach-toggle {
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        z-index: 1000;
-        width: 60px;
-        height: 60px;
-        border-radius: 50%;
-        font-size: 28px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-      }
-
-      .coach-panel {
-        position: fixed;
-        bottom: 90px;
-        right: 20px;
-        width: 380px;
-        max-height: 500px;
-        background: var(--panel);
-        border: 1px solid var(--btn-border);
-        border-radius: 12px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-        z-index: 1000;
-        display: none;
-        flex-direction: column;
-      }
-
-      .coach-panel.open {
-        display: flex;
-      }
-
-      .coach-header {
-        padding: 12px 16px;
-        border-bottom: 1px solid var(--btn-border);
-        font-weight: 600;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-
-      .coach-messages {
-        flex: 1;
-        overflow-y: auto;
-        padding: 12px;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-      }
-
-      .coach-message {
-        padding: 10px 12px;
-        border-radius: 10px;
-        max-width: 85%;
-      }
-
-      .coach-message.user {
-        background: var(--accent);
-        color: #000;
-        align-self: flex-end;
-        margin-left: auto;
-      }
-
-      .coach-message.assistant {
-        background: var(--tertiary);
-        align-self: flex-start;
-      }
-
-      .coach-input-container {
-        padding: 12px;
-        border-top: 1px solid var(--btn-border);
-        display: flex;
-        gap: 8px;
-      }
-
-      .coach-input {
-        flex: 1;
-        padding: 8px 12px;
-        border: 1px solid var(--btn-border);
-        background: var(--bg);
-        color: var(--text);
-        border-radius: 8px;
-        font-family: inherit;
-        font-size: 14px;
-      }
-
-      .coach-input:focus {
-        outline: 2px solid var(--accent);
-        outline-offset: -2px;
-      }
-
-      .coach-send {
-        padding: 8px 16px;
-      }
     </style>
   </head>
   <body>
@@ -712,14 +615,8 @@
     <script type="module">
       import React, { useEffect, useMemo, useRef, useState } from "react";
       import { createRoot } from "react-dom/client";
-      import {
-        HashbrownProvider,
-        useChat,
-      } from "https://esm.sh/@hashbrownai/react@0.4.1?external=react";
 
       const h = React.createElement;
-      const COACH_ENABLED = {{COACH_ENABLED}};
-      const COACH_URL = "{{COACH_URL}}";
 
       const START_FEN =
         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -1057,7 +954,7 @@
         useEffect(() => {
           if (!gameId) return;
 
-          let url = `/sse/${gameId}`;
+          let url = `/api/sse/${gameId}`;
           if (clientId) url += `?clientId=${encodeURIComponent(clientId)}`;
 
           const es = new EventSource(url);
@@ -1220,107 +1117,6 @@
         );
       }
 
-      // a stable “message type” so you can filter these out of the visible chat UI
-      const COACH_EVENT = "tinychess:coach_after_move_v1";
-
-      function CoachChat({ gameState }) {
-        // gameState should come from your React-ified SSE layer:
-        // { fen, uci: string[], pgn, playerColor, isSpectator, gameId }
-        const { fen, uci, playerColor, isSpectator, gameId } = gameState;
-
-        const chat = useChat({
-          model: "gpt-4o-mini",
-          system: [
-            "You are Scooter, a friendly chess coach integrated into Tiny Chess.",
-            "",
-            "HARD RULES (anti-cheat):",
-            "- You may ONLY comment on the player's MOST RECENT move that has ALREADY been played.",
-            "- You may suggest a BETTER alternative ONLY from the position BEFORE that move.",
-            "- Do NOT suggest what to play next from the current position.",
-            "- If asked 'what's the best move now' or similar, refuse briefly.",
-            "",
-            "When you receive JSON with type 'tinychess:coach_after_move_v1', use it as the source of truth.",
-            "Keep replies short: 2–5 sentences, optionally one concrete tactical/strategic reason.",
-          ].join("\n"),
-          tools: [],
-        });
-
-        // Track previous state so we can supply beforeFen and avoid duplicate coach calls.
-        const prevFenRef = useRef(fen);
-        const prevUciLenRef = useRef(Array.isArray(uci) ? uci.length : 0);
-        const lastCoachedPlyRef = useRef(-1);
-
-        useEffect(() => {
-          const curLen = Array.isArray(uci) ? uci.length : 0;
-          const prevLen = prevUciLenRef.current;
-
-          if (!gameId || isSpectator) {
-            prevFenRef.current = fen;
-            prevUciLenRef.current = curLen;
-            return;
-          }
-
-          // a move happened
-          if (curLen > prevLen) {
-            const ply = curLen; // 1-based ply count
-            const lastMove = uci[curLen - 1];
-
-            // “was this move made by me?” using parity + my color
-            const lastIndex = curLen - 1; // 0-based index in uci list
-            const byWhite = lastIndex % 2 === 0;
-            const byMe =
-              (playerColor === "white" && byWhite) ||
-              (playerColor === "black" && !byWhite);
-
-            // only coach my moves, and only once per ply
-            if (byMe && lastCoachedPlyRef.current !== ply) {
-              lastCoachedPlyRef.current = ply;
-
-              const payload = {
-                type: COACH_EVENT,
-                gameId,
-                ply,
-                playerColor,
-                beforeFen: prevFenRef.current, // position BEFORE my move
-                moveUci: lastMove,
-              };
-
-              // send as a structured JSON user message (Hashbrown supports this)
-              chat.sendMessage({ role: "user", content: payload });
-            }
-          }
-
-          prevFenRef.current = fen;
-          prevUciLenRef.current = curLen;
-        }, [fen, uci, playerColor, isSpectator, gameId]);
-
-        // Render only *human* user messages + assistant messages.
-        // (Filter out the JSON “coach events” so the chat UI doesn’t look weird.)
-        const visible = (chat.messages || []).filter((m) => {
-          if (m.role !== "user") return true;
-          if (typeof m.content === "string") return true;
-          return !(m.content && m.content.type === COACH_EVENT);
-        });
-
-        return React.createElement(
-          "div",
-          { className: "coach-panel open" },
-          React.createElement(
-            "div",
-            { className: "coach-messages" },
-            visible.map((m, i) =>
-              React.createElement(
-                "div",
-                { key: i, className: `coach-message ${m.role}` },
-                typeof m.content === "string"
-                  ? m.content
-                  : JSON.stringify(m.content)
-              )
-            )
-          )
-        );
-      }
-
       function App() {
         // gameId fallback logic (same as your vanilla)
         const idFromServerRaw = "{{GAME_ID}}";
@@ -1379,7 +1175,7 @@
         async function makeMove(uci) {
           if (!gameId) return setStatus("No game id", true);
           try {
-            const res = await fetch(`/move/${gameId}`, {
+            const res = await fetch(`/api/games/${gameId}/move`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ uci, clientId: game.clientId }),
@@ -1406,7 +1202,7 @@
           window.setTimeout(() => setReactDisabled(false), COOLDOWN_MS);
 
           try {
-            const res = await fetch(`/react/${gameId}`, {
+            const res = await fetch(`/api/games/${gameId}/react`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ emoji, sender: game.clientId }),
@@ -1426,7 +1222,7 @@
         async function releaseSeat() {
           if (!gameId || !game.clientId) return;
           try {
-            const resp = await fetch(`/release/${gameId}`, {
+            const resp = await fetch(`/api/games/${gameId}/release`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -1472,17 +1268,6 @@
           return () => picker.removeEventListener("emoji-click", onPick);
           // eslint-disable-next-line react-hooks/exhaustive-deps
         }, [sendReaction]);
-
-        const gameState = useMemo(
-          () => ({
-            fen: game.fen,
-            uci: game.uci,
-            playerColor: game.playerColor,
-            isSpectator: game.isSpectator,
-            gameId,
-          }),
-          [game.fen, game.uci, game.playerColor, game.isSpectator, gameId]
-        );
 
         const renderCell = (r, c) => {
           const sq = cellSquare(r, c, game.playerColor);
@@ -1772,9 +1557,6 @@
             ? h("div", { className: "big-emoji" }, game.bigEmoji)
             : null,
 
-          // Coach (wrapped in provider below)
-          COACH_ENABLED ? h(CoachChat, { gameState }) : null,
-
           h(
             "footer",
             null,
@@ -1792,29 +1574,7 @@
 
       // Mount
       const root = createRoot(document.getElementById("app"));
-
-      const appTree = h(App);
-      if (COACH_ENABLED) {
-        // If you keep the coach endpoint same-origin, you avoid CORS headaches.
-        // If you *want* localhost:3000 in dev, swap url accordingly.
-        root.render(
-          h(
-            HashbrownProvider,
-            {
-              url: COACH_URL,
-              models: [
-                {
-                  id: "gpt-4o-mini",
-                  capabilities: { streaming: true, chat: true },
-                },
-              ],
-            },
-            appTree
-          )
-        );
-      } else {
-        root.render(appTree);
-      }
+      root.render(h(App));
     </script>
   </body>
 </html>
