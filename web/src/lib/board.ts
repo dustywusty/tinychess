@@ -192,3 +192,16 @@ export function turnFromFEN(fen: string): Color {
   const parts = fen.split(" ");
   return parts[1] === "b" ? "black" : "white";
 }
+
+/**
+ * Normalizes whatever the server emits for color/turn fields ("w"/"b" today,
+ * "white"/"black" historically) into a strict Color. Returns null on
+ * unrecognized input so callers can preserve "no color assigned" semantics.
+ */
+export function normalizeColor(value: unknown): Color | null {
+  if (value === null || value === undefined) return null;
+  const v = String(value).toLowerCase();
+  if (v === "w" || v === "white") return "white";
+  if (v === "b" || v === "black") return "black";
+  return null;
+}
