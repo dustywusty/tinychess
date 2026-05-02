@@ -1,7 +1,6 @@
 package templates
 
 import (
-	"fmt"
 	"html/template"
 	"net/http"
 	"os"
@@ -14,7 +13,7 @@ func SetVersion(c string) {
 	commit = c
 }
 
-// WriteHomeHTML serves the home page template
+// WriteHomeHTML serves the home page template.
 func WriteHomeHTML(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
@@ -29,7 +28,7 @@ func WriteHomeHTML(w http.ResponseWriter) {
 	_, _ = w.Write([]byte(html))
 }
 
-// WriteGameHTML serves the game page template with game ID substitution
+// WriteGameHTML serves the game page template with game ID substitution.
 func WriteGameHTML(w http.ResponseWriter, gameID string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
@@ -43,13 +42,10 @@ func WriteGameHTML(w http.ResponseWriter, gameID string) {
 
 	html := strings.ReplaceAll(string(content), "{{GAME_ID}}", gameID)
 	html = strings.ReplaceAll(html, "{{COMMIT}}", commit)
-	coachEnabled := os.Getenv("OPENAI_API_KEY") != ""
-	html = strings.ReplaceAll(html, "{{COACH_ENABLED}}", fmt.Sprintf("%t", coachEnabled))
-	html = strings.ReplaceAll(html, "{{COACH_URL}}", "/coach")
 	_, _ = w.Write([]byte(html))
 }
 
-// LoadTemplate loads and parses an HTML template
+// LoadTemplate loads and parses an HTML template.
 func LoadTemplate(name, content string) (*template.Template, error) {
 	return template.New(name).Parse(content)
 }

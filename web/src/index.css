@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --accent: #6ee7ff;
+    --ok: #22c55e;
+    --err: #ef4444;
+    --bg: color-mix(in oklab, var(--accent) 6%, #0b0d11);
+    --panel: color-mix(in oklab, var(--accent) 10%, #141821);
+    --text: #e5e7eb;
+    --primary: var(--accent);
+    --tertiary: color-mix(in oklab, var(--accent) 18%, var(--bg));
+    --sq1: color-mix(in oklab, var(--accent) 18%, white);
+    --sq2: color-mix(in oklab, var(--accent) 62%, black);
+    --sq3: color-mix(in oklab, var(--accent) 24%, black);
+  }
+
+  [data-theme="light"] {
+    --bg: color-mix(in oklab, var(--accent) 8%, #f7f7fb);
+    --panel: color-mix(in oklab, var(--accent) 12%, #ffffff);
+    --text: #0f172a;
+    --tertiary: color-mix(in oklab, var(--accent) 16%, var(--bg));
+    --sq1: color-mix(in oklab, var(--accent) 8%, white);
+    --sq2: color-mix(in oklab, var(--accent) 28%, #7f99b7);
+    --sq3: color-mix(in oklab, var(--accent) 14%, #b9cce1);
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu,
+      Cantarell, "Noto Sans", sans-serif;
+  }
+}

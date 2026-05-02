@@ -189,13 +189,13 @@ func newTestServer() *httptest.Server {
 	h := handlers.NewHandler(hub)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/new", h.HandleNew)
-	mux.HandleFunc("/sse/", h.HandleSSE)
-	mux.HandleFunc("/move/", h.HandleMove)
-	mux.HandleFunc("/react/", h.HandleReact)
-	mux.HandleFunc("/release/", h.HandleRelease)
-	mux.HandleFunc("/coach", h.HandleCoach)
-	mux.HandleFunc("/", h.HandlePage)
+	mux.HandleFunc("POST /api/games", h.HandleCreateGame)
+	mux.HandleFunc("GET /api/sse/{gameId}", h.HandleSSE)
+	mux.HandleFunc("POST /api/games/{gameId}/move", h.HandleMove)
+	mux.HandleFunc("POST /api/games/{gameId}/react", h.HandleReact)
+	mux.HandleFunc("POST /api/games/{gameId}/release", h.HandleRelease)
+	mux.HandleFunc("GET /new", h.HandleNewRedirect)
+	mux.HandleFunc("GET /", h.HandlePage)
 
 	return httptest.NewServer(mux)
 }
@@ -263,7 +263,7 @@ func attachDebug(t *testing.T, ctx context.Context, label string) {
 			if url == "" {
 				url = e.Response.URL
 			}
-			if strings.Contains(url, "/sse/") || strings.Contains(url, "/move/") {
+			if strings.Contains(url, "/api/sse/") || strings.Contains(url, "/move") {
 				t.Logf("[%s] response: %s %d %s", label, url, int(e.Response.Status), e.Response.StatusText)
 			}
 		case *network.EventLoadingFailed:
@@ -385,7 +385,7 @@ func submitMoveViaFetch(t *testing.T, ctx context.Context, gameID, uci string) e
 	script := fmt.Sprintf(`(async () => {
 		const clientId = sessionStorage.getItem("tinychess:clientId") || "";
 		if (!clientId) return { ok: false, error: "missing clientId" };
-		const res = await fetch("/move/%s", {
+		const res = await fetch("/api/games/%s/move", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ uci: %q, clientId })

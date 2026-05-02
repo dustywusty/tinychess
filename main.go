@@ -26,21 +26,22 @@ func main() {
 		}
 	}
 
-	// Initialize game hub
 	hub := game.NewHub()
-
-	// Initialize HTTP handlers
 	h := handlers.NewHandler(hub)
 
-	// Register routes
-	http.HandleFunc("/new", h.HandleNew)
-	http.HandleFunc("/sse/", h.HandleSSE)
-	http.HandleFunc("/move/", h.HandleMove)
-	http.HandleFunc("/react/", h.HandleReact)
-	http.HandleFunc("/release/", h.HandleRelease)
-	http.HandleFunc("/coach", h.HandleCoach)
-	http.HandleFunc("/", h.HandlePage)
+	mux := http.NewServeMux()
+
+	// API
+	mux.HandleFunc("POST /api/games", h.HandleCreateGame)
+	mux.HandleFunc("GET /api/sse/{gameId}", h.HandleSSE)
+	mux.HandleFunc("POST /api/games/{gameId}/move", h.HandleMove)
+	mux.HandleFunc("POST /api/games/{gameId}/react", h.HandleReact)
+	mux.HandleFunc("POST /api/games/{gameId}/release", h.HandleRelease)
+
+	// Pages (legacy inline-React templates until SPA cutover)
+	mux.HandleFunc("GET /new", h.HandleNewRedirect)
+	mux.HandleFunc("GET /", h.HandlePage)
 
 	log.Printf("Tiny Chess listening on http://localhost:8080 …")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(":8080", mux))
 }
