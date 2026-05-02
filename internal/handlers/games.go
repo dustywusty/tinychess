@@ -31,11 +31,10 @@ type EvalDTO struct {
 }
 
 // HandleGetGame returns persisted metadata for a game (PGN, result, etc.)
-// from the storage layer. Returns 404 if persistence is disabled or the
-// game is not yet persisted.
+// from the storage layer. Returns 404 if the game is not yet persisted.
 func (h *Handler) HandleGetGame(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("gameId")
-	g, err := storage.GetGame(h.DB, id)
+	g, err := h.Store.GetGame(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
 			http.Error(w, "not found", http.StatusNotFound)
@@ -63,7 +62,7 @@ func (h *Handler) HandleGetGame(w http.ResponseWriter, r *http.Request) {
 // HandleGetEvals returns the cached eval array for a game.
 func (h *Handler) HandleGetEvals(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("gameId")
-	rows, err := storage.GetEvals(h.DB, id)
+	rows, err := h.Store.GetEvals(r.Context(), id)
 	if err != nil {
 		http.Error(w, "storage error", http.StatusInternalServerError)
 		return
@@ -82,12 +81,8 @@ func (h *Handler) HandleGetEvals(w http.ResponseWriter, r *http.Request) {
 }
 
 // HandleAppendEvals upserts a batch of eval rows for a game. Idempotent on
-// (gameId, ply). Returns 503 if persistence is disabled.
+// (gameId, ply).
 func (h *Handler) HandleAppendEvals(w http.ResponseWriter, r *http.Request) {
-	if h.DB == nil {
-		http.Error(w, "persistence disabled", http.StatusServiceUnavailable)
-		return
-	}
 	id := r.PathValue("gameId")
 	var body []EvalDTO
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -104,7 +99,7 @@ func (h *Handler) HandleAppendEvals(w http.ResponseWriter, r *http.Request) {
 			BestMove: e.BestMove,
 		})
 	}
-	if err := storage.AppendEvals(h.DB, id, rows); err != nil {
+	if err := h.Store.AppendEvals(r.Context(), id, rows); err != nil {
 		http.Error(w, "storage error", http.StatusInternalServerError)
 		return
 	}

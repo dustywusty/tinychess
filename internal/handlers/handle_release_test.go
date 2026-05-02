@@ -13,7 +13,7 @@ import (
 
 func TestHandleRelease(t *testing.T) {
 	hub := game.NewHub()
-	h := NewHandler(hub)
+	h := newTestHandler(hub)
 	g, _ := hub.Get("g1", "owner")
 	g.Clients["other"] = chess.Black
 
@@ -36,7 +36,7 @@ func TestHandleRelease(t *testing.T) {
 
 func TestHandleReleaseNotOwner(t *testing.T) {
 	hub := game.NewHub()
-	h := NewHandler(hub)
+	h := newTestHandler(hub)
 	g, _ := hub.Get("g2", "owner")
 	g.Clients["other"] = chess.Black
 

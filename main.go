@@ -24,18 +24,21 @@ func main() {
 	logging.Debug = *debug
 
 	hub := game.NewHub()
-	h := handlers.NewHandler(hub)
 
+	var store storage.Store
 	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
-		db, err := storage.New(dsn)
+		s, err := storage.NewGormStore(dsn)
 		if err != nil {
 			log.Fatalf("failed to initialize database: %v", err)
 		}
-		h.DB = db
-		log.Printf("persistence: enabled")
+		store = s
+		log.Printf("persistence: postgres")
 	} else {
-		log.Printf("persistence: disabled (set DATABASE_URL to enable game review)")
+		store = storage.NewMemStore()
+		log.Printf("persistence: in-memory (set DATABASE_URL for durable storage)")
 	}
+
+	h := handlers.NewHandler(hub, store)
 
 	if provider, err := coach.New(); err != nil {
 		log.Printf("coach: disabled (%v)", err)

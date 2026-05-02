@@ -14,7 +14,7 @@ import (
 // Test that a move is rejected when the piece is not of the player's color.
 func TestHandleMoveWrongColor(t *testing.T) {
 	hub := game.NewHub()
-	h := NewHandler(hub)
+	h := newTestHandler(hub)
 	g, _ := hub.Get("g1", "")
 	g.Clients["c1"] = chess.White
 
@@ -35,7 +35,7 @@ func TestHandleMoveWrongColor(t *testing.T) {
 // Test that a move is rejected when it is not the player's turn.
 func TestHandleMoveNotYourTurn(t *testing.T) {
 	hub := game.NewHub()
-	h := NewHandler(hub)
+	h := newTestHandler(hub)
 	g, _ := hub.Get("g2", "")
 	g.Clients["c2"] = chess.Black
 
@@ -56,7 +56,7 @@ func TestHandleMoveNotYourTurn(t *testing.T) {
 // Test that a valid move by the correct player succeeds.
 func TestHandleMoveSuccess(t *testing.T) {
 	hub := game.NewHub()
-	h := NewHandler(hub)
+	h := newTestHandler(hub)
 	g, _ := hub.Get("g3", "")
 	g.Clients["c1"] = chess.White
 

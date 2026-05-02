@@ -15,28 +15,20 @@ import (
 
 	"github.com/corentings/chess/v2"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
-// Handler contains dependencies for HTTP handlers. DB and Coach are
-// optional; when nil the corresponding endpoints fail loud (404/503) but
-// the rest of the API keeps working — this lets unit tests and the e2e
-// harness run without a database or LLM credentials.
+// Handler contains dependencies for HTTP handlers. Coach is optional; when
+// nil the coach endpoints fail loud (503) but the rest of the API keeps
+// working — this lets unit tests run without LLM credentials.
 type Handler struct {
 	Hub   *game.Hub
-	DB    *gorm.DB
+	Store storage.Store
 	Coach coach.Provider
 }
 
-// NewHandler creates a new handler instance with no persistence layer.
-// Production callers set DB after construction (or via NewHandlerWithStore).
-func NewHandler(hub *game.Hub) *Handler {
-	return &Handler{Hub: hub}
-}
-
-// NewHandlerWithStore creates a handler with persistence enabled.
-func NewHandlerWithStore(hub *game.Hub, db *gorm.DB) *Handler {
-	return &Handler{Hub: hub, DB: db}
+// NewHandler creates a Handler bound to the given hub and storage backend.
+func NewHandler(hub *game.Hub, store storage.Store) *Handler {
+	return &Handler{Hub: hub, Store: store}
 }
 
 // HandleCreateGame creates a new game and returns its id (POST /api/games).
@@ -61,8 +53,8 @@ func (h *Handler) HandleSSE(w http.ResponseWriter, r *http.Request) {
 	g, col := h.Hub.Get(id, clientID)
 
 	// Best-effort persistence: ensure a Game row exists. Skip silently on error
-	// so DB outages don't break gameplay.
-	if err := storage.EnsureGame(h.DB, id, time.Now()); err != nil {
+	// so storage outages don't break gameplay.
+	if err := h.Store.EnsureGame(r.Context(), id, time.Now()); err != nil {
 		logging.Debugf("EnsureGame %s: %v", id, err)
 	}
 
@@ -189,20 +181,19 @@ func (h *Handler) HandleMove(w http.ResponseWriter, r *http.Request) {
 	g.Mu.Unlock()
 
 	// Best-effort persistence — log on failure, don't break gameplay.
-	if h.DB != nil {
-		ply := len(state.UCI)
-		if err := storage.RecordMove(h.DB, id, ply, uci, state.FEN); err != nil {
-			logging.Debugf("RecordMove %s/%d: %v", id, ply, err)
+	ctx := r.Context()
+	ply := len(state.UCI)
+	if err := h.Store.RecordMove(ctx, id, ply, uci, state.FEN); err != nil {
+		logging.Debugf("RecordMove %s/%d: %v", id, ply, err)
+	}
+	if state.Status != "" {
+		result := resultFromPGN(state.PGN)
+		if err := h.Store.FinishGame(ctx, id, result, state.PGN, state.FEN, time.Now(), ply); err != nil {
+			logging.Debugf("FinishGame %s: %v", id, err)
 		}
-		if state.Status != "" {
-			result := resultFromPGN(state.PGN)
-			if err := storage.FinishGame(h.DB, id, result, state.PGN, state.FEN, time.Now(), ply); err != nil {
-				logging.Debugf("FinishGame %s: %v", id, err)
-			}
-		} else {
-			if err := storage.UpdateGamePosition(h.DB, id, state.FEN, state.PGN, ply); err != nil {
-				logging.Debugf("UpdateGamePosition %s: %v", id, err)
-			}
+	} else {
+		if err := h.Store.UpdateGamePosition(ctx, id, state.FEN, state.PGN, ply); err != nil {
+			logging.Debugf("UpdateGamePosition %s: %v", id, err)
 		}
 	}
 

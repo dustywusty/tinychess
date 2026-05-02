@@ -18,6 +18,7 @@ import (
 
 	"tinychess/internal/game"
 	"tinychess/internal/handlers"
+	"tinychess/internal/storage"
 
 	"github.com/chromedp/chromedp"
 	"github.com/chromedp/cdproto/network"
@@ -184,7 +185,7 @@ func newTestServer() *httptest.Server {
 		panic(fmt.Sprintf("e2e: %v", err))
 	}
 	hub := game.NewHub()
-	h := handlers.NewHandler(hub)
+	h := handlers.NewHandler(hub, storage.NewMemStore())
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/games", h.HandleCreateGame)

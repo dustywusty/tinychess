@@ -39,7 +39,9 @@ export function Board({
       {Array.from({ length: 8 }).map((_, displayRow) =>
         Array.from({ length: 8 }).map((__, displayCol) => {
           const sq = cellSquare(displayRow, displayCol, perspective);
-          const piece = board[displayRow]?.[displayCol] ?? "";
+          const fenRow = perspective === "white" ? displayRow : 7 - displayRow;
+          const fenCol = perspective === "white" ? displayCol : 7 - displayCol;
+          const piece = board[fenRow]?.[fenCol] ?? "";
           return (
             <Cell
               key={sq}
@@ -158,6 +160,14 @@ function Cell({
           className={`text-[clamp(22px,6vw,54px)] leading-none ${
             isWhitePiece ? "text-white" : "text-black"
           }`}
+          style={
+            isWhitePiece
+              ? {
+                  WebkitTextStroke: "1.5px var(--sq2)",
+                  paintOrder: "stroke fill",
+                }
+              : undefined
+          }
           aria-label={piece ? `${isWhitePiece ? "white" : "black"} ${piece}` : undefined}
         >
           {glyph}

@@ -1,11 +1,11 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
 	"tinychess/internal/coach"
-	"tinychess/internal/storage"
 )
 
 // HandleCoachChat streams coach responses to the browser. Body is the
@@ -23,7 +23,7 @@ func (h *Handler) HandleCoachChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gctx := h.loadGameContext(req.GameID, req.ClientID)
+	gctx := h.loadGameContext(r.Context(), req.GameID, req.ClientID)
 
 	frames, err := h.Coach.StreamChat(r.Context(), req, gctx)
 	if err != nil {
@@ -36,11 +36,11 @@ func (h *Handler) HandleCoachChat(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *Handler) loadGameContext(gameID, clientID string) *coach.GameContext {
+func (h *Handler) loadGameContext(ctx context.Context, gameID, clientID string) *coach.GameContext {
 	if gameID == "" {
 		return nil
 	}
-	g, err := storage.GetGame(h.DB, gameID)
+	g, err := h.Store.GetGame(ctx, gameID)
 	if err != nil {
 		return nil
 	}
@@ -52,7 +52,7 @@ func (h *Handler) loadGameContext(gameID, clientID string) *coach.GameContext {
 			playerColor = "black"
 		}
 	}
-	evals, _ := storage.GetEvals(h.DB, gameID)
+	evals, _ := h.Store.GetEvals(ctx, gameID)
 	out := &coach.GameContext{
 		GameID:       g.ID.String(),
 		PGN:          g.PGN,
