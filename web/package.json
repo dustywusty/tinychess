@@ -11,6 +11,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@hashbrownai/core": "^0.4.1",
+    "@hashbrownai/react": "^0.4.1",
     "chess.js": "^1.4.0",
     "emoji-picker-element": "^1.29.1",
     "react": "^18.3.1",
