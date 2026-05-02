@@ -2,7 +2,11 @@ import { useMemo } from "react";
 import { useGameStore } from "../../state/gameStore";
 import { useUiStore } from "../../state/uiStore";
 
-export function GameStatus() {
+interface Props {
+  gameId?: string;
+}
+
+export function GameStatus({ gameId }: Props = {}) {
   const turn = useGameStore((s) => s.turn);
   const status = useGameStore((s) => s.status);
   const playerColor = useGameStore((s) => s.playerColor);
@@ -40,6 +44,14 @@ export function GameStatus() {
         <div className="text-xs opacity-50">
           {watchers === 1 ? "1 watcher" : `${watchers} watchers`}
         </div>
+      )}
+      {status && gameId && !isSpectator && (
+        <a
+          href={`/review/${gameId}`}
+          className="mt-1 inline-flex items-center px-3 py-1.5 rounded-md bg-[color:var(--accent)] text-bg text-sm font-medium"
+        >
+          Review this game →
+        </a>
       )}
     </div>
   );

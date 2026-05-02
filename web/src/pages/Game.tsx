@@ -136,7 +136,7 @@ export function Game({ gameId }: { gameId: string }) {
         }
       />
       <section className="max-w-md mx-auto p-4 space-y-4">
-        <GameStatus />
+        <GameStatus gameId={gameId} />
         <Board
           fen={fen}
           uci={uci}

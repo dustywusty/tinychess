@@ -23,13 +23,14 @@ export const BoardAnnotation = s.object("Annotation overlay for a board", {
   arrows: s.array("Arrows (may be empty)", Arrow),
 });
 
-export const InlineBoardProps = s.object("Props for an inline coach board", {
+// Per-field record used by exposeComponent (which expects { name: schema, … }
+// not an ObjectType). Hashbrown's lib uses anyOf+nullish to encode optional.
+export const InlineBoardPropsSchema = {
   fen: s.string("Position to render in FEN notation"),
-  ply: s.integer(
+  ply: s.number(
     "Half-move number this position corresponds to in the game (0-indexed)",
   ),
   caption: s.string("Short caption above the board"),
-  // Hashbrown's schema lib uses anyOf+nullish to encode optional fields.
   annotations: s.anyOf([BoardAnnotation, s.nullish()]),
   moveSequence: s.anyOf([
     s.array(
@@ -38,7 +39,14 @@ export const InlineBoardProps = s.object("Props for an inline coach board", {
     ),
     s.nullish(),
   ]),
-});
+} as const;
+
+// Composed ObjectType for use as a tool input (e.g.
+// set_main_board_annotation accepts annotations: BoardAnnotation).
+export const InlineBoardProps = s.object(
+  "Props for an inline coach board",
+  InlineBoardPropsSchema,
+);
 
 export const ReviewMoment = s.object("A single coaching moment in a review", {
   title: s.string(
