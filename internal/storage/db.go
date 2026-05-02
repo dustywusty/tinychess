@@ -14,7 +14,7 @@ func New(dsn string) (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := db.AutoMigrate(&Game{}, &GameSession{}, &UserSession{}, &Move{}); err != nil {
+	if err := db.AutoMigrate(&Game{}, &GameSession{}, &UserSession{}, &Move{}, &GameEval{}); err != nil {
 		return nil, err
 	}
 	return db, nil

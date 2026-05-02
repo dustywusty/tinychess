@@ -22,14 +22,19 @@ func main() {
 	flag.Parse()
 	logging.Debug = *debug
 
-	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
-		if _, err := storage.New(dsn); err != nil {
-			log.Fatalf("failed to initialize database: %v", err)
-		}
-	}
-
 	hub := game.NewHub()
 	h := handlers.NewHandler(hub)
+
+	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
+		db, err := storage.New(dsn)
+		if err != nil {
+			log.Fatalf("failed to initialize database: %v", err)
+		}
+		h.DB = db
+		log.Printf("persistence: enabled")
+	} else {
+		log.Printf("persistence: disabled (set DATABASE_URL to enable game review)")
+	}
 
 	dist, err := fs.Sub(spaFS, "web/dist")
 	if err != nil {
@@ -44,6 +49,9 @@ func main() {
 	mux.HandleFunc("POST /api/games/{gameId}/move", h.HandleMove)
 	mux.HandleFunc("POST /api/games/{gameId}/react", h.HandleReact)
 	mux.HandleFunc("POST /api/games/{gameId}/release", h.HandleRelease)
+	mux.HandleFunc("GET /api/games/{gameId}", h.HandleGetGame)
+	mux.HandleFunc("GET /api/games/{gameId}/evals", h.HandleGetEvals)
+	mux.HandleFunc("POST /api/games/{gameId}/evals", h.HandleAppendEvals)
 	mux.HandleFunc("GET /api/version", versionHandler)
 
 	// Legacy redirect for <a href="/new">
