@@ -19,6 +19,11 @@ export function GameStatus() {
     return turn === playerColor ? "Your turn" : "Their turn";
   }, [turn, status, playerColor, isSpectator]);
 
+  // Mirror the legacy behavior: when the server reports a game-over status
+  // (e.g. "Checkmate"), surface it in both #turn (as the turn indicator) and
+  // #status (as the message line). Local UI errors take precedence in #status.
+  const statusText = uiStatus || status || "";
+
   return (
     <div className="flex flex-col gap-1 items-start">
       <div id="turn" data-testid="turn" className="text-base font-medium">
@@ -29,7 +34,7 @@ export function GameStatus() {
         data-testid="status"
         className={`text-sm min-h-[1.25rem] ${statusError ? "text-[color:var(--err)]" : "opacity-70"}`}
       >
-        {uiStatus}
+        {statusText}
       </div>
       {watchers > 0 && (
         <div className="text-xs opacity-50">

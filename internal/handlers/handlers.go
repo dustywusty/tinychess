@@ -10,7 +10,6 @@ import (
 
 	"tinychess/internal/game"
 	"tinychess/internal/logging"
-	"tinychess/internal/templates"
 
 	"github.com/corentings/chess/v2"
 	"github.com/google/uuid"
@@ -33,21 +32,9 @@ func (h *Handler) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
 }
 
 // HandleNewRedirect creates a new game and redirects to it (GET /new).
-// Kept for legacy <a href="/new"> links from the inline-React template.
 func (h *Handler) HandleNewRedirect(w http.ResponseWriter, r *http.Request) {
 	id := uuid.NewString()
 	http.Redirect(w, r, "/"+id, http.StatusFound)
-}
-
-// HandlePage serves the home page or game page (legacy templates).
-func (h *Handler) HandlePage(w http.ResponseWriter, r *http.Request) {
-	path := strings.TrimPrefix(r.URL.Path, "/")
-	if path == "" || path == "index.html" {
-		templates.WriteHomeHTML(w)
-		return
-	}
-	_, _ = h.Hub.Get(path, "")
-	templates.WriteGameHTML(w, path)
 }
 
 // HandleSSE handles Server-Sent Events for real-time game updates.

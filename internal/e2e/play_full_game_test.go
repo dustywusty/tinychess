@@ -18,7 +18,6 @@ import (
 
 	"tinychess/internal/game"
 	"tinychess/internal/handlers"
-	"tinychess/internal/templates"
 
 	"github.com/chromedp/chromedp"
 	"github.com/chromedp/cdproto/network"
@@ -184,7 +183,6 @@ func newTestServer() *httptest.Server {
 	if err := chdirToRepoRoot(); err != nil {
 		panic(fmt.Sprintf("e2e: %v", err))
 	}
-	templates.SetVersion("e2e")
 	hub := game.NewHub()
 	h := handlers.NewHandler(hub)
 
@@ -195,7 +193,7 @@ func newTestServer() *httptest.Server {
 	mux.HandleFunc("POST /api/games/{gameId}/react", h.HandleReact)
 	mux.HandleFunc("POST /api/games/{gameId}/release", h.HandleRelease)
 	mux.HandleFunc("GET /new", h.HandleNewRedirect)
-	mux.HandleFunc("GET /", h.HandlePage)
+	mux.HandleFunc("GET /", handlers.SpaHandler(os.DirFS("web/dist")))
 
 	return httptest.NewServer(mux)
 }
@@ -719,7 +717,7 @@ func chdirToRepoRoot() error {
 	}
 	dir := wd
 	for i := 0; i < 6; i++ {
-		if exists(filepath.Join(dir, "internal", "templates", "game.html")) {
+		if exists(filepath.Join(dir, "go.mod")) && exists(filepath.Join(dir, "web", "dist", "index.html")) {
 			return os.Chdir(dir)
 		}
 		parent := filepath.Dir(dir)
@@ -728,7 +726,7 @@ func chdirToRepoRoot() error {
 		}
 		dir = parent
 	}
-	return fmt.Errorf("repo root not found from %s", wd)
+	return fmt.Errorf("repo root not found from %s (need go.mod + web/dist/index.html — run pnpm --dir web build first)", wd)
 }
 
 func exists(path string) bool {

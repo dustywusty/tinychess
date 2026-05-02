@@ -51,10 +51,10 @@ lint:
 	@command -v golangci-lint >/dev/null || { echo "Install golangci-lint: https://golangci-lint.run/"; exit 1; }
 	golangci-lint run
 
-test:
+test: web-build
 	go test ./...
 
-test-e2e:
+test-e2e: web-build
 	@if [ "$(E2E_RECORD)" = "1" ] && [ "$(E2E_RECORD_FORMAT)" != "frames" ]; then \
 		command -v ffmpeg >/dev/null || { echo "ffmpeg not found (set E2E_RECORD_FORMAT=frames to skip stitching)"; exit 1; }; \
 	fi
