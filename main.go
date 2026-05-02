@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 
+	"tinychess/internal/coach"
 	"tinychess/internal/game"
 	"tinychess/internal/handlers"
 	"tinychess/internal/logging"
@@ -36,6 +37,13 @@ func main() {
 		log.Printf("persistence: disabled (set DATABASE_URL to enable game review)")
 	}
 
+	if provider, err := coach.New(); err != nil {
+		log.Printf("coach: disabled (%v)", err)
+	} else {
+		h.Coach = provider
+		log.Printf("coach: enabled (%s)", os.Getenv("COACH_PROVIDER"))
+	}
+
 	dist, err := fs.Sub(spaFS, "web/dist")
 	if err != nil {
 		log.Fatalf("embed: %v", err)
@@ -52,6 +60,7 @@ func main() {
 	mux.HandleFunc("GET /api/games/{gameId}", h.HandleGetGame)
 	mux.HandleFunc("GET /api/games/{gameId}/evals", h.HandleGetEvals)
 	mux.HandleFunc("POST /api/games/{gameId}/evals", h.HandleAppendEvals)
+	mux.HandleFunc("POST /api/coach/chat", h.HandleCoachChat)
 	mux.HandleFunc("GET /api/version", versionHandler)
 
 	// Legacy redirect for <a href="/new">

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"tinychess/internal/coach"
 	"tinychess/internal/game"
 	"tinychess/internal/logging"
 	"tinychess/internal/storage"
@@ -17,12 +18,14 @@ import (
 	"gorm.io/gorm"
 )
 
-// Handler contains dependencies for HTTP handlers. DB is optional; when nil
-// every persistence call is a no-op so unit tests and the e2e harness can
-// run without a database.
+// Handler contains dependencies for HTTP handlers. DB and Coach are
+// optional; when nil the corresponding endpoints fail loud (404/503) but
+// the rest of the API keeps working — this lets unit tests and the e2e
+// harness run without a database or LLM credentials.
 type Handler struct {
-	Hub *game.Hub
-	DB  *gorm.DB
+	Hub   *game.Hub
+	DB    *gorm.DB
+	Coach coach.Provider
 }
 
 // NewHandler creates a new handler instance with no persistence layer.
