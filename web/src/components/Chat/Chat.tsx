@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { prompt } from "@hashbrownai/core";
 import { exposeComponent, useUiChat } from "@hashbrownai/react";
 import { useCoachTools } from "../../coach/buildTools";
 import { InlineBoardPropsSchema } from "../../coach/schemas";
@@ -29,26 +30,26 @@ export function Chat({ gameId, pgn, positions, plyCount, initialPrompt }: ChatPr
   );
 
   const system = useMemo(
-    () =>
-      [
-        "You are a chess coach reviewing a completed game with the player who just finished it.",
-        "",
-        "Walk through 2-4 critical moments where the evaluation swung significantly. For each moment:",
-        "- Address the player in second person.",
-        "- Be encouraging but honest — name the mistake clearly without being harsh.",
-        "- Explain the chess reason (tactical or strategic), not just the eval delta.",
-        "- Suggest the better continuation and why.",
-        "- Render an InlineBoard component for the position so the player can see it.",
-        "",
-        "Use the get_position_at tool when you need a FEN for an arbitrary ply, eval_position to confirm Stockfish's recommendation, and set_main_board_annotation to highlight squares on the main board on the left while you explain.",
-        "",
-        "Keep individual replies tight (2-5 sentences per moment). Use standard algebraic notation for moves.",
-      ].join("\n"),
+    () => prompt`You are a chess coach reviewing a completed game with the player who just finished it.
+
+Walk through 2-4 critical moments where the evaluation swung significantly. For each moment:
+- Address the player in second person.
+- Be encouraging but honest — name the mistake clearly without being harsh.
+- Explain the chess reason (tactical or strategic), not just the eval delta.
+- Suggest the better continuation and why.
+
+<ui>
+Render an InlineBoard component for each position so the player can see it.
+</ui>
+
+Use the get_position_at tool when you need a FEN for an arbitrary ply, eval_position to confirm Stockfish's recommendation, and set_main_board_annotation to highlight squares on the main board on the left while you explain.
+
+Keep individual replies tight (2-5 sentences per moment). Use standard algebraic notation for moves.`,
     [],
   );
 
   const { messages, sendMessage, isReceiving } = useUiChat({
-    model: "claude-opus-4-7",
+    model: "claude-sonnet-4-6",
     system,
     components: [exposedInlineBoard],
     tools,

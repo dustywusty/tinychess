@@ -11,22 +11,69 @@ package coach
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 )
 
-// ChatRequest is the inbound shape from the browser.
+// ChatRequest is the inbound shape from the browser (Hashbrown's wire format).
 type ChatRequest struct {
-	Messages []Message `json:"messages"`
-	GameID   string    `json:"gameId,omitempty"`
-	ClientID string    `json:"clientId,omitempty"`
+	Operation      string          `json:"operation,omitempty"`
+	Model          string          `json:"model,omitempty"`
+	System         string          `json:"system,omitempty"`
+	Messages       []Message       `json:"messages"`
+	Tools          []ToolDef       `json:"tools,omitempty"`
+	ToolChoice     string          `json:"toolChoice,omitempty"`
+	ResponseFormat json.RawMessage `json:"responseFormat,omitempty"`
+	ThreadID       string          `json:"threadId,omitempty"`
+	GameID         string          `json:"gameId,omitempty"`
+	ClientID       string          `json:"clientId,omitempty"`
 }
 
-// Message is a single conversation turn.
+// ToolDef is a tool definition from the Hashbrown client. Parameters is
+// a pass-through JSON Schema.
+type ToolDef struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Parameters  json.RawMessage `json:"parameters"`
+}
+
+// Message is a single conversation turn. Assistant messages may carry
+// ToolCalls; tool-result messages carry ToolCallID.
+// Content is json.RawMessage because Hashbrown sends tool-result content
+// as a JSON object, not a string.
 type Message struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role       string          `json:"role"`
+	Content    json.RawMessage `json:"content,omitempty"`
+	ToolCalls  []ToolCall      `json:"toolCalls,omitempty"`
+	ToolCallID string          `json:"toolCallId,omitempty"`
+}
+
+// ContentString returns Content as a plain string. If the raw JSON is a
+// quoted string it is unquoted; objects/arrays are returned as raw JSON text.
+func (m Message) ContentString() string {
+	if len(m.Content) == 0 {
+		return ""
+	}
+	var s string
+	if json.Unmarshal(m.Content, &s) == nil {
+		return s
+	}
+	return string(m.Content)
+}
+
+// ToolCall represents a tool invocation on an assistant message.
+type ToolCall struct {
+	ID       string           `json:"id"`
+	Type     string           `json:"type"`
+	Function ToolCallFunction `json:"function"`
+}
+
+// ToolCallFunction is the name + arguments of a tool call.
+type ToolCallFunction struct {
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
 }
 
 // GameContext is fetched from storage and woven into the system prompt for
@@ -74,8 +121,25 @@ type Choice struct {
 
 // Delta is the per-chunk additive payload.
 type Delta struct {
-	Role    string `json:"role,omitempty"`
-	Content string `json:"content,omitempty"`
+	Role      string          `json:"role,omitempty"`
+	Content   string          `json:"content,omitempty"`
+	ToolCalls []ToolCallDelta `json:"toolCalls,omitempty"`
+}
+
+// ToolCallDelta is a streaming fragment of a tool call.
+type ToolCallDelta struct {
+	Index    int                    `json:"index"` // no omitempty — 0 is meaningful
+	ID       string                 `json:"id,omitempty"`
+	Type     string                 `json:"type,omitempty"`
+	Function *ToolCallFunctionDelta `json:"function,omitempty"`
+}
+
+// ToolCallFunctionDelta carries incremental name/arguments for a tool call.
+// Arguments must not use omitempty — the initial empty string prevents the
+// client from concatenating "undefined" when merging deltas.
+type ToolCallFunctionDelta struct {
+	Name      string `json:"name,omitempty"`
+	Arguments string `json:"arguments"`
 }
 
 // Provider is the LLM driver. StreamChat returns a channel that delivers

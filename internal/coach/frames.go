@@ -24,10 +24,16 @@ func WriteFrame(w io.Writer, frame Frame) error {
 	return err
 }
 
+// StartFrame signals the beginning of a generation. Hashbrown's client
+// requires this before any chunks.
+func StartFrame() Frame {
+	return Frame{Type: "generation-start"}
+}
+
 // TextChunk builds a Frame carrying a text delta from the assistant.
 func TextChunk(text string) Frame {
 	return Frame{
-		Type: "chunk",
+		Type: "generation-chunk",
 		Chunk: &Chunk{
 			Choices: []Choice{
 				{
@@ -39,14 +45,55 @@ func TextChunk(text string) Frame {
 	}
 }
 
+// ToolCallStartChunk emits the first delta for a tool call: index, id, type,
+// and function name. Corresponds to Anthropic's ContentBlockStartEvent with
+// type tool_use.
+func ToolCallStartChunk(index int, id, name string) Frame {
+	return Frame{
+		Type: "generation-chunk",
+		Chunk: &Chunk{
+			Choices: []Choice{{
+				Index: 0,
+				Delta: Delta{
+					ToolCalls: []ToolCallDelta{{
+						Index:    index,
+						ID:       id,
+						Type:     "function",
+						Function: &ToolCallFunctionDelta{Name: name},
+					}},
+				},
+			}},
+		},
+	}
+}
+
+// ToolCallArgsChunk emits a partial-JSON arguments fragment for an in-flight
+// tool call. Corresponds to Anthropic's InputJSONDelta.
+func ToolCallArgsChunk(index int, args string) Frame {
+	return Frame{
+		Type: "generation-chunk",
+		Chunk: &Chunk{
+			Choices: []Choice{{
+				Index: 0,
+				Delta: Delta{
+					ToolCalls: []ToolCallDelta{{
+						Index:    index,
+						Function: &ToolCallFunctionDelta{Arguments: args},
+					}},
+				},
+			}},
+		},
+	}
+}
+
 // FinishFrame signals end-of-stream.
 func FinishFrame() Frame {
-	return Frame{Type: "finish"}
+	return Frame{Type: "generation-finish"}
 }
 
 // ErrorFrame signals a stream error.
 func ErrorFrame(message string) Frame {
-	return Frame{Type: "error", Error: message}
+	return Frame{Type: "generation-error", Error: message}
 }
 
 // StreamFrames pumps frames from a channel onto an HTTP response,

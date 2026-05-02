@@ -98,7 +98,7 @@ export function Review({ gameId }: { gameId: string }) {
     `I just finished playing this game. Walk me through the 2-4 most critical moments using InlineBoard components. Result: ${game.result || "unknown"}.`;
 
   return (
-    <HashbrownProvider url="/api/coach/chat">
+    <HashbrownProvider url="/api/coach/chat" emulateStructuredOutput>
       <main className="min-h-screen bg-bg text-text">
         <Header />
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-6xl mx-auto p-4">
