@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { Color } from "../types/chess";
 import { START_FEN } from "../types/chess";
 import type { StateEvent } from "../types/events";
+import { normalizeColor, turnFromFEN } from "../lib/board";
 
 export interface GameStore {
   // Server-mirrored fields
@@ -47,21 +48,21 @@ export const useGameStore = create<GameStore>((set) => ({
   applyServerState: (event) =>
     set((prev) => ({
       fen: event.fen,
-      turn: event.turn,
+      turn: normalizeColor(event.turn) ?? turnFromFEN(event.fen),
       status: event.status,
       pgn: event.pgn,
       uci: event.uci ?? [],
       watchers: event.watchers,
       lastSeen: event.lastSeen,
-      // Server-assigned client identity wins if present in the payload
       clientId: event.clientId ?? prev.clientId,
       playerColor:
-        event.color !== undefined ? (event.color ?? null) : prev.playerColor,
+        event.color !== undefined
+          ? normalizeColor(event.color)
+          : prev.playerColor,
       isSpectator:
         event.role !== undefined
           ? event.role === "spectator"
           : prev.isSpectator,
-      // Successful server update clears any optimistic move
       optimisticUci: null,
     })),
   setClientId: (id) => set({ clientId: id }),

@@ -1,15 +1,17 @@
-import type { Color } from "./chess";
+// The server emits "w"/"b" today (chess.Color.String()). This wire-level type
+// is tolerant; gameStore normalizes via normalizeColor before storing.
+export type WireColor = "w" | "b" | "white" | "black";
 
 export interface StateEvent {
   kind: "state";
   fen: string;
-  turn: Color;
+  turn: WireColor;
   status: string;
   pgn: string;
   uci: string[];
   lastSeen: number;
   watchers: number;
-  color?: Color | null;
+  color?: WireColor | null;
   role?: "player" | "spectator";
   clientId?: string;
 }
