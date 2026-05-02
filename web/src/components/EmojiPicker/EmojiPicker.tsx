@@ -19,7 +19,12 @@ export function EmojiPicker({ disabled = false, onSend }: Props) {
   const inCooldown = cooldownUntil > Date.now();
   const buttonDisabled = disabled || inCooldown;
 
-  const send = async (emoji: string) => {
+  // Stable ref to the latest send fn so the picker's emoji-click listener
+  // doesn't need to re-attach on every render. The e2e test dispatches
+  // emoji-click on the picker right after clicking the react button, so the
+  // listener has to be present on mount, not gated on `open`.
+  const sendRef = useRef<(emoji: string) => Promise<void>>(async () => {});
+  sendRef.current = async (emoji: string) => {
     if (buttonDisabled) return;
     setRecent(rememberEmoji(emoji));
     setCooldownUntil(Date.now() + COOLDOWN_MS);
@@ -28,26 +33,33 @@ export function EmojiPicker({ disabled = false, onSend }: Props) {
     await onSend(emoji);
   };
 
+  // Open/close the native <dialog> element when the open flag flips.
   useEffect(() => {
-    if (!open) return;
     const dialog = dialogRef.current;
     if (!dialog) return;
-    if (typeof dialog.showModal === "function" && !dialog.open) {
-      dialog.showModal();
+    if (open) {
+      if (typeof dialog.showModal === "function" && !dialog.open) {
+        dialog.showModal();
+      }
+    } else if (dialog.open) {
+      dialog.close();
     }
+  }, [open]);
+
+  // Attach the emoji-click listener once on mount.
+  useEffect(() => {
     const picker = pickerRef.current;
     if (!picker) return;
     const handler = (ev: Event) => {
       const detail = (ev as CustomEvent<{ unicode?: string }>).detail;
       const unicode = detail?.unicode;
-      if (unicode) void send(unicode);
+      if (unicode) void sendRef.current(unicode);
     };
     picker.addEventListener("emoji-click", handler);
     return () => picker.removeEventListener("emoji-click", handler);
-    // send is stable enough; recreating handler per open is cheap.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, []);
 
+  // Tick the cooldown UI back to enabled.
   useEffect(() => {
     if (!inCooldown) return;
     const t = setTimeout(() => setCooldownUntil(0), cooldownUntil - Date.now());
@@ -63,7 +75,7 @@ export function EmojiPicker({ disabled = false, onSend }: Props) {
             type="button"
             disabled={buttonDisabled}
             className="text-xl px-1.5 py-0.5 rounded hover:bg-panel disabled:opacity-50"
-            onClick={() => void send(e)}
+            onClick={() => void sendRef.current(e)}
           >
             {e}
           </button>
