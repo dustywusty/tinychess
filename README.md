@@ -21,7 +21,7 @@ Players can react with any emoji using the built-in emoji picker.
 - Go 1.22+
 - Make
 - Optional: `air` for live reload (`go install github.com/cosmtrek/air@latest`)
-- Optional: Postgres if you want persistence
+- Optional: Postgres if you want durable persistence (the app runs in-memory by default)
 
 ### Install + run
 
@@ -40,7 +40,9 @@ make dev
 
 ### Database (optional)
 
-Set `DATABASE_URL` to enable persistence (Postgres DSN), for example:
+By default games and evals live in process memory and are lost on restart —
+fine for local play and Review. Set `DATABASE_URL` for durable Postgres
+persistence:
 
 ```sh
 export DATABASE_URL="postgres://user:pass@localhost:5432/tinychess?sslmode=disable"

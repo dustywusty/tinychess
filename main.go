@@ -1,46 +1,83 @@
 package main
 
 import (
+	"embed"
 	"flag"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
 
+	"tinychess/internal/coach"
 	"tinychess/internal/game"
 	"tinychess/internal/handlers"
 	"tinychess/internal/logging"
 	"tinychess/internal/storage"
-	"tinychess/internal/templates"
 )
+
+//go:embed all:web/dist
+var spaFS embed.FS
 
 func main() {
 	debug := flag.Bool("debug", false, "enable debug logging")
 	flag.Parse()
 	logging.Debug = *debug
 
-	templates.SetVersion(commit)
-
-	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
-		if _, err := storage.New(dsn); err != nil {
-			log.Fatalf("failed to initialize database: %v", err)
-		}
-	}
-
-	// Initialize game hub
 	hub := game.NewHub()
 
-	// Initialize HTTP handlers
-	h := handlers.NewHandler(hub)
+	var store storage.Store
+	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
+		s, err := storage.NewGormStore(dsn)
+		if err != nil {
+			log.Fatalf("failed to initialize database: %v", err)
+		}
+		store = s
+		log.Printf("persistence: postgres")
+	} else {
+		store = storage.NewMemStore()
+		log.Printf("persistence: in-memory (set DATABASE_URL for durable storage)")
+	}
 
-	// Register routes
-	http.HandleFunc("/new", h.HandleNew)
-	http.HandleFunc("/sse/", h.HandleSSE)
-	http.HandleFunc("/move/", h.HandleMove)
-	http.HandleFunc("/react/", h.HandleReact)
-	http.HandleFunc("/release/", h.HandleRelease)
-	http.HandleFunc("/coach", h.HandleCoach)
-	http.HandleFunc("/", h.HandlePage)
+	h := handlers.NewHandler(hub, store)
+
+	if provider, err := coach.New(); err != nil {
+		log.Printf("coach: disabled (%v)", err)
+	} else {
+		h.Coach = provider
+		log.Printf("coach: enabled (%s)", os.Getenv("COACH_PROVIDER"))
+	}
+
+	dist, err := fs.Sub(spaFS, "web/dist")
+	if err != nil {
+		log.Fatalf("embed: %v", err)
+	}
+
+	mux := http.NewServeMux()
+
+	// API
+	mux.HandleFunc("POST /api/games", h.HandleCreateGame)
+	mux.HandleFunc("GET /api/sse/{gameId}", h.HandleSSE)
+	mux.HandleFunc("POST /api/games/{gameId}/move", h.HandleMove)
+	mux.HandleFunc("POST /api/games/{gameId}/react", h.HandleReact)
+	mux.HandleFunc("POST /api/games/{gameId}/release", h.HandleRelease)
+	mux.HandleFunc("GET /api/games/{gameId}", h.HandleGetGame)
+	mux.HandleFunc("GET /api/games/{gameId}/evals", h.HandleGetEvals)
+	mux.HandleFunc("POST /api/games/{gameId}/evals", h.HandleAppendEvals)
+	mux.HandleFunc("POST /api/coach/chat", h.HandleCoachChat)
+	mux.HandleFunc("GET /api/version", versionHandler)
+
+	// Legacy redirect for <a href="/new">
+	mux.HandleFunc("GET /new", h.HandleNewRedirect)
+
+	// SPA + assets fallback (must be last)
+	mux.HandleFunc("GET /", handlers.SpaHandler(dist))
 
 	log.Printf("Tiny Chess listening on http://localhost:8080 …")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(":8080", mux))
+}
+
+func versionHandler(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = w.Write([]byte(`{"commit":"` + commit + `"}`))
 }

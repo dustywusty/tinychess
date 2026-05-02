@@ -8,49 +8,55 @@ import (
 	"strings"
 	"time"
 
+	"tinychess/internal/coach"
 	"tinychess/internal/game"
 	"tinychess/internal/logging"
-	"tinychess/internal/templates"
+	"tinychess/internal/storage"
 
 	"github.com/corentings/chess/v2"
 	"github.com/google/uuid"
 )
 
-// Handler contains dependencies for HTTP handlers
+// Handler contains dependencies for HTTP handlers. Coach is optional; when
+// nil the coach endpoints fail loud (503) but the rest of the API keeps
+// working — this lets unit tests run without LLM credentials.
 type Handler struct {
-	Hub *game.Hub
+	Hub   *game.Hub
+	Store storage.Store
+	Coach coach.Provider
 }
 
-// NewHandler creates a new handler instance
-func NewHandler(hub *game.Hub) *Handler {
-	return &Handler{Hub: hub}
+// NewHandler creates a Handler bound to the given hub and storage backend.
+func NewHandler(hub *game.Hub, store storage.Store) *Handler {
+	return &Handler{Hub: hub, Store: store}
 }
 
-// HandleNew creates a new game and redirects to it
-func (h *Handler) HandleNew(w http.ResponseWriter, r *http.Request) {
+// HandleCreateGame creates a new game and returns its id (POST /api/games).
+func (h *Handler) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
+	id := uuid.NewString()
+	WriteJSON(w, http.StatusOK, map[string]any{"id": id})
+}
+
+// HandleNewRedirect creates a new game and redirects to it (GET /new).
+func (h *Handler) HandleNewRedirect(w http.ResponseWriter, r *http.Request) {
 	id := uuid.NewString()
 	http.Redirect(w, r, "/"+id, http.StatusFound)
 }
 
-// HandlePage serves the home page or game page
-func (h *Handler) HandlePage(w http.ResponseWriter, r *http.Request) {
-	path := strings.TrimPrefix(r.URL.Path, "/")
-	if path == "" || path == "index.html" {
-		templates.WriteHomeHTML(w)
-		return
-	}
-	_, _ = h.Hub.Get(path, "")
-	templates.WriteGameHTML(w, path)
-}
-
-// HandleSSE handles Server-Sent Events for real-time game updates
+// HandleSSE handles Server-Sent Events for real-time game updates.
 func (h *Handler) HandleSSE(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimPrefix(r.URL.Path, "/sse/")
+	id := r.PathValue("gameId")
 	clientID := r.URL.Query().Get("clientId")
 	if clientID == "" {
 		clientID = uuid.NewString()
 	}
 	g, col := h.Hub.Get(id, clientID)
+
+	// Best-effort persistence: ensure a Game row exists. Skip silently on error
+	// so storage outages don't break gameplay.
+	if err := h.Store.EnsureGame(r.Context(), id, time.Now()); err != nil {
+		logging.Debugf("EnsureGame %s: %v", id, err)
+	}
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -91,7 +97,6 @@ func (h *Handler) HandleSSE(w http.ResponseWriter, r *http.Request) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			// heartbeat
 			_, _ = w.Write([]byte("data: {}\n\n"))
 			flusher.Flush()
 		case msg := <-ch:
@@ -103,9 +108,9 @@ func (h *Handler) HandleSSE(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// HandleMove processes a chess move
+// HandleMove processes a chess move.
 func (h *Handler) HandleMove(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimPrefix(r.URL.Path, "/move/")
+	id := r.PathValue("gameId")
 	g, _ := h.Hub.Get(id, "")
 
 	var m game.MoveRequest
@@ -123,9 +128,7 @@ func (h *Handler) HandleMove(w http.ResponseWriter, r *http.Request) {
 	uci := strings.ToLower(strings.TrimSpace(m.UCI))
 	uci = appendPromotionIfPawn(g, uci)
 
-	// Handle castling moves - ensure they're properly formatted
 	if len(uci) == 4 {
-		// Check for castling moves
 		if uci == "e1g1" || uci == "e1c1" || uci == "e8g8" || uci == "e8c8" {
 			logging.Debugf("Castling move detected: %s", uci)
 		}
@@ -177,12 +180,40 @@ func (h *Handler) HandleMove(w http.ResponseWriter, r *http.Request) {
 	state = g.StateLocked()
 	g.Mu.Unlock()
 
+	// Best-effort persistence — log on failure, don't break gameplay.
+	ctx := r.Context()
+	ply := len(state.UCI)
+	if err := h.Store.RecordMove(ctx, id, ply, uci, state.FEN); err != nil {
+		logging.Debugf("RecordMove %s/%d: %v", id, ply, err)
+	}
+	if state.Status != "" {
+		result := resultFromPGN(state.PGN)
+		if err := h.Store.FinishGame(ctx, id, result, state.PGN, state.FEN, time.Now(), ply); err != nil {
+			logging.Debugf("FinishGame %s: %v", id, err)
+		}
+	} else {
+		if err := h.Store.UpdateGamePosition(ctx, id, state.FEN, state.PGN, ply); err != nil {
+			logging.Debugf("UpdateGamePosition %s: %v", id, err)
+		}
+	}
+
 	WriteJSON(w, http.StatusOK, map[string]any{"ok": true, "state": state})
 }
 
-// HandleReact processes a reaction/emoji
+// resultFromPGN extracts the result token ("1-0" / "0-1" / "1/2-1/2") from a
+// PGN if present. Returns "" if the PGN is missing a terminator.
+func resultFromPGN(pgn string) string {
+	for _, token := range []string{"1-0", "0-1", "1/2-1/2"} {
+		if strings.Contains(pgn, " "+token) || strings.HasSuffix(pgn, token) {
+			return token
+		}
+	}
+	return ""
+}
+
+// HandleReact processes a reaction/emoji.
 func (h *Handler) HandleReact(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimPrefix(r.URL.Path, "/react/")
+	id := r.PathValue("gameId")
 	g, _ := h.Hub.Get(id, "")
 
 	var body game.ReactionRequest
@@ -210,7 +241,7 @@ func (h *Handler) HandleReact(w http.ResponseWriter, r *http.Request) {
 
 // HandleRelease removes a client from a game if requested by the owner.
 func (h *Handler) HandleRelease(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimPrefix(r.URL.Path, "/release/")
+	id := r.PathValue("gameId")
 	g, _ := h.Hub.Get(id, "")
 
 	var body struct {
@@ -240,7 +271,7 @@ func (h *Handler) HandleRelease(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
-// ClientIP extracts the client IP from the request
+// ClientIP extracts the client IP from the request.
 func ClientIP(r *http.Request) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 		parts := strings.Split(xff, ",")
