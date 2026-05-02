@@ -17,11 +17,25 @@ E2E_SEND_EMOJI ?= 1
 # ldflags embeds a build stamp and commit hash; feel free to remove
 LDFLAGS := -s -w -X 'main.build=$$(date -u +%Y%m%d-%H%M%S)' -X 'main.commit=$$(git rev-parse --short HEAD)'
 
-.PHONY: all build run dev clean lint test race test-e2e
+.PHONY: all build run dev clean lint test race test-e2e web-install web-build web-dev web-typecheck
 
 all: build
 
-build:
+web-install:
+	@command -v pnpm >/dev/null || { echo "Install pnpm: https://pnpm.io/installation"; exit 1; }
+	pnpm --dir web install --frozen-lockfile
+
+web-build: web-install
+	pnpm --dir web build
+
+web-typecheck: web-install
+	pnpm --dir web typecheck
+
+web-dev:
+	@command -v pnpm >/dev/null || { echo "Install pnpm: https://pnpm.io/installation"; exit 1; }
+	pnpm --dir web dev
+
+build: web-build
 	@mkdir -p bin
 	go build -trimpath -ldflags="$(LDFLAGS)" -o $(BIN) $(PKG)
 
