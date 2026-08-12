@@ -26,6 +26,12 @@ go.work.sum
 
 # env file
 .env
+.env.local
+
+# JavaScript / Expo
+node_modules/
+.expo/
+dist/
 
 # e2e artifacts
 e2e-artifacts/

@@ -17,12 +17,12 @@ export function Home() {
 
   const handleNew = async () => {
     if (oldestActive) {
-      window.location.assign(`/${oldestActive.id}`);
+      window.location.assign(`/g/${oldestActive.id}`);
       return;
     }
     try {
       const { id } = await createGame();
-      window.location.assign(`/${id}`);
+      window.location.assign(`/g/${id}`);
     } catch {
       window.location.assign("/new");
     }
@@ -33,7 +33,7 @@ export function Home() {
       <Header />
       <section className="flex-1 flex flex-col items-center justify-start p-6 gap-6">
         <div className="max-w-md w-full text-center space-y-3">
-          <h1 className="text-3xl font-semibold">Tiny Chess</h1>
+          <h1 className="text-3xl font-semibold">Your Move</h1>
           <p className="opacity-80 text-sm">
             Play a quick game with a friend. Share the URL after you start.
           </p>

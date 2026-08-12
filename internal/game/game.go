@@ -19,14 +19,8 @@ func (g *Game) Touch() {
 func (g *Game) MovesUCI() []string {
 	ms := g.g.Moves()
 	out := make([]string, 0, len(ms))
-	tmp := chess.NewGame()
-	uci := chess.UCINotation{}
 	for _, m := range ms {
-		s := uci.Encode(tmp.Position(), m)
-		out = append(out, s)
-		if mv2, err := uci.Decode(tmp.Position(), s); err == nil {
-			_ = tmp.Move(mv2, nil)
-		}
+		out = append(out, m.String())
 	}
 	return out
 }
@@ -71,7 +65,47 @@ func (g *Game) Broadcast() {
 func (g *Game) MakeMove(uci string) error {
 	g.Mu.Lock()
 	defer g.Mu.Unlock()
+	return g.makeMoveLocked(uci)
+}
 
+// MakeMoveFor validates seat ownership and turn before applying a move. The
+// accepted UCI is returned because promotion may be normalized to a queen.
+func (g *Game) MakeMoveFor(clientID, uci string) (string, error) {
+	g.Mu.Lock()
+	defer g.Mu.Unlock()
+
+	playerColor, ok := g.Clients[clientID]
+	if !ok {
+		return "", fmt.Errorf("unknown client")
+	}
+
+	position := g.g.Position()
+	if len(uci) == 4 && (uci[3] == '1' || uci[3] == '8') {
+		candidate, err := chess.UCINotation{}.Decode(position, uci)
+		if err == nil && position.Board().Piece(candidate.S1()).Type() == chess.Pawn {
+			uci += "q"
+		}
+	}
+
+	move, err := chess.UCINotation{}.Decode(position, uci)
+	if err != nil {
+		return "", err
+	}
+	piece := position.Board().Piece(move.S1())
+	if piece == chess.NoPiece || piece.Color() != playerColor {
+		return "", fmt.Errorf("wrong color")
+	}
+	if position.Turn() != playerColor {
+		return "", fmt.Errorf("not your turn")
+	}
+	if err := g.makeMoveLocked(uci); err != nil {
+		return "", err
+	}
+	g.LastSeen = time.Now()
+	return uci, nil
+}
+
+func (g *Game) makeMoveLocked(uci string) error {
 	mv, err := chess.UCINotation{}.Decode(g.g.Position(), uci)
 	if err != nil {
 		return err

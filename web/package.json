@@ -1,9 +1,8 @@
 {
-  "name": "tinychess-web",
+  "name": "@yourmove/web",
   "private": true,
   "version": "0.2.0",
   "type": "module",
-  "packageManager": "pnpm@9.15.0",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -11,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@yourmove/protocol": "workspace:*",
     "chess.js": "^1.4.0",
     "emoji-picker-element": "^1.29.1",
     "react": "^18.3.1",

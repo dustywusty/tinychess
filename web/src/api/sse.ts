@@ -1,5 +1,5 @@
-import type { EmojiEvent, StateEvent } from "../types/events";
-import { isEmojiEvent, isStateEvent } from "../types/events";
+import type { EmojiEvent, StateEvent } from "@yourmove/protocol";
+import { isEmojiEvent, isStateEvent } from "@yourmove/protocol";
 
 const RECONNECT_MIN_MS = 1000;
 const RECONNECT_MAX_MS = 15000;

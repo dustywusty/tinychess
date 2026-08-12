@@ -1,104 +1,58 @@
-# What is this?
+# Your Move
 
-I've been playing around w/ making something w just agents, purely out of curiousity, this is that!
+Create a chess game, share a link, and play. The first two anonymous visitors
+take the seats; everyone else can watch and react. Chess is free. A constrained,
+engine-grounded coaching add-on is being built behind a strict cost-control
+policy.
 
-# Tiny Chess
+## Repository
 
-[![CI](https://github.com/dustywusty/tinychess/actions/workflows/ci.yml/badge.svg)](https://github.com/dustywusty/tinychess/actions/workflows/ci.yml)
-
-A simple web-based chess game that you can play with just a link.
-
-We give you a shareable URL and we'll randomly pick your side; the next person gets the other.
-
-Anyone else who opens the link is a spectator.
-
-Players can react with any emoji using the built-in emoji picker.
-
-## Local development
-
-### Bootstrap
-
-- Go 1.22+
-- Make
-- Optional: `air` for live reload (`go install github.com/cosmtrek/air@latest`)
-- Optional: Postgres if you want persistence
-
-### Install + run
-
-```sh
-go mod download
-make run
+```text
+apps/mobile/       Expo / React Native client
+web/               React / Vite web client (moves to apps/web after migration)
+packages/protocol/ Shared TypeScript wire types
+packages/coach/    Server-side deterministic coach policy
+internal/          Current Go API, game domain, storage, and handlers
+docs/              Architecture, protocol, coach, and rebuild decisions
 ```
 
-Open http://localhost:8080.
+The authoritative server validates every move with
+`github.com/corentings/chess/v2`. Web currently receives realtime events over
+SSE. Mobile uses the same commands and a temporary snapshot poll until the
+versioned WebSocket transport lands.
 
-### Live reload (optional)
+## Start locally
+
+Requirements: Go 1.24+, Node 20+, Corepack, Make, and optionally Postgres.
 
 ```sh
+make bootstrap
 make dev
 ```
 
-### Database (optional)
+`make dev` starts the Go API, Vite web client, and Expo development server.
+Open `http://localhost:5173` for web. The API listens on `:8080`.
 
-Set `DATABASE_URL` to enable persistence (Postgres DSN), for example:
+For a device, set `EXPO_PUBLIC_API_URL` to a host it can reach. Android emulators
+default to `http://10.0.2.2:8080`; iOS simulators default to localhost.
 
-```sh
-export DATABASE_URL="postgres://user:pass@localhost:5432/tinychess?sslmode=disable"
-```
-
-## Tests
-
-### Unit tests
+Set `DATABASE_URL` to enable Postgres persistence:
 
 ```sh
-go test ./...
+export DATABASE_URL="postgres://user:pass@localhost:5432/yourmove?sslmode=disable"
 ```
 
-### Browser e2e test (full game)
-
-Runs a headless browser test that opens two clients and plays a complete legal
-game (Fool's Mate) to verify a game can finish.
+## Verify
 
 ```sh
-go test -tags e2e ./internal/e2e -run TestPlayFullGame
+make typecheck
+make test
+E2E_RECORD=0 make test-e2e
 ```
 
-Notes:
-- Requires a local Chrome/Chromium install.
-- If Chrome isn't on your PATH, set `CHROME_BIN` to the browser executable.
-- If your environment needs it, set `CHROMEDP_NO_SANDBOX=1`.
-- To watch the game being played, run headed with `CHROMEDP_HEADLESS=0`.
-- To slow down moves, set `E2E_MOVE_DELAY_MS` (milliseconds between moves).
-- To pause before the first move, set `E2E_START_DELAY_MS`.
-- To wait for UI updates before capturing, set `E2E_CAPTURE_DELAY_MS`.
-- Famous quick mates:
-  - Fool's Mate: `go test -tags e2e ./internal/e2e -run TestPlayFullGame`
-  - Scholar's Mate: `go test -tags e2e ./internal/e2e -run TestPlayScholarsMate`
-- Optional recording:
-  - Set `E2E_RECORD=1` to capture screenshots before each move (white client).
-  - Output defaults to `e2e-artifacts/` (override with `E2E_RECORD_DIR`).
-  - Use `E2E_RECORD_FORMAT=mp4` (default), `gif`, or `frames` (PNGs only).
-  - Set `E2E_RECORD_FPS` to control playback (default `6`).
-  - Set `E2E_RECORD_HOLD_MS` to hold the final frame (default `2000`).
-  - Requires `ffmpeg` on PATH for mp4/gif.
+The browser E2E suite opens two clients and plays complete legal games. Chrome
+or Chromium is required; set `CHROME_BIN` if it is not discoverable.
 
-### Make target (run all e2e tests + stitch gifs)
-
-```sh
-E2E_RECORD=1 E2E_RECORD_FORMAT=gif E2E_RECORD_FPS=6 make test-e2e
-```
-
-Defaults can be overridden:
-- `CHROMEDP_HEADLESS=0` to watch the run.
-- `CHROMEDP_VIEWPORT_WIDTH` and `CHROMEDP_VIEWPORT_HEIGHT` for mobile/aspect testing (defaults to iPhone 15 Pro: 393x852).
-- `E2E_MOVE_DELAY_MS` and `E2E_START_DELAY_MS` for timing.
-- `E2E_CAPTURE_DELAY_MS` to wait for SSE/UI updates before each capture.
-- `E2E_RECORD_HOLD_MS` to extend the final frame.
-- `E2E_RECORD_FORMAT=frames` to skip stitching (no ffmpeg needed).
-- `E2E_SEND_EMOJI=0` to skip the emoji taunt (default on).
-- `E2E_EMOJI` to override the emoji character.
-
-## Links
-
-- Production: https://tinychess.dusty.wtf/
-- Sandbox: https://sandbox.tinychess.dusty.wtf
+See [development](docs/development.md), [architecture](docs/architecture.md),
+[protocol](docs/protocol.md), [coach](docs/coach.md), and the full
+[rebuild audit](docs/rebuild-plan.md).

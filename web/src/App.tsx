@@ -5,8 +5,10 @@ import { Home } from "./pages/Home";
 function currentGameId(): string {
   const path = window.location.pathname;
   if (path.length <= 1) return "";
-  // Strip leading slash, ignore index.html, ignore /new (server-handled)
-  const segment = path.slice(1).split("/")[0];
+  const segments = path.slice(1).split("/").filter(Boolean);
+  if (segments[0] === "g" && segments[1]) return segments[1];
+  // Keep legacy /:gameId links working while shared links move to /g/:gameId.
+  const segment = segments[0];
   if (!segment || segment === "index.html" || segment === "new") return "";
   return segment;
 }

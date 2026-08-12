@@ -1,18 +1,13 @@
-import type { StateEvent } from "../types/events";
+import type {
+  CommandResponse,
+  CreateGameResponse,
+  MoveResponse,
+} from "@yourmove/protocol";
 
-export interface OkResponse {
-  ok: boolean;
-  error?: string;
-}
-
-export interface MoveResponse extends OkResponse {
-  state?: Omit<StateEvent, "kind">;
-}
-
-export async function createGame(): Promise<{ id: string }> {
+export async function createGame(): Promise<CreateGameResponse> {
   const res = await fetch("/api/games", { method: "POST" });
   if (!res.ok) throw new Error(`createGame failed (${res.status})`);
-  return (await res.json()) as { id: string };
+  return (await res.json()) as CreateGameResponse;
 }
 
 export async function postMove(
@@ -32,24 +27,24 @@ export async function postReact(
   gameId: string,
   emoji: string,
   sender: string,
-): Promise<OkResponse> {
+): Promise<CommandResponse> {
   const res = await fetch(`/api/games/${gameId}/react`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ emoji, sender }),
   });
-  return (await res.json()) as OkResponse;
+  return (await res.json()) as CommandResponse;
 }
 
 export async function postRelease(
   gameId: string,
   clientId: string,
   targetId: string,
-): Promise<OkResponse> {
+): Promise<CommandResponse> {
   const res = await fetch(`/api/games/${gameId}/release`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ clientId, targetId }),
   });
-  return (await res.json()) as OkResponse;
+  return (await res.json()) as CommandResponse;
 }
