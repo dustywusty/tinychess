@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "Your Move",
+    "slug": "your-move",
+    "scheme": "yourmove",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "ios": {
+      "bundleIdentifier": "com.yourmove.app",
+      "associatedDomains": ["applinks:yourmove.example"]
+    },
+    "android": {
+      "package": "com.yourmove.app",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "yourmove.example",
+              "pathPrefix": "/g"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
+    }
+  }
+}

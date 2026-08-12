@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { Color } from "../types/chess";
 import { START_FEN } from "../types/chess";
-import type { StateEvent } from "../types/events";
+import type { StateEvent } from "@yourmove/protocol";
 import { normalizeColor, turnFromFEN } from "../lib/board";
 
 export interface GameStore {

@@ -73,3 +73,17 @@ func TestHandleMoveSuccess(t *testing.T) {
 		t.Fatalf("expected move to succeed")
 	}
 }
+
+func TestHandleMoveRejectsMalformedUCI(t *testing.T) {
+	hub := game.NewHub()
+	h := NewHandler(hub)
+
+	req := httptest.NewRequest("POST", "/api/games/g4/move", strings.NewReader(`{"uci":"e","clientId":"c1"}`))
+	req.SetPathValue("gameId", "g4")
+	w := httptest.NewRecorder()
+	h.HandleMove(w, req)
+
+	if w.Code != 400 {
+		t.Fatalf("status = %d, want 400", w.Code)
+	}
+}

@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/corentings/chess/v2"
-	"tinychess/internal/game"
 )
 
 // WriteJSON writes a JSON response with the given status code
@@ -13,40 +12,6 @@ func WriteJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
-}
-
-// appendPromotionIfPawn appends a queen promotion suffix if the move is a pawn
-// reaching the last rank. Non-pawn moves are returned unchanged.
-func appendPromotionIfPawn(g *game.Game, uci string) string {
-	if len(uci) != 4 {
-		return uci
-	}
-
-	to := uci[2:]
-	if to[1] != '1' && to[1] != '8' {
-		return uci
-	}
-
-	sq := parseSquare(uci[:2])
-	if sq == chess.NoSquare {
-		return uci
-	}
-
-	g.Mu.Lock()
-	state := g.StateLocked()
-	g.Mu.Unlock()
-
-	fenOpt, err := chess.FEN(state.FEN)
-	if err != nil {
-		return uci
-	}
-	tmp := chess.NewGame(fenOpt)
-	piece := tmp.Position().Board().Piece(sq)
-
-	if piece.Type() == chess.Pawn {
-		return uci + "q"
-	}
-	return uci
 }
 
 // parseSquare converts a coordinate string like "e2" into a chess.Square.

@@ -26,7 +26,7 @@ export function Header({ rightSlot }: Props) {
   return (
     <header className="px-4 py-3 border-b border-[color:var(--btn-border,_rgba(255,255,255,0.1))] flex items-center justify-between bg-panel sticky top-0 z-20">
       <a href="/" className="text-base font-semibold">
-        Tiny Chess
+        Your Move
       </a>
       <button
         type="button"

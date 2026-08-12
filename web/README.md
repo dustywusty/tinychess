@@ -1,4 +1,4 @@
-# tinychess web
+# Your Move web
 
 The React + TypeScript SPA. Phase 1 (in progress) extracts the inline React
 from `internal/templates/game.html` into a properly tooled Vite project.

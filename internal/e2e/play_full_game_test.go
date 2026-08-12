@@ -68,7 +68,7 @@ func runGame(t *testing.T, label string, moves []move, expectMate bool) {
 	defer server.Close()
 
 	gameID := uuid.NewString()
-	gameURL := fmt.Sprintf("%s/%s", server.URL, gameID)
+	gameURL := fmt.Sprintf("%s/g/%s", server.URL, gameID)
 
 	whiteCtx, whiteCancel := newBrowserCtx(t)
 	defer whiteCancel()

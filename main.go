@@ -45,6 +45,7 @@ func main() {
 
 	// API
 	mux.HandleFunc("POST /api/games", h.HandleCreateGame)
+	mux.HandleFunc("GET /api/games/{gameId}/snapshot", h.HandleSnapshot)
 	mux.HandleFunc("GET /api/sse/{gameId}", h.HandleSSE)
 	mux.HandleFunc("POST /api/games/{gameId}/move", h.HandleMove)
 	mux.HandleFunc("POST /api/games/{gameId}/react", h.HandleReact)
@@ -60,7 +61,7 @@ func main() {
 	// SPA + assets fallback (must be last)
 	mux.HandleFunc("GET /", handlers.SpaHandler(dist))
 
-	log.Printf("Tiny Chess listening on http://localhost:8080 …")
+	log.Printf("Your Move listening on http://localhost:8080 …")
 	log.Fatal(http.ListenAndServe(":8080", mux))
 }
 
