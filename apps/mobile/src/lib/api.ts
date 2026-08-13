@@ -1,3 +1,4 @@
+import Constants from "expo-constants";
 import { Platform } from "react-native";
 import type {
   CommandResponse,
@@ -6,7 +7,9 @@ import type {
   StateEvent,
 } from "@yourmove/protocol";
 
-const developmentHost = Platform.OS === "android" ? "10.0.2.2" : "localhost";
+const metroHost = Constants.expoConfig?.hostUri?.split(":")[0];
+const developmentHost =
+  metroHost ?? (Platform.OS === "android" ? "10.0.2.2" : "localhost");
 export const apiURL = process.env.EXPO_PUBLIC_API_URL ?? `http://${developmentHost}:8080`;
 
 async function json<T>(response: Response): Promise<T> {

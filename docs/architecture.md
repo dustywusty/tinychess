@@ -12,7 +12,7 @@ watch -> optionally ask a bounded chess question.
   stop referencing legacy paths.
 - `web/` is the React/Vite fallback and link-opening client. It was adapted from
   the tested `react-coach` branch. It keeps SSE during transport migration.
-- `apps/mobile/` is an Expo Router application for iOS and Android. Its route
+- `apps/mobile/` is an Expo SDK 56 Router application for iOS and Android. Its route
   `g/[id]` matches web links and the `yourmove://` scheme.
 - `packages/protocol/` owns TypeScript command/event and coach-intent shapes used
   by both clients.

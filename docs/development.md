@@ -9,6 +9,11 @@
 - Optional: Postgres
 - Optional: Xcode/Android Studio or a physical device for native builds
 
+The mobile app targets Expo SDK 56 because it matches the Expo Go runtime
+currently distributed through the app stores. SDK 57 requires a matching
+development build during Expo's transition; do not upgrade the project version
+alone and expect the store Expo Go client to open it.
+
 ## Commands
 
 ```sh
@@ -31,9 +36,10 @@ Expo uses these public development variables:
 - `EXPO_PUBLIC_API_URL`: API origin reachable by the simulator/device
 - `EXPO_PUBLIC_WEB_URL`: origin used when sharing `https://.../g/{id}`
 
-The defaults cover localhost on iOS and `10.0.2.2` on Android emulators. A
-physical device needs the development machine's LAN address. Use development
-builds, not Expo Go, when testing the `yourmove://` scheme or universal links.
+The default is derived from Metro's LAN host, with localhost/`10.0.2.2`
+fallbacks for iOS/Android simulators. The phone and development machine must be
+on a network that permits access to ports 8080 and 8081. Use development builds,
+not Expo Go, when testing the `yourmove://` scheme or universal links.
 
 ## Database
 
