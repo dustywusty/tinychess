@@ -293,3 +293,10 @@ The first slice should remain deployable and reviewable:
 This slice deliberately does not claim production-ready mobile realtime,
 payments, distributed game recovery, or LLM coaching. It establishes the
 boundaries needed to implement those features without another rewrite.
+
+### Expo compatibility note (2026-08-13)
+
+The initial mobile scaffold used the forward SDK 57 template. Expo Go from the
+Android/iOS stores currently embeds SDK 56, so the app was aligned to the
+official SDK 56 template for QR-code development on physical devices. SDK 57
+remains suitable when the project adopts a dedicated development build.
