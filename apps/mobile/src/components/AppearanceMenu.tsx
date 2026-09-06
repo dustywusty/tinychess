@@ -12,7 +12,7 @@ export function AppearanceMenu() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const panelWidth = Math.min(280, width - 32);
-  const top = Math.max(insets.top + 12, Math.min(anchor.y, height - insets.bottom - 320));
+  const top = Math.max(insets.top + 12, Math.min(anchor.y, height - insets.bottom - 400));
   const left = Math.max(16, Math.min(anchor.x - panelWidth, width - panelWidth - 16));
   const close = useCallback(() => { setOpen(false); }, []);
   useEffect(() => {
@@ -63,8 +63,8 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   close: { width: 44, height: 44, alignItems: "center", justifyContent: "center", margin: -6 },
   closeText: { fontSize: 23, color: colors.muted },
   label: { fontSize: 10, fontWeight: "700", letterSpacing: 1.6, color: colors.muted },
-  swatches: { flexDirection: "row", gap: 6, marginTop: 10, marginBottom: 20 },
-  swatchTarget: { flex: 1, minHeight: 72, alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1, borderColor: "transparent", borderRadius: 15 },
+  swatches: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10, marginBottom: 20 },
+  swatchTarget: { width: "31%", flexGrow: 1, minHeight: 72, alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1, borderColor: "transparent", borderRadius: 15 },
   selected: { backgroundColor: colors.soft, borderColor: colors.line },
   swatch: { width: 25, height: 25, borderRadius: 20, borderWidth: 2, alignItems: "center", justifyContent: "center" },
   check: { color: "#fff", fontSize: 12, fontWeight: "800" },
