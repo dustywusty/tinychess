@@ -18,8 +18,8 @@ docs/              Architecture, protocol, coach, and rebuild decisions
 
 The authoritative server validates every move with
 `github.com/corentings/chess/v2`. Web currently receives realtime events over
-SSE. Mobile uses the same commands and a temporary snapshot poll until the
-versioned WebSocket transport lands.
+SSE. Mobile uses the same commands and SSE stream, including emoji reactions,
+with reconnect and app foreground recovery.
 
 ## Start locally
 

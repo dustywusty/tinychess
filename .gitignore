@@ -32,6 +32,8 @@ go.work.sum
 node_modules/
 .expo/
 dist/
+test-results/
+playwright-report/
 
 # e2e artifacts
 e2e-artifacts/

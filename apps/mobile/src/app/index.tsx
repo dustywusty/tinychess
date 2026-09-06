@@ -1,92 +1,118 @@
-import { useState } from "react";
-import { useRouter } from "expo-router";
-import {
-  ActivityIndicator,
-  Pressable,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { useCallback, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { createGame } from "@/lib/api";
-
-function gameIDFromInput(input: string): string {
-  const trimmed = input.trim().replace(/\/+$/, "");
-  if (!trimmed) return "";
-  const parts = trimmed.split("/").filter(Boolean);
-  return parts.at(-1) ?? "";
-}
+import { gameIDFromInput, initialFEN } from "@/lib/chess";
+import { recentGames, type RecentGame } from "@/lib/recentGames";
+import { colors } from "@/lib/theme";
+import { ChessBoard } from "@/components/ChessBoard";
+import { Piece } from "@/components/Piece";
+import { Button, CoachCard, ErrorMessage, ThemePicker, ui } from "@/components/UI";
 
 export default function HomeScreen() {
   const router = useRouter();
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-
-  const openGame = (id: string) => {
-    router.push({ pathname: "/g/[id]", params: { id } });
-  };
-
+  const [games, setGames] = useState<RecentGame[]>([]);
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    void recentGames().then((value) => { if (active) setGames(value); });
+    return () => { active = false; };
+  }, []));
+  const openGame = (id: string) => router.push({ pathname: "/g/[id]", params: { id } });
   const handleCreate = async () => {
     setBusy(true);
     setError("");
-    try {
-      const game = await createGame();
-      openGame(game.id);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not create game");
-    } finally {
-      setBusy(false);
-    }
+    try { openGame((await createGame()).id); }
+    catch { setError("Couldn’t start your game. Check your connection and try again."); }
+    finally { setBusy(false); }
   };
-
   const pastedID = gameIDFromInput(input);
-
-  return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.container}>
-        <Text style={styles.mark}>♞</Text>
-        <Text style={styles.title}>Your Move</Text>
-        <Text style={styles.subtitle}>Start a game. Share the link. Play.</Text>
-        <Pressable style={styles.primary} onPress={() => void handleCreate()} disabled={busy}>
-          {busy ? <ActivityIndicator color="#07111f" /> : <Text style={styles.primaryText}>Create game</Text>}
-        </Pressable>
-        <View style={styles.divider} />
-        <TextInput
-          value={input}
-          onChangeText={setInput}
-          autoCapitalize="none"
-          autoCorrect={false}
-          placeholder="Paste a game link or ID"
-          placeholderTextColor="#64748b"
-          style={styles.input}
-        />
-        <Pressable
-          style={[styles.secondary, !pastedID && styles.disabled]}
-          onPress={() => pastedID && openGame(pastedID)}
-          disabled={!pastedID}
-        >
-          <Text style={styles.secondaryText}>Open game</Text>
-        </Pressable>
-        {!!error && <Text style={styles.error}>{error}</Text>}
-      </View>
-    </SafeAreaView>
-  );
+  return <SafeAreaView style={styles.safe}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <View style={ui.row}>
+          <View style={styles.brand}><View style={styles.mark}><Piece piece="n" size={25} /></View><Text style={styles.wordmark}>your move<Text style={{ color: "#7B9E61" }}>.</Text></Text></View>
+          <View style={styles.tag}><Text style={styles.tagText}>CHESS, TOGETHER</Text></View>
+        </View>
+        <View style={styles.hero}>
+          <Text style={styles.kicker}>A SMALL GAME. A GOOD TIME.</Text>
+          <Text style={styles.title}>Good company.{"\n"}Great moves.</Text>
+          <Text style={styles.subtitle}>A little chess with your favorite people.{"\n"}Send a link. Make your move.</Text>
+        </View>
+        <View style={styles.playCard}>
+          <View style={ui.row}><Text style={ui.eyebrow}>YOUR NEXT GOOD GAME</Text><View style={styles.liveDot} /></View>
+          <View style={styles.art} accessible accessibilityLabel="A colorful chessboard, ready for a game">
+            <View style={styles.artBoard}><ChessBoard fen={initialFEN} preview /></View>
+            <View style={[styles.bubble, styles.bubbleOne]}><Text style={styles.emoji}>👋</Text></View>
+            <View style={[styles.bubble, styles.bubbleTwo]}><Text style={styles.emoji}>🤔</Text></View>
+            <View style={styles.artCaption}><Text style={styles.artCaptionText}>you + a friend</Text></View>
+          </View>
+          <Text style={styles.playTitle}>Across the board.{"\n"}Closer together.</Text>
+          <Text style={[ui.body, { marginBottom: 16 }]}>No sign-up. No rush. Just chess.</Text>
+          <Button title="Play a friend    ↗" busy={busy} onPress={() => void handleCreate()} />
+        </View>
+        {!!error && <ErrorMessage>{error}</ErrorMessage>}
+        <View style={styles.join}>
+          <Text style={ui.cardTitle}>Got an invite?</Text>
+          <View style={styles.inputRow}>
+            <TextInput accessibilityLabel="Game link or ID" value={input} onChangeText={setInput} autoCapitalize="none" autoCorrect={false}
+              placeholder="Paste a game link or ID" placeholderTextColor={colors.muted} style={styles.input} returnKeyType="go"
+              onSubmitEditing={() => { if (pastedID) openGame(pastedID); }} />
+            <Pressable accessibilityRole="button" accessibilityLabel="Join game" disabled={!pastedID || busy}
+              accessibilityState={{ disabled: !pastedID || busy }} onPress={() => openGame(pastedID)} style={[styles.joinButton, (!pastedID || busy) && { opacity: 0.4 }]}>
+              <Text style={{ color: "#fff", fontSize: 20 }}>↗</Text>
+            </Pressable>
+          </View>
+          {!!input.trim() && !pastedID && <Text style={styles.validation}>Use a game ID or a link ending in /g/your-game-id.</Text>}
+        </View>
+        {games.length > 0 && <View style={{ gap: 10 }}>
+          <Text style={ui.eyebrow}>PICK UP WHERE YOU LEFT OFF</Text>
+          {games.slice(0, 3).map((game) => <Pressable key={game.id} accessibilityRole="button" onPress={() => openGame(game.id)} style={styles.recent}>
+            <View style={styles.recentIcon}><Piece piece="n" size={28} /></View>
+            <View style={{ flex: 1 }}><Text style={styles.recentTitle}>{game.status || "Your friendly match"}</Text><Text style={ui.body}>{game.moves} moves · {game.id.slice(0, 8)}</Text></View>
+            <Text style={{ fontSize: 20, color: colors.muted }}>↗</Text>
+          </Pressable>)}
+        </View>}
+        <CoachCard />
+        <View style={ui.row}><Text style={ui.body}>A board to match your mood.</Text><ThemePicker /></View>
+        <Text style={styles.footer}>64 squares. Endless possibilities.</Text>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  </SafeAreaView>;
 }
-
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#0b1020" },
-  container: { flex: 1, justifyContent: "center", padding: 24, gap: 14 },
-  mark: { color: "#67e8f9", fontSize: 42, textAlign: "center" },
-  title: { color: "#f8fafc", fontSize: 32, fontWeight: "700", textAlign: "center" },
-  subtitle: { color: "#94a3b8", fontSize: 16, textAlign: "center", marginBottom: 18 },
-  primary: { minHeight: 52, borderRadius: 14, backgroundColor: "#67e8f9", alignItems: "center", justifyContent: "center" },
-  primaryText: { color: "#07111f", fontSize: 17, fontWeight: "700" },
-  divider: { height: 1, backgroundColor: "#1e293b", marginVertical: 8 },
-  input: { minHeight: 50, borderWidth: 1, borderColor: "#334155", borderRadius: 12, color: "#f8fafc", paddingHorizontal: 14, fontSize: 15 },
-  secondary: { minHeight: 48, borderRadius: 12, borderWidth: 1, borderColor: "#67e8f9", alignItems: "center", justifyContent: "center" },
-  secondaryText: { color: "#67e8f9", fontSize: 16, fontWeight: "600" },
-  disabled: { opacity: 0.4 },
-  error: { color: "#fca5a5", textAlign: "center" },
+  safe: { flex: 1, backgroundColor: colors.background },
+  container: { padding: 24, gap: 24, width: "100%", maxWidth: 480, alignSelf: "center", paddingBottom: 32 },
+  brand: { flexDirection: "row", alignItems: "center", gap: 8 },
+  mark: { width: 32, height: 32, backgroundColor: colors.mint, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  wordmark: { fontSize: 22, fontWeight: "800", letterSpacing: -1.2, color: colors.ink },
+  tag: { borderWidth: 1, borderColor: colors.line, borderRadius: 20, paddingVertical: 7, paddingHorizontal: 9 },
+  tagText: { fontSize: 8, fontWeight: "700", letterSpacing: 1, color: colors.muted },
+  hero: { paddingTop: 14, gap: 14 },
+  kicker: { fontSize: 10, letterSpacing: 2, fontWeight: "700", color: "#61764D" },
+  title: { fontSize: 43, lineHeight: 47, fontWeight: "600", letterSpacing: -2.3, color: colors.ink },
+  subtitle: { fontSize: 15, lineHeight: 23, color: colors.muted },
+  playCard: { backgroundColor: "#EEF0E7", borderRadius: 28, padding: 22, overflow: "hidden" },
+  liveDot: { width: 7, height: 7, backgroundColor: "#7A9B62", borderRadius: 5 },
+  art: { height: 205, alignItems: "center", justifyContent: "center", marginVertical: 8 },
+  artBoard: { width: 176, transform: [{ rotate: "-9deg" }], borderWidth: 6, borderColor: "#fff", borderRadius: 15, boxShadow: "0 12px 20px #253D3518" },
+  bubble: { position: "absolute", width: 53, height: 53, borderRadius: 18, alignItems: "center", justifyContent: "center", boxShadow: "0 6px 12px #253D3510" },
+  bubbleOne: { left: 5, top: 24, backgroundColor: colors.coral, transform: [{ rotate: "-13deg" }] },
+  bubbleTwo: { right: 3, bottom: 28, backgroundColor: colors.lilac, transform: [{ rotate: "12deg" }] },
+  emoji: { fontSize: 29 },
+  artCaption: { position: "absolute", bottom: 0, backgroundColor: colors.surface, paddingHorizontal: 13, paddingVertical: 7, borderRadius: 14, transform: [{ rotate: "-4deg" }] },
+  artCaptionText: { fontSize: 11, color: colors.ink, fontWeight: "600" },
+  playTitle: { fontSize: 26, lineHeight: 30, letterSpacing: -0.8, color: colors.ink, fontWeight: "600", marginTop: 5, marginBottom: 8 },
+  join: { gap: 8 },
+  inputRow: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface, borderRadius: 18, padding: 5 },
+  input: { flex: 1, minWidth: 0, minHeight: 44, color: colors.ink, paddingHorizontal: 10, fontSize: 14 },
+  joinButton: { width: 44, height: 44, borderRadius: 13, alignItems: "center", justifyContent: "center", backgroundColor: colors.ink },
+  validation: { color: colors.error, fontSize: 12, lineHeight: 18 },
+  recent: { flexDirection: "row", alignItems: "center", padding: 14, gap: 12, borderRadius: 18, backgroundColor: colors.surface },
+  recentIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: "#EEF0E7", justifyContent: "center", alignItems: "center" },
+  recentTitle: { color: colors.ink, fontSize: 14, fontWeight: "600", marginBottom: 3 },
+  footer: { textAlign: "center", color: colors.muted, fontSize: 11, letterSpacing: 0.3 },
 });

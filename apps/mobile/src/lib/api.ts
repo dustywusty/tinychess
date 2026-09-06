@@ -10,7 +10,14 @@ import type {
 const metroHost = Constants.expoConfig?.hostUri?.split(":")[0];
 const developmentHost =
   metroHost ?? (Platform.OS === "android" ? "10.0.2.2" : "localhost");
-export const apiURL = process.env.EXPO_PUBLIC_API_URL ?? `http://${developmentHost}:8080`;
+export const apiURL = (Platform.OS === "web" ? "" : process.env.EXPO_PUBLIC_API_URL ?? `http://${developmentHost}:8080`).replace(/\/$/, "");
+
+async function request(path: string, options?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+  try { return await fetch(`${apiURL}${path}`, { ...options, signal: controller.signal }); }
+  finally { clearTimeout(timeout); }
+}
 
 async function json<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -20,17 +27,17 @@ async function json<T>(response: Response): Promise<T> {
 }
 
 export async function createGame(): Promise<CreateGameResponse> {
-  return json(await fetch(`${apiURL}/api/games`, { method: "POST" }));
+  return json(await request("/api/games", { method: "POST" }));
 }
 
 export async function getSnapshot(gameID: string, clientID: string): Promise<StateEvent> {
   const query = new URLSearchParams({ clientId: clientID });
-  return json(await fetch(`${apiURL}/api/games/${encodeURIComponent(gameID)}/snapshot?${query}`));
+  return json(await request(`/api/games/${encodeURIComponent(gameID)}/snapshot?${query}`));
 }
 
 export async function makeMove(gameID: string, uci: string, clientID: string): Promise<MoveResponse> {
   return json(
-    await fetch(`${apiURL}/api/games/${encodeURIComponent(gameID)}/move`, {
+    await request(`/api/games/${encodeURIComponent(gameID)}/move`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ uci, clientId: clientID }),
@@ -40,7 +47,7 @@ export async function makeMove(gameID: string, uci: string, clientID: string): P
 
 export async function reactToGame(gameID: string, emoji: string, clientID: string): Promise<CommandResponse> {
   return json(
-    await fetch(`${apiURL}/api/games/${encodeURIComponent(gameID)}/react`, {
+    await request(`/api/games/${encodeURIComponent(gameID)}/react`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ emoji, sender: clientID }),
