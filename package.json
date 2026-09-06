@@ -2,6 +2,9 @@
   "name": "your-move",
   "private": true,
   "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "scripts": {
     "build": "corepack pnpm@9.15.0 --filter @yourmove/protocol typecheck && corepack pnpm@9.15.0 --filter @yourmove/web build",
     "typecheck": "corepack pnpm@9.15.0 --filter @yourmove/protocol typecheck && corepack pnpm@9.15.0 --filter @yourmove/web typecheck && corepack pnpm@9.15.0 --filter @yourmove/mobile typecheck",
