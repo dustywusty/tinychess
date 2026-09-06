@@ -10,7 +10,7 @@ export function ReactionsLayer({ reactions }: Props) {
   const latest = reactions[reactions.length - 1];
   return (
     <>
-      <div className="big-emoji" aria-hidden="true">
+      <div key={latest.id} className="big-emoji" aria-hidden="true">
         {latest.emoji}
       </div>
     </>

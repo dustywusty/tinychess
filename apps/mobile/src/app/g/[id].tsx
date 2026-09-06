@@ -7,15 +7,13 @@ import { ChessBoard } from "@/components/ChessBoard";
 import { Piece } from "@/components/Piece";
 import { Button, CoachCard, ErrorMessage, useUI } from "@/components/UI";
 import { AppearanceMenu } from "@/components/AppearanceMenu";
+import { EmojiPicker } from "@/components/EmojiPicker";
+import { ReactionBurst } from "@/components/ReactionBurst";
 import { makeMove, reactToGame } from "@/lib/api";
 import { color, initialFEN, legalMoves, moveLabels } from "@/lib/chess";
 import { useBoardTheme, useThemedStyles, type AppColors } from "@/lib/theme";
 import { useLiveGame } from "@/lib/useLiveGame";
 
-const emojis = [
-  { emoji: "👋", label: "Wave" }, { emoji: "🤔", label: "Thinking" }, { emoji: "🔥", label: "Fire" },
-  { emoji: "😂", label: "Laugh" }, { emoji: "👏", label: "Applause" }, { emoji: "🤝", label: "Good game" },
-];
 export default function GameScreen() {
   const { colors } = useBoardTheme();
   const styles = useThemedStyles(createStyles);
@@ -31,7 +29,6 @@ export default function GameScreen() {
   const [notice, setNotice] = useState("");
   const [moving, setMoving] = useState(false);
   const moveLock = useRef(false);
-  const [reacting, setReacting] = useState(false);
   const reactionLock = useRef(false);
   const [flipped, setFlipped] = useState(false);
   const [showMoves, setShowMoves] = useState(false);
@@ -75,14 +72,15 @@ export default function GameScreen() {
     else void submit(selected, square);
   };
   const sendReaction = async (emoji: string) => {
-    if (!connected || !cid || reactionLock.current) return;
-    reactionLock.current = true; setReacting(true); setError("");
+    if (!connected || !cid || reactionLock.current) return false;
+    reactionLock.current = true; setError("");
     try {
       const response = await reactToGame(gameID, emoji, cid);
       if (!response.ok) setError(response.error?.startsWith("cooldown") ? "Give that reaction a moment before sending another." : "That reaction didn’t send. Try again.");
-      else game.addReaction({ kind: "emoji", emoji, sender: cid, at: Date.now() });
+      else { game.addReaction({ kind: "emoji", emoji, sender: cid, at: Date.now() }); return true; }
     } catch { setError("That reaction didn’t send. Check your connection and try again."); }
-    finally { reactionLock.current = false; setReacting(false); }
+    finally { reactionLock.current = false; }
+    return false;
   };
   const share = async () => {
     const root = process.env.EXPO_PUBLIC_WEB_URL?.replace(/\/$/, "");
@@ -137,11 +135,7 @@ export default function GameScreen() {
       </Pressable>}
       <View style={styles.chat}>
         <View style={ui.row}><Text style={ui.eyebrow}>A LITTLE BACK & FORTH</Text><Text style={styles.playerMeta}>Say it with an emoji</Text></View>
-        <View style={styles.reactions}>{emojis.map(({ emoji, label }) => <Pressable key={emoji}
-          accessibilityRole="button" accessibilityLabel={"Send " + label} accessibilityState={{ disabled: !connected || reacting }} disabled={!connected || reacting}
-          onPress={() => void sendReaction(emoji)} style={({ pressed }) => [styles.reaction, pressed && { backgroundColor: colors.mint }, (!connected || reacting) && { opacity: 0.4 }]}>
-          <Text style={styles.emoji}>{emoji}</Text>
-        </Pressable>)}</View>
+        <EmojiPicker key={gameID} disabled={!connected || !cid} onSend={sendReaction} />
         {game.reactions.length > 0 && <View accessibilityLiveRegion="polite" style={styles.chatHistory}>{game.reactions.map((reaction, index) => <View key={reaction.sender + reaction.at + index} style={[styles.chatBubble, { backgroundColor: reaction.sender === cid ? colors.soft : colors.lilac }]}>
           <Text style={{ fontSize: 19 }}>{reaction.emoji}</Text><Text style={styles.chatWho}>{reaction.sender === cid ? "You" : "Them"}</Text>
         </View>)}</View>}
@@ -166,6 +160,7 @@ export default function GameScreen() {
         <Button title="Cancel" onPress={() => setPromotion(null)} />
       </View></View>
     </Modal>
+    <ReactionBurst reaction={game.reactions.at(-1)} />
   </SafeAreaView>;
 }
 const createStyles = (colors: AppColors) => StyleSheet.create({
@@ -190,9 +185,6 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   notice: { padding: 14, backgroundColor: colors.mint, color: colors.buttonInk, borderRadius: 14, fontSize: 13 },
   invite: { backgroundColor: colors.soft, borderRadius: 18, padding: 14, flexDirection: "row", alignItems: "center", gap: 12 },
   chat: { gap: 13 },
-  reactions: { flexDirection: "row", justifyContent: "space-between", gap: 5 },
-  reaction: { flex: 1, minHeight: 48, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line },
-  emoji: { fontSize: 25 },
   chatHistory: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   chatBubble: { paddingVertical: 7, paddingHorizontal: 9, borderRadius: 12, flexDirection: "row", gap: 5, alignItems: "center" },
   chatWho: { fontSize: 10, color: colors.ink },

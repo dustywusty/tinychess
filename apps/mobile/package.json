@@ -19,6 +19,7 @@
     "@yourmove/protocol": "workspace:*",
     "@react-native-async-storage/async-storage": "2.2.0",
     "chess.js": "^1.4.0",
+    "emoji-picker-element-data": "^1.8.0",
     "expo": "~57.0.20",
     "expo-constants": "~57.0.17",
     "expo-linking": "~57.0.9",
