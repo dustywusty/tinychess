@@ -1,172 +1,39 @@
 import { useMemo } from "react";
-import {
-  PIECE_GLYPH,
-  cellSquare,
-  deriveLastMoveSquares,
-  parseFENBoard,
-  solidGlyph,
-} from "../../lib/board";
-import type { Color, PieceLetter, Square } from "../../types/chess";
+import { Chess, type Square as ChessSquare } from "chess.js";
+import { cellSquare } from "../../lib/board";
+import type { Color, Square } from "../../types/chess";
+import { Piece } from "../Piece";
 
 export interface BoardProps {
-  fen: string;
-  uci: string[];
-  perspective: Color;
-  selected: Square | null;
-  disabled?: boolean;
-  onSquareClick: (square: Square) => void;
-  onMove?: (from: Square, to: Square) => void;
+  fen: string; uci: string[]; perspective: Color; selected: Square | null; disabled?: boolean;
+  onSquareClick: (square: Square) => void; onMove?: (from: Square, to: Square) => void; preview?: boolean;
 }
-
-export function Board({
-  fen,
-  uci,
-  perspective,
-  selected,
-  disabled = false,
-  onSquareClick,
-  onMove,
-}: BoardProps) {
-  const board = useMemo(() => parseFENBoard(fen), [fen]);
-  const lastMove = useMemo(() => deriveLastMoveSquares(uci), [uci]);
-
-  return (
-    <div
-      id="board"
-      data-testid="board"
-      className="grid w-full aspect-square grid-cols-8 grid-rows-8 select-none rounded-md overflow-hidden"
-    >
-      {Array.from({ length: 8 }).map((_, displayRow) =>
-        Array.from({ length: 8 }).map((__, displayCol) => {
-          const sq = cellSquare(displayRow, displayCol, perspective);
-          const piece = board[displayRow]?.[displayCol] ?? "";
-          return (
-            <Cell
-              key={sq}
-              square={sq}
-              displayRow={displayRow}
-              displayCol={displayCol}
-              piece={piece || null}
-              perspective={perspective}
-              selected={selected === sq}
-              isLastMoveFrom={lastMove?.from === sq}
-              isLastMoveTo={lastMove?.to === sq}
-              disabled={disabled}
-              onClick={onSquareClick}
-              onMove={onMove}
-            />
-          );
-        }),
-      )}
-    </div>
-  );
-}
-
-interface CellProps {
-  square: Square;
-  displayRow: number;
-  displayCol: number;
-  piece: PieceLetter | null;
-  perspective: Color;
-  selected: boolean;
-  isLastMoveFrom: boolean;
-  isLastMoveTo: boolean;
-  disabled: boolean;
-  onClick: (square: Square) => void;
-  onMove?: (from: Square, to: Square) => void;
-}
-
-function Cell({
-  square,
-  displayRow,
-  displayCol,
-  piece,
-  perspective,
-  selected,
-  isLastMoveFrom,
-  isLastMoveTo,
-  disabled,
-  onClick,
-  onMove,
-}: CellProps) {
-  const isLight = (displayRow + displayCol) % 2 === 1;
-  const showFile = displayRow === 7;
-  const showRank = displayCol === 0;
-  const fileLabel = showFile
-    ? perspective === "white"
-      ? String.fromCharCode("a".charCodeAt(0) + displayCol)
-      : String.fromCharCode("a".charCodeAt(0) + (7 - displayCol))
-    : "";
-  const rankLabel = showRank
-    ? perspective === "white"
-      ? String(8 - displayRow)
-      : String(displayRow + 1)
-    : "";
-  const glyph = piece ? solidGlyph(piece) : "";
-  const isWhitePiece = piece && piece === piece.toUpperCase();
-
-  const baseClass = isLight ? "bg-sq1" : "bg-sq2";
-  const classes = [
-    "relative flex items-center justify-center",
-    baseClass,
-    selected ? "outline outline-3 -outline-offset-[3px] outline-accent" : "",
-    isLastMoveFrom || isLastMoveTo
-      ? "shadow-[inset_0_0_0_3px_var(--accent)]"
-      : "",
-    disabled ? "cursor-default" : "cursor-pointer",
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  return (
-    <div
-      data-square={square}
-      className={classes}
-      onClick={disabled ? undefined : () => onClick(square)}
-      draggable={!disabled && !!piece}
-      onDragStart={(e) => {
-        if (disabled || !piece) return;
-        e.dataTransfer.setData("text/square", square);
-        e.dataTransfer.effectAllowed = "move";
-      }}
-      onDragOver={(e) => {
-        if (disabled) return;
-        e.preventDefault();
-        e.dataTransfer.dropEffect = "move";
-      }}
-      onDrop={(e) => {
-        if (disabled) return;
-        e.preventDefault();
-        const from = e.dataTransfer.getData("text/square") as Square;
-        if (from && from !== square) {
-          onMove?.(from, square);
-        }
-      }}
-    >
-      {fileLabel && (
-        <span className="absolute bottom-0 right-1 text-[10px] opacity-50 leading-none">
-          {fileLabel}
-        </span>
-      )}
-      {rankLabel && (
-        <span className="absolute top-0 left-1 text-[10px] opacity-50 leading-none">
-          {rankLabel}
-        </span>
-      )}
-      {glyph && (
-        <span
-          className={`text-[clamp(22px,6vw,54px)] leading-none ${
-            isWhitePiece ? "text-white" : "text-black"
-          }`}
-          aria-label={piece ? `${isWhitePiece ? "white" : "black"} ${piece}` : undefined}
-        >
-          {glyph}
-        </span>
-      )}
-      {/* hidden full-character glyph for accessibility/screen readers */}
-      {piece && (
-        <span className="sr-only">{PIECE_GLYPH[piece]}</span>
-      )}
-    </div>
-  );
+const names: Record<string, string> = { p: "pawn", n: "knight", b: "bishop", r: "rook", q: "queen", k: "king" };
+export function Board({ fen, uci, perspective, selected, disabled = false, onSquareClick, onMove, preview = false }: BoardProps) {
+  const chess = useMemo(() => new Chess(fen), [fen]);
+  const targets = useMemo(() => selected && !disabled ? chess.moves({ square: selected as ChessSquare, verbose: true }).map((move) => move.to) : [], [chess, selected, disabled]);
+  const last = uci.at(-1);
+  return <div id={preview ? undefined : "board"} data-testid={preview ? undefined : "board"} className={"chess-board" + (preview ? " preview-board" : "")} aria-label={preview ? undefined : "Chessboard"} aria-hidden={preview || undefined}>
+    {Array.from({ length: 64 }, (_, index) => {
+      const row = Math.floor(index / 8), column = index % 8;
+      const square = cellSquare(row, column, perspective);
+      const piece = chess.get(square as ChessSquare);
+      const isLast = last?.slice(0, 2) === square || last?.slice(2, 4) === square;
+      const inCheck = piece?.type === "k" && piece.color === chess.turn() && chess.isCheck();
+      const target = targets.includes(square as ChessSquare);
+      return <button key={square} type="button" data-square={preview ? undefined : square} disabled={disabled} tabIndex={preview ? -1 : 0}
+        aria-label={square + (piece ? ", " + (piece.color === "w" ? "white" : "black") + " " + names[piece.type] : ", empty") + (target ? ", legal move" : "")}
+        aria-pressed={selected === square}
+        className={["board-square", (row + column) % 2 === 0 ? "light-square" : "dark-square", isLast ? "last-move" : "", selected === square ? "selected-square" : "", inCheck ? "in-check" : ""].join(" ")}
+        onClick={() => onSquareClick(square)} draggable={!disabled && !!piece}
+        onDragStart={(event) => { event.dataTransfer.setData("text/square", square); event.dataTransfer.effectAllowed = "move"; }}
+        onDragOver={(event) => { if (!disabled) event.preventDefault(); }}
+        onDrop={(event) => { event.preventDefault(); const from = event.dataTransfer.getData("text/square"); if (/^[a-h][1-8]$/.test(from) && from !== square && !disabled) onMove?.(from as Square, square); }}>
+        {!preview && column === 0 && <span className="board-rank">{square[1]}</span>}
+        {!preview && row === 7 && <span className="board-file">{square[0]}</span>}
+        {piece && <Piece piece={piece.color === "w" ? piece.type.toUpperCase() : piece.type} />}
+        {target && <span className={piece ? "capture-target" : "move-target"} />}
+      </button>;
+    })}
+  </div>;
 }

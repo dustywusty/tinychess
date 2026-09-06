@@ -67,14 +67,15 @@ export function EmojiPicker({ disabled = false, onSend }: Props) {
   }, [inCooldown, cooldownUntil]);
 
   return (
-    <div className="flex items-center gap-2 flex-wrap">
-      <div id="recent-emojis" className="flex items-center gap-1">
-        {recent.slice(0, 5).map((e) => (
+    <div className="emoji-controls">
+      <div id="recent-emojis" className="quick-reactions">
+        {[...new Set([...recent, "👋", "🤔", "🔥", "😂", "👏", "🤝"])].slice(0, 6).map((e) => (
           <button
             key={e}
             type="button"
             disabled={buttonDisabled}
-            className="text-xl px-1.5 py-0.5 rounded hover:bg-panel disabled:opacity-50"
+            className="reaction-button"
+            aria-label={`Send ${e}`}
             onClick={() => void sendRef.current(e)}
           >
             {e}
@@ -85,17 +86,19 @@ export function EmojiPicker({ disabled = false, onSend }: Props) {
         id="reactbtn"
         type="button"
         disabled={buttonDisabled}
-        className="text-xl px-2 py-1 rounded-md border border-[color:var(--accent)] hover:opacity-90 disabled:opacity-50"
+        className="more-reactions text-button"
+        aria-label="More emoji"
         onClick={() => setOpen(true)}
       >
-        {inCooldown ? "…" : "🎉"}
+        {inCooldown ? "A little breather…" : "More emoji  +"}
       </button>
       <dialog
         id="emojiDialog"
         ref={dialogRef}
         onClose={() => setOpen(false)}
-        className="bg-transparent backdrop:bg-black/40 p-0 rounded-xl border-none"
+        className="emoji-dialog"
       >
+        <button type="button" className="dialog-close" aria-label="Close emoji picker" onClick={() => setOpen(false)}>×</button>
         <emoji-picker
           id="emojiPicker"
           ref={(el: HTMLElement | null) => {

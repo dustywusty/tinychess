@@ -1,45 +1,32 @@
 export type Theme = "dark" | "light";
-
-export const ACCENTS = [
-  "#6ee7ff",
-  "#a78bfa",
-  "#f472b6",
-  "#f59e0b",
-  "#10b981",
-] as const;
-
+export const ACCENTS = ["#83a58b", "#a597c4", "#cf967d"] as const;
 export type Accent = (typeof ACCENTS)[number];
-
-const THEME_KEY = "theme";
-const ACCENT_KEY = "accent";
-
+export const BOARD_THEMES = [
+  { accent: ACCENTS[0], name: "Matcha", light: "#edf1de", dark: "#83a58b" },
+  { accent: ACCENTS[1], name: "Lilac", light: "#f0eaf8", dark: "#a597c4" },
+  { accent: ACCENTS[2], name: "Peach", light: "#faeddd", dark: "#cf967d" },
+];
 export function loadTheme(): Theme {
-  try {
-    const raw = localStorage.getItem(THEME_KEY);
-    if (raw === "light") return "light";
-  } catch {
-    /* ignore */
-  }
-  return "dark";
+  try { if (localStorage.getItem("theme") === "dark") return "dark"; } catch { /* Storage is optional. */ }
+  return "light";
 }
-
 export function loadAccent(): string {
   try {
-    const raw = localStorage.getItem(ACCENT_KEY);
-    if (raw && /^#[0-9a-f]{6}$/i.test(raw)) return raw;
-  } catch {
-    /* ignore */
-  }
+    const saved = localStorage.getItem("accent")?.toLowerCase();
+    if (BOARD_THEMES.some((theme) => theme.accent === saved)) return saved!;
+    if (saved === "#a78bfa") return ACCENTS[1];
+    if (saved === "#f472b6" || saved === "#f59e0b") return ACCENTS[2];
+  } catch { /* Storage is optional. */ }
   return ACCENTS[0];
 }
-
 export function applyTheme(theme: Theme, accent: string): void {
+  const palette = BOARD_THEMES.find((item) => item.accent === accent) ?? BOARD_THEMES[0];
   document.documentElement.setAttribute("data-theme", theme);
-  document.documentElement.style.setProperty("--accent", accent);
+  document.documentElement.style.setProperty("--accent", palette.accent);
+  document.documentElement.style.setProperty("--sq1", palette.light);
+  document.documentElement.style.setProperty("--sq2", palette.dark);
   try {
-    localStorage.setItem(THEME_KEY, theme);
-    localStorage.setItem(ACCENT_KEY, accent);
-  } catch {
-    /* ignore */
-  }
+    localStorage.setItem("theme", theme);
+    localStorage.setItem("accent", palette.accent);
+  } catch { /* Storage is optional. */ }
 }

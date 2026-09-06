@@ -56,11 +56,15 @@ platform-native; only pure models and wire types are shared.
 
 ### Transport migration
 
-Web keeps SSE plus POST commands so the application remains deployable. Mobile
-currently polls a snapshot endpoint every 1.5 seconds. The next transport step
-is one versioned WebSocket subscription supported by both clients, with snapshot
-recovery and monotonic sequence numbers. Snapshot polling is not the final
-realtime design.
+Web and mobile use SSE plus POST commands. Mobile closes its stream when the
+game loses focus or the app enters the background. It reconnects on return,
+with exponential retry and a heartbeat watchdog for network failures. The
+initial stream snapshot restores the seat and position; position broadcasts
+preserve that seat metadata. Both clients receive live emoji reactions.
+
+A versioned WebSocket subscription with replay and monotonic sequence numbers
+remains a future transport option. The current SSE stream restores positions
+after reconnect, but does not replay missed emoji reactions.
 
 ### CopilotKit
 

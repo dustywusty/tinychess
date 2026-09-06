@@ -49,7 +49,14 @@ schema changes; checked migrations are planned before deployment.
 
 ## Tests to add next
 
-1. Mobile create/open/move component tests with mocked transport
+Mobile unit tests now cover invitation parsing, board coordinates, special
+moves, seat metadata, and stream retries. Mobile browser tests cover a complete
+two-player game, emoji in both directions, seat recovery, spectators, and small
+phone layout. See [mobile verification](../apps/mobile/README.md#verify).
+
+Remaining coverage:
+
+1. Native device lifecycle and interaction tests on iOS and Android
 2. Shared protocol fixtures decoded by both TypeScript and Go
 3. Snapshot role and reconnect handler tests
 4. WebSocket two-player/replay tests
