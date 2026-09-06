@@ -20,6 +20,9 @@ export const boardThemes = {
   mint: { name: "Matcha", light: "#EDF1DE", dark: "#83A58B", selected: "#D7EE89" },
   lilac: { name: "Lilac", light: "#F0EAF8", dark: "#A597C4", selected: "#E4EE9D" },
   coral: { name: "Peach", light: "#FAEDDD", dark: "#CF967D", selected: "#E4EE9D" },
+  teal: { name: "Teal", light: "#E2F2ED", dark: "#4F9C98", selected: "#D7EE89" },
+  sky: { name: "Sky", light: "#E7EFF8", dark: "#7F9FC3", selected: "#E4EE9D" },
+  rose: { name: "Rose", light: "#F8E7ED", dark: "#C58F9E", selected: "#E4EE9D" },
 };
 export type BoardTheme = keyof typeof boardThemes;
 const ThemeContext = createContext({ theme: "mint" as BoardTheme, setTheme: (_: BoardTheme) => {},
