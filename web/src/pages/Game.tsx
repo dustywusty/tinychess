@@ -6,7 +6,6 @@ import { GameStatus } from "../components/GameStatus/GameStatus";
 import { Header } from "../components/Header/Header";
 import { ReactionsLayer } from "../components/Reactions/ReactionsLayer";
 import { ShareLink } from "../components/ShareLink/ShareLink";
-import { ThemePicker } from "../components/ThemePicker/ThemePicker";
 import { CoachCard } from "../components/CoachCard";
 import { Piece } from "../components/Piece";
 import { postMove, postReact } from "../api/game";
@@ -100,7 +99,7 @@ export function Game({ gameId }: { gameId: string }) {
         {player(perspective === "white" ? "black" : "white")}
         <Board fen={fen} uci={uci} perspective={perspective} selected={selected} disabled={!canMove} onSquareClick={handleSquare} onMove={attemptMove} />
         {player(perspective)}
-        <div className="board-tools"><button className="text-button" type="button" onClick={() => setFlipped((value) => !value)}>↻ Flip board</button><span className="muted">{uci.length} moves</span><ThemePicker /></div>
+        <div className="board-tools"><button className="text-button" type="button" onClick={() => setFlipped((value) => !value)}>↻ Flip board</button><span className="muted">{uci.length} moves</span></div>
       </section>
       <aside className="game-sidebar">
         <section className="reaction-card">
