@@ -78,12 +78,13 @@ export function Game({ gameId }: { gameId: string }) {
     if (selected) attemptMove(selected, square);
   };
   const sendReaction = async (emoji: string) => {
-    if (!connected || !clientId) return;
+    if (!connected || !clientId) return false;
     try {
       const result = await postReact(gameId, emoji, clientId);
-      if (result.ok) recordReaction(emoji, true);
+      if (result.ok) { recordReaction(emoji, true); return true; }
       else setStatus(result.error ?? "That reaction didn’t send.", true);
     } catch { setStatus("That reaction didn’t send. Check your connection and try again.", true); }
+    return false;
   };
   const player = (side: Color) => <div className="player-row">
     <span className="player-avatar"><Piece piece={side === "white" ? "K" : "k"} size={30} /></span>

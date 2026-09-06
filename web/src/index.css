@@ -147,6 +147,9 @@ button, a, summary { touch-action: manipulation; }
 .reaction-button:hover:not(:disabled) { background: var(--mint); transform: translateY(-2px); }
 .reaction-button:disabled { opacity: .45; }
 .more-reactions { padding-left: 0; margin-top: 4px; }
+.reaction-picker-footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.reaction-picker-footer > span { color: var(--muted); font-size: 11px; }
+.more-reactions { color: var(--text); font-weight: 600; }
 .reaction-history { display: flex; flex-wrap: wrap; gap: 6px; }
 .reaction-bubble { display: flex; align-items: center; gap: 6px; border-radius: 12px; padding: 7px 10px; background: var(--lilac); font-size: 10px; }
 .reaction-bubble > span { font-size: 20px; }
@@ -161,16 +164,18 @@ button, a, summary { touch-action: manipulation; }
 .sidebar-note { font-size: 12px; text-align: center; line-height: 1.6; color: var(--muted); padding: 0 14px; }
 .emoji-dialog, .promotion-dialog { border: 1px solid var(--line); border-radius: 24px; padding: 20px; background: var(--panel); color: var(--text); max-width: calc(100vw - 24px); }
 dialog::backdrop { background: #252b2877; backdrop-filter: blur(3px); }
-.emoji-dialog { padding: 10px; }
-.emoji-dialog emoji-picker { max-width: calc(100vw - 46px); --background: var(--panel); --input-border-radius: 12px; }
+.emoji-dialog { padding: 12px; }
+.emoji-picker-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-left: 8px; }
+.emoji-picker-heading h2 { font-size: 19px; font-weight: 600; letter-spacing: -.5px; }
+.emoji-dialog emoji-picker { width: 352px; max-width: calc(100vw - 50px); height: min(430px, 65dvh); border: 0; --background: var(--panel); --input-border-radius: 12px; --border-color: var(--line); --input-font-color: var(--text); --input-placeholder-color: var(--muted); --input-border-color: var(--line); --input-background: var(--bg); --button-hover-background: var(--soft); --button-active-background: var(--soft); --category-font-color: var(--muted); --indicator-color: var(--accent); }
 .dialog-close { display: block; margin-left: auto; width: 44px; height: 44px; font-size: 24px; background: transparent; border: 0; border-radius: 12px; }
 .promotion-dialog { width: 375px; padding: 25px; }
 .promotion-dialog h2 { font-size: 22px; letter-spacing: -.6px; font-weight: 600; }
 .promotion-dialog > p { color: var(--muted); margin-top: 8px; font-size: 14px; }
 .promotion-options { display: flex; gap: 8px; margin: 24px 0; }
 .promotion-options button { display: grid; place-items: center; flex: 1; min-height: 64px; border: 0; border-radius: 14px; background: var(--soft); }
-.big-emoji { position: fixed; inset: 0; margin: auto; width: max-content; height: max-content; font-size: clamp(80px, 18vw, 160px); pointer-events: none; z-index: 50; animation: big-emoji-pop 1.6s ease-out forwards; }
-@keyframes big-emoji-pop { 0% { transform: scale(.4); opacity: 0; } 20% { transform: scale(1.05); opacity: 1; } 100% { transform: scale(.6); opacity: 0; } }
+.big-emoji { position: fixed; inset: 0; margin: auto; width: max-content; height: max-content; font-size: min(260px, 64vw, 40dvh); line-height: 1.2; pointer-events: none; z-index: 100; animation: big-emoji-pop 1.8s ease-in-out forwards; }
+@keyframes big-emoji-pop { 0%, 15% { transform: scale(1); opacity: 1; } 100% { transform: scale(.2); opacity: 0; } }
 @media (min-width: 769px) { .home-intro { grid-column: 1; grid-row: 1; } .play-card { grid-column: 2; grid-row: 1; } }
 @media (max-width: 1000px) {
   .site-shell { padding: 0 28px; }
