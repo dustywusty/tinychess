@@ -3,39 +3,16 @@ package handlers
 import (
 	"testing"
 
-	"tinychess/internal/game"
+	"github.com/corentings/chess/v2"
 )
 
-func newGame() *game.Game {
-	hub := game.NewHub()
-	g, _ := hub.Get("test", "")
-	return g
-}
-
-func TestAppendPromotionIfPawnRank8(t *testing.T) {
-	g := newGame()
-	if got := appendPromotionIfPawn(g, "a7a8"); got != "a7a8q" {
-		t.Fatalf("expected a7a8q got %s", got)
+func TestParseSquare(t *testing.T) {
+	if got := parseSquare("e2"); got != chess.E2 {
+		t.Fatalf("parseSquare(e2) = %v", got)
 	}
-}
-
-func TestAppendPromotionIfPawnRank1(t *testing.T) {
-	g := newGame()
-	if got := appendPromotionIfPawn(g, "a7a1"); got != "a7a1q" {
-		t.Fatalf("expected a7a1q got %s", got)
-	}
-}
-
-func TestNoPromotionForQueen(t *testing.T) {
-	g := newGame()
-	if got := appendPromotionIfPawn(g, "d1d8"); got != "d1d8" {
-		t.Fatalf("queen move modified: %s", got)
-	}
-}
-
-func TestNoPromotionForRook(t *testing.T) {
-	g := newGame()
-	if got := appendPromotionIfPawn(g, "a8a1"); got != "a8a1" {
-		t.Fatalf("rook move modified: %s", got)
+	for _, value := range []string{"", "e", "i2", "a9", "22"} {
+		if got := parseSquare(value); got != chess.NoSquare {
+			t.Fatalf("parseSquare(%q) = %v, want NoSquare", value, got)
+		}
 	}
 }

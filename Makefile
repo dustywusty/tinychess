@@ -1,6 +1,7 @@
 APP := tinychess
 BIN := bin/$(APP)
 PKG := .
+PNPM := corepack pnpm@9.15.0
 PORT ?= 8080
 CHROMEDP_HEADLESS ?= 1
 CHROMEDP_VIEWPORT_WIDTH ?= 393
@@ -17,11 +18,31 @@ E2E_SEND_EMOJI ?= 1
 # ldflags embeds a build stamp and commit hash; feel free to remove
 LDFLAGS := -s -w -X 'main.build=$$(date -u +%Y%m%d-%H%M%S)' -X 'main.commit=$$(git rev-parse --short HEAD)'
 
-.PHONY: all build run dev clean lint test race test-e2e
+.PHONY: all bootstrap build run dev dev-api dev-web dev-mobile clean lint test race test-e2e typecheck web-install web-build web-dev web-typecheck mobile-typecheck
 
 all: build
 
-build:
+bootstrap:
+	$(PNPM) install --frozen-lockfile
+
+web-install: bootstrap
+
+web-build:
+	$(PNPM) --filter @yourmove/web build
+
+web-typecheck:
+	$(PNPM) --filter @yourmove/web typecheck
+
+web-dev:
+	$(PNPM) --filter @yourmove/web dev
+
+mobile-typecheck:
+	$(PNPM) --filter @yourmove/mobile typecheck
+
+typecheck:
+	$(PNPM) typecheck
+
+build: web-build
 	@mkdir -p bin
 	go build -trimpath -ldflags="$(LDFLAGS)" -o $(BIN) $(PKG)
 
@@ -37,10 +58,10 @@ lint:
 	@command -v golangci-lint >/dev/null || { echo "Install golangci-lint: https://golangci-lint.run/"; exit 1; }
 	golangci-lint run
 
-test:
+test: web-build
 	go test ./...
 
-test-e2e:
+test-e2e: web-build
 	@if [ "$(E2E_RECORD)" = "1" ] && [ "$(E2E_RECORD_FORMAT)" != "frames" ]; then \
 		command -v ffmpeg >/dev/null || { echo "ffmpeg not found (set E2E_RECORD_FORMAT=frames to skip stitching)"; exit 1; }; \
 	fi
@@ -60,6 +81,19 @@ test-e2e:
 	go test -tags e2e ./internal/e2e -run TestPlay -v
 	@echo "e2e artifacts: e2e-artifacts/"
 
+dev-api:
+	go run .
+
+dev-web:
+	$(PNPM) --filter @yourmove/web dev
+
+dev-mobile:
+	$(PNPM) --filter @yourmove/mobile start
+
 dev:
-	@command -v air >/dev/null || { echo "air not found"; exit 1; }
-	air -c .air.toml
+	@set -eu; \
+		$(MAKE) dev-api & api_pid=$$!; \
+		$(MAKE) dev-web & web_pid=$$!; \
+		cleanup() { kill $$api_pid $$web_pid 2>/dev/null || true; }; \
+		trap cleanup INT TERM EXIT; \
+		$(MAKE) dev-mobile

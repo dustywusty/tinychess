@@ -10,47 +10,85 @@ import (
 
 	"tinychess/internal/game"
 	"tinychess/internal/logging"
-	"tinychess/internal/templates"
+	"tinychess/internal/storage"
 
 	"github.com/corentings/chess/v2"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
-// Handler contains dependencies for HTTP handlers
+// Handler contains dependencies for HTTP handlers. DB is optional; when nil
+// every persistence call is a no-op so unit tests and the e2e harness can
+// run without a database.
 type Handler struct {
 	Hub *game.Hub
+	DB  *gorm.DB
 }
 
-// NewHandler creates a new handler instance
+// NewHandler creates a new handler instance with no persistence layer.
+// Production callers set DB after construction (or via NewHandlerWithStore).
 func NewHandler(hub *game.Hub) *Handler {
 	return &Handler{Hub: hub}
 }
 
-// HandleNew creates a new game and redirects to it
-func (h *Handler) HandleNew(w http.ResponseWriter, r *http.Request) {
+// NewHandlerWithStore creates a handler with persistence enabled.
+func NewHandlerWithStore(hub *game.Hub, db *gorm.DB) *Handler {
+	return &Handler{Hub: hub, DB: db}
+}
+
+// HandleCreateGame creates a new game and returns its id (POST /api/games).
+func (h *Handler) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
 	id := uuid.NewString()
-	http.Redirect(w, r, "/"+id, http.StatusFound)
+	_, _ = h.Hub.Get(id, "")
+	WriteJSON(w, http.StatusOK, map[string]any{"id": id})
 }
 
-// HandlePage serves the home page or game page
-func (h *Handler) HandlePage(w http.ResponseWriter, r *http.Request) {
-	path := strings.TrimPrefix(r.URL.Path, "/")
-	if path == "" || path == "index.html" {
-		templates.WriteHomeHTML(w)
-		return
+// HandleNewRedirect creates a new game and redirects to it (GET /new).
+func (h *Handler) HandleNewRedirect(w http.ResponseWriter, r *http.Request) {
+	id := uuid.NewString()
+	_, _ = h.Hub.Get(id, "")
+	http.Redirect(w, r, "/g/"+id, http.StatusFound)
+}
+
+// HandleSnapshot returns the current authoritative state and assigns an
+// anonymous seat when one is available. Mobile uses this during the SSE to
+// WebSocket migration; clients should poll sparingly.
+func (h *Handler) HandleSnapshot(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("gameId")
+	clientID := strings.TrimSpace(r.URL.Query().Get("clientId"))
+	if clientID == "" {
+		clientID = uuid.NewString()
 	}
-	_, _ = h.Hub.Get(path, "")
-	templates.WriteGameHTML(w, path)
+	g, col := h.Hub.Get(id, clientID)
+	g.Touch()
+
+	g.Mu.Lock()
+	state := g.StateLocked()
+	g.Mu.Unlock()
+
+	result := game.ClientState{GameState: state, Role: "spectator", ClientID: clientID}
+	if col != nil {
+		color := col.String()
+		result.Color = &color
+		result.Role = "player"
+	}
+	WriteJSON(w, http.StatusOK, result)
 }
 
-// HandleSSE handles Server-Sent Events for real-time game updates
+// HandleSSE handles Server-Sent Events for real-time game updates.
 func (h *Handler) HandleSSE(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimPrefix(r.URL.Path, "/sse/")
+	id := r.PathValue("gameId")
 	clientID := r.URL.Query().Get("clientId")
 	if clientID == "" {
 		clientID = uuid.NewString()
 	}
 	g, col := h.Hub.Get(id, clientID)
+
+	// Best-effort persistence: ensure a Game row exists. Skip silently on error
+	// so DB outages don't break gameplay.
+	if err := storage.EnsureGame(h.DB, id, time.Now()); err != nil {
+		logging.Debugf("EnsureGame %s: %v", id, err)
+	}
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -91,7 +129,6 @@ func (h *Handler) HandleSSE(w http.ResponseWriter, r *http.Request) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			// heartbeat
 			_, _ = w.Write([]byte("data: {}\n\n"))
 			flusher.Flush()
 		case msg := <-ch:
@@ -103,9 +140,9 @@ func (h *Handler) HandleSSE(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// HandleMove processes a chess move
+// HandleMove processes a chess move.
 func (h *Handler) HandleMove(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimPrefix(r.URL.Path, "/move/")
+	id := r.PathValue("gameId")
 	g, _ := h.Hub.Get(id, "")
 
 	var m game.MoveRequest
@@ -121,68 +158,71 @@ func (h *Handler) HandleMove(w http.ResponseWriter, r *http.Request) {
 	}
 
 	uci := strings.ToLower(strings.TrimSpace(m.UCI))
-	uci = appendPromotionIfPawn(g, uci)
+	if len(uci) != 4 && len(uci) != 5 {
+		WriteJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "invalid uci"})
+		return
+	}
+	if parseSquare(uci[:2]) == chess.NoSquare || parseSquare(uci[2:4]) == chess.NoSquare {
+		WriteJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "invalid uci"})
+		return
+	}
 
-	// Handle castling moves - ensure they're properly formatted
 	if len(uci) == 4 {
-		// Check for castling moves
 		if uci == "e1g1" || uci == "e1c1" || uci == "e8g8" || uci == "e8c8" {
 			logging.Debugf("Castling move detected: %s", uci)
 		}
 	}
 
-	from := uci[:2]
-
-	g.Mu.Lock()
-	state := g.StateLocked()
-	playerColor, ok := g.Clients[clientID]
-	g.Mu.Unlock()
-
-	fenOpt, err := chess.FEN(state.FEN)
+	acceptedUCI, err := g.MakeMoveFor(clientID, uci)
 	if err != nil {
-		WriteJSON(w, http.StatusOK, map[string]any{"ok": false, "error": "bad fen", "state": state})
-		return
-	}
-	tmp := chess.NewGame(fenOpt)
-	board := tmp.Position().Board()
-	fsq := parseSquare(from)
-	piece := board.Piece(fsq)
-	turn := tmp.Position().Turn()
-
-	if !ok {
-		WriteJSON(w, http.StatusOK, map[string]any{"ok": false, "error": "unknown client", "state": state})
-		return
-	}
-
-	if piece == chess.NoPiece || piece.Color() != playerColor {
-		WriteJSON(w, http.StatusOK, map[string]any{"ok": false, "error": "wrong color", "state": state})
-		return
-	}
-
-	if turn != playerColor {
-		WriteJSON(w, http.StatusOK, map[string]any{"ok": false, "error": "not your turn", "state": state})
-		return
-	}
-
-	g.Touch()
-
-	if err := g.MakeMove(uci); err != nil {
+		g.Mu.Lock()
+		state := g.StateLocked()
+		g.Mu.Unlock()
 		WriteJSON(w, http.StatusOK, map[string]any{"ok": false, "error": err.Error(), "state": state})
 		return
 	}
 
-	go g.Broadcast()
+	g.Broadcast()
 
 	g.Mu.Lock()
-	state = g.StateLocked()
+	state := g.StateLocked()
 	g.Mu.Unlock()
+
+	// Best-effort persistence — log on failure, don't break gameplay.
+	if h.DB != nil {
+		ply := len(state.UCI)
+		if err := storage.RecordMove(h.DB, id, ply, acceptedUCI, state.FEN); err != nil {
+			logging.Debugf("RecordMove %s/%d: %v", id, ply, err)
+		}
+		if state.Status != "" {
+			result := resultFromPGN(state.PGN)
+			if err := storage.FinishGame(h.DB, id, result, state.PGN, state.FEN, time.Now(), ply); err != nil {
+				logging.Debugf("FinishGame %s: %v", id, err)
+			}
+		} else {
+			if err := storage.UpdateGamePosition(h.DB, id, state.FEN, state.PGN, ply); err != nil {
+				logging.Debugf("UpdateGamePosition %s: %v", id, err)
+			}
+		}
+	}
 
 	WriteJSON(w, http.StatusOK, map[string]any{"ok": true, "state": state})
 }
 
-// HandleReact processes a reaction/emoji
+// resultFromPGN extracts the result token ("1-0" / "0-1" / "1/2-1/2") from a
+// PGN if present. Returns "" if the PGN is missing a terminator.
+func resultFromPGN(pgn string) string {
+	for _, token := range []string{"1-0", "0-1", "1/2-1/2"} {
+		if strings.Contains(pgn, " "+token) || strings.HasSuffix(pgn, token) {
+			return token
+		}
+	}
+	return ""
+}
+
+// HandleReact processes a reaction/emoji.
 func (h *Handler) HandleReact(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimPrefix(r.URL.Path, "/react/")
+	id := r.PathValue("gameId")
 	g, _ := h.Hub.Get(id, "")
 
 	var body game.ReactionRequest
@@ -210,7 +250,7 @@ func (h *Handler) HandleReact(w http.ResponseWriter, r *http.Request) {
 
 // HandleRelease removes a client from a game if requested by the owner.
 func (h *Handler) HandleRelease(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimPrefix(r.URL.Path, "/release/")
+	id := r.PathValue("gameId")
 	g, _ := h.Hub.Get(id, "")
 
 	var body struct {
@@ -236,11 +276,11 @@ func (h *Handler) HandleRelease(w http.ResponseWriter, r *http.Request) {
 	}
 
 	g.RemoveClient(body.TargetID)
-	go g.Broadcast()
+	g.Broadcast()
 	WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
-// ClientIP extracts the client IP from the request
+// ClientIP extracts the client IP from the request.
 func ClientIP(r *http.Request) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 		parts := strings.Split(xff, ",")
