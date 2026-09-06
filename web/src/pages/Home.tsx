@@ -4,7 +4,6 @@ import { Header } from "../components/Header/Header";
 import { RecentGames } from "../components/RecentGames/RecentGames";
 import { CoachCard } from "../components/CoachCard";
 import { Board } from "../components/Board/Board";
-import { ThemePicker } from "../components/ThemePicker/ThemePicker";
 import { gameIDFromInput } from "../lib/invitation";
 import { START_FEN } from "../types/chess";
 
@@ -52,7 +51,7 @@ export function Home() {
         </section>
         <RecentGames />
       </div>
-      <div className="home-coach"><CoachCard /><div className="mood-row"><p>A board to match your mood.</p><ThemePicker /></div></div>
+      <div className="home-coach"><CoachCard /></div>
     </div>
     <footer className="site-footer"><span>64 squares. Endless possibilities.</span><span>Made for a little more together.</span></footer>
   </main>;

@@ -5,10 +5,11 @@ import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, Share, Style
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ChessBoard } from "@/components/ChessBoard";
 import { Piece } from "@/components/Piece";
-import { Button, CoachCard, ErrorMessage, ThemePicker, ui } from "@/components/UI";
+import { Button, CoachCard, ErrorMessage, useUI } from "@/components/UI";
+import { AppearanceMenu } from "@/components/AppearanceMenu";
 import { makeMove, reactToGame } from "@/lib/api";
 import { color, initialFEN, legalMoves, moveLabels } from "@/lib/chess";
-import { colors } from "@/lib/theme";
+import { useBoardTheme, useThemedStyles, type AppColors } from "@/lib/theme";
 import { useLiveGame } from "@/lib/useLiveGame";
 
 const emojis = [
@@ -16,6 +17,9 @@ const emojis = [
   { emoji: "😂", label: "Laugh" }, { emoji: "👏", label: "Applause" }, { emoji: "🤝", label: "Good game" },
 ];
 export default function GameScreen() {
+  const { colors } = useBoardTheme();
+  const styles = useThemedStyles(createStyles);
+  const ui = useUI();
   const params = useLocalSearchParams<{ id: string | string[] }>();
   const gameID = Array.isArray(params.id) ? params.id[0] ?? "" : params.id ?? "";
   const router = useRouter();
@@ -106,8 +110,8 @@ export default function GameScreen() {
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
       <View style={ui.row}>
         <Pressable accessibilityRole="button" accessibilityLabel="Back to home" onPress={() => router.canGoBack() ? router.back() : router.replace("/")} style={styles.iconButton}><Text style={styles.icon}>←</Text></Pressable>
-        <Text style={styles.wordmark}>your move.</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel="Share game" onPress={() => void share()} style={styles.iconButton}><Text style={styles.icon}>↗</Text></Pressable>
+        <Text style={[styles.wordmark, { flex: 1, marginHorizontal: 12 }]}>your move.</Text>
+        <View style={[ui.row, { gap: 8 }]}><Pressable accessibilityRole="button" accessibilityLabel="Share game" onPress={() => void share()} style={styles.iconButton}><Text style={styles.icon}>↗</Text></Pressable><AppearanceMenu /></View>
       </View>
       <View style={styles.headingBlock}>
         <View style={ui.row}><Text style={ui.eyebrow}>A FRIENDLY MATCH</Text><View style={styles.connection}><View style={[styles.dot, { backgroundColor: connected ? "#76915A" : "#CBA377" }]} /><Text style={styles.connectionText}>{connected ? "LIVE" : "CONNECTING"}</Text></View></View>
@@ -138,14 +142,13 @@ export default function GameScreen() {
           onPress={() => void sendReaction(emoji)} style={({ pressed }) => [styles.reaction, pressed && { backgroundColor: colors.mint }, (!connected || reacting) && { opacity: 0.4 }]}>
           <Text style={styles.emoji}>{emoji}</Text>
         </Pressable>)}</View>
-        {game.reactions.length > 0 && <View accessibilityLiveRegion="polite" style={styles.chatHistory}>{game.reactions.map((reaction, index) => <View key={reaction.sender + reaction.at + index} style={[styles.chatBubble, { backgroundColor: reaction.sender === cid ? "#ECF3DD" : colors.lilac }]}>
+        {game.reactions.length > 0 && <View accessibilityLiveRegion="polite" style={styles.chatHistory}>{game.reactions.map((reaction, index) => <View key={reaction.sender + reaction.at + index} style={[styles.chatBubble, { backgroundColor: reaction.sender === cid ? colors.soft : colors.lilac }]}>
           <Text style={{ fontSize: 19 }}>{reaction.emoji}</Text><Text style={styles.chatWho}>{reaction.sender === cid ? "You" : "Them"}</Text>
         </View>)}</View>}
       </View>
       <View style={styles.tools}>
         <Pressable accessibilityRole="button" accessibilityLabel="Flip board" onPress={() => setFlipped((value) => !value)} style={styles.toolButton}><Text style={styles.toolText}>↻  Flip</Text></Pressable>
         <Pressable accessibilityRole="button" aria-expanded={showMoves} accessibilityState={{ expanded: showMoves }} onPress={() => setShowMoves((value) => !value)} style={styles.toolButton}><Text style={styles.toolText}>≡  Moves{notation.length ? " · " + notation.length : ""}</Text></Pressable>
-        <ThemePicker />
       </View>
       {showMoves && <View style={styles.movePanel}>
         <Text style={ui.eyebrow}>THE GAME SO FAR</Text>
@@ -165,7 +168,7 @@ export default function GameScreen() {
     </Modal>
   </SafeAreaView>;
 }
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   container: { padding: 20, gap: 20, width: "100%", maxWidth: 480, alignSelf: "center", paddingBottom: 30 },
   iconButton: { width: 44, height: 44, borderRadius: 15, borderWidth: 1, borderColor: colors.line, alignItems: "center", justifyContent: "center" },
@@ -181,11 +184,11 @@ const styles = StyleSheet.create({
   avatar: { width: 41, height: 41, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   playerName: { fontSize: 14, fontWeight: "600", color: colors.ink },
   playerMeta: { fontSize: 11, color: colors.muted, marginTop: 3 },
-  turnBadge: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#EAF0DE", paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8 },
-  turnText: { fontSize: 8, letterSpacing: 1, fontWeight: "700", color: "#536943" },
-  loading: { position: "absolute", inset: 0, backgroundColor: "#F8F7F2DD", justifyContent: "center", alignItems: "center", gap: 12, borderRadius: 12 },
-  notice: { padding: 14, backgroundColor: colors.mint, color: colors.ink, borderRadius: 14, fontSize: 13 },
-  invite: { backgroundColor: "#EEF0E7", borderRadius: 18, padding: 14, flexDirection: "row", alignItems: "center", gap: 12 },
+  turnBadge: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.turnBg, paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8 },
+  turnText: { fontSize: 8, letterSpacing: 1, fontWeight: "700", color: colors.turnInk },
+  loading: { position: "absolute", inset: 0, backgroundColor: colors.background + "DD", justifyContent: "center", alignItems: "center", gap: 12, borderRadius: 12 },
+  notice: { padding: 14, backgroundColor: colors.mint, color: colors.buttonInk, borderRadius: 14, fontSize: 13 },
+  invite: { backgroundColor: colors.soft, borderRadius: 18, padding: 14, flexDirection: "row", alignItems: "center", gap: 12 },
   chat: { gap: 13 },
   reactions: { flexDirection: "row", justifyContent: "space-between", gap: 5 },
   reaction: { flex: 1, minHeight: 48, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line },

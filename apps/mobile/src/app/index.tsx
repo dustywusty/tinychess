@@ -5,12 +5,16 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { createGame } from "@/lib/api";
 import { gameIDFromInput, initialFEN } from "@/lib/chess";
 import { recentGames, type RecentGame } from "@/lib/recentGames";
-import { colors } from "@/lib/theme";
+import { useBoardTheme, useThemedStyles, type AppColors } from "@/lib/theme";
 import { ChessBoard } from "@/components/ChessBoard";
 import { Piece } from "@/components/Piece";
-import { Button, CoachCard, ErrorMessage, ThemePicker, ui } from "@/components/UI";
+import { Button, CoachCard, ErrorMessage, useUI } from "@/components/UI";
+import { AppearanceMenu } from "@/components/AppearanceMenu";
 
 export default function HomeScreen() {
+  const { colors } = useBoardTheme();
+  const styles = useThemedStyles(createStyles);
+  const ui = useUI();
   const router = useRouter();
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -35,7 +39,7 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={ui.row}>
           <View style={styles.brand}><View style={styles.mark}><Piece piece="n" size={25} /></View><Text style={styles.wordmark}>your move<Text style={{ color: "#7B9E61" }}>.</Text></Text></View>
-          <View style={styles.tag}><Text style={styles.tagText}>CHESS, TOGETHER</Text></View>
+          <AppearanceMenu />
         </View>
         <View style={styles.hero}>
           <Text style={styles.kicker}>A SMALL GAME. A GOOD TIME.</Text>
@@ -63,7 +67,7 @@ export default function HomeScreen() {
               onSubmitEditing={() => { if (pastedID) openGame(pastedID); }} />
             <Pressable accessibilityRole="button" accessibilityLabel="Join game" disabled={!pastedID || busy}
               accessibilityState={{ disabled: !pastedID || busy }} onPress={() => openGame(pastedID)} style={[styles.joinButton, (!pastedID || busy) && { opacity: 0.4 }]}>
-              <Text style={{ color: "#fff", fontSize: 20 }}>↗</Text>
+              <Text style={{ color: colors.background, fontSize: 20 }}>↗</Text>
             </Pressable>
           </View>
           {!!input.trim() && !pastedID && <Text style={styles.validation}>Use a game ID or a link ending in /g/your-game-id.</Text>}
@@ -77,25 +81,22 @@ export default function HomeScreen() {
           </Pressable>)}
         </View>}
         <CoachCard />
-        <View style={ui.row}><Text style={ui.body}>A board to match your mood.</Text><ThemePicker /></View>
         <Text style={styles.footer}>64 squares. Endless possibilities.</Text>
       </ScrollView>
     </KeyboardAvoidingView>
   </SafeAreaView>;
 }
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   container: { padding: 24, gap: 24, width: "100%", maxWidth: 480, alignSelf: "center", paddingBottom: 32 },
   brand: { flexDirection: "row", alignItems: "center", gap: 8 },
   mark: { width: 32, height: 32, backgroundColor: colors.mint, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   wordmark: { fontSize: 22, fontWeight: "800", letterSpacing: -1.2, color: colors.ink },
-  tag: { borderWidth: 1, borderColor: colors.line, borderRadius: 20, paddingVertical: 7, paddingHorizontal: 9 },
-  tagText: { fontSize: 8, fontWeight: "700", letterSpacing: 1, color: colors.muted },
   hero: { paddingTop: 14, gap: 14 },
-  kicker: { fontSize: 10, letterSpacing: 2, fontWeight: "700", color: "#61764D" },
+  kicker: { fontSize: 10, letterSpacing: 2, fontWeight: "700", color: colors.kicker },
   title: { fontSize: 43, lineHeight: 47, fontWeight: "600", letterSpacing: -2.3, color: colors.ink },
   subtitle: { fontSize: 15, lineHeight: 23, color: colors.muted },
-  playCard: { backgroundColor: "#EEF0E7", borderRadius: 28, padding: 22, overflow: "hidden" },
+  playCard: { backgroundColor: colors.soft, borderRadius: 28, padding: 22, overflow: "hidden" },
   liveDot: { width: 7, height: 7, backgroundColor: "#7A9B62", borderRadius: 5 },
   art: { height: 205, alignItems: "center", justifyContent: "center", marginVertical: 8 },
   artBoard: { width: 176, transform: [{ rotate: "-9deg" }], borderWidth: 6, borderColor: "#fff", borderRadius: 15, boxShadow: "0 12px 20px #253D3518" },
@@ -112,7 +113,7 @@ const styles = StyleSheet.create({
   joinButton: { width: 44, height: 44, borderRadius: 13, alignItems: "center", justifyContent: "center", backgroundColor: colors.ink },
   validation: { color: colors.error, fontSize: 12, lineHeight: 18 },
   recent: { flexDirection: "row", alignItems: "center", padding: 14, gap: 12, borderRadius: 18, backgroundColor: colors.surface },
-  recentIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: "#EEF0E7", justifyContent: "center", alignItems: "center" },
+  recentIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.soft, justifyContent: "center", alignItems: "center" },
   recentTitle: { color: colors.ink, fontSize: 14, fontWeight: "600", marginBottom: 3 },
   footer: { textAlign: "center", color: colors.muted, fontSize: 11, letterSpacing: 0.3 },
 });
