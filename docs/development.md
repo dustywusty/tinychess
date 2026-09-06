@@ -3,16 +3,17 @@
 ## Requirements
 
 - Go 1.24+
-- Node 20+
+- Node 22.13+ (Node 24 recommended; used by CI)
 - Corepack (the workspace pins pnpm 9.15.0)
 - Chrome/Chromium for browser E2E
 - Optional: Postgres
 - Optional: Xcode/Android Studio or a physical device for native builds
 
-The mobile app targets Expo SDK 56 because it matches the Expo Go runtime
-currently distributed through the app stores. SDK 57 requires a matching
-development build during Expo's transition; do not upgrade the project version
-alone and expect the store Expo Go client to open it.
+The mobile app targets Expo SDK 57 and React Native 0.86. Use a matching SDK 57
+Expo Go client for device previews. Android installation is available through
+[Expo's download page](https://expo.dev/go?device=true&platform=android&sdkVersion=57).
+An SDK 56 Expo Go client cannot open this project. Rebuild any custom development
+client after upgrading the SDK.
 
 ## Commands
 

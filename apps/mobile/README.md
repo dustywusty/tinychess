@@ -1,7 +1,17 @@
 # Your Move mobile
 
-Expo SDK 56 / React Native client for iOS and Android, with an optional web
+Expo SDK 57 / React Native 0.86 client for iOS and Android, with an optional web
 preview. One native UI codebase uses the existing Go API and shared wire types.
+
+Use Node 22.13 or later (Node 24 recommended).
+
+For Android previews:
+
+1. Install [Expo Go for SDK 57](https://expo.dev/go?device=true&platform=android&sdkVersion=57), or upgrade an existing SDK 56 installation.
+2. Connect your phone and computer to the same Wi-Fi.
+3. Scan the development server's QR code in Expo Go.
+
+If you use a custom development build, rebuild it for SDK 57.
 
 In development the app derives the Go API host from Metro's LAN address, so a
 phone opened from the QR code reaches port 8080 on the development machine.
@@ -59,7 +69,7 @@ corepack pnpm@9.15.0 --filter @yourmove/mobile test
 corepack pnpm@9.15.0 --filter @yourmove/mobile exec expo export --platform all
 ```
 
-Unit tests need Node 22.6+ for TypeScript stripping. With Chrome installed,
+With the supported Node version, Chrome installed,
 the API on port 8080, and the mobile web preview on port 8081:
 
 ```sh

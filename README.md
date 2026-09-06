@@ -23,7 +23,7 @@ with reconnect and app foreground recovery.
 
 ## Start locally
 
-Requirements: Go 1.24+, Node 20+, Corepack, Make, and optionally Postgres.
+Requirements: Go 1.24+, Node 22.13+ (Node 24 recommended), Corepack, Make, and optionally Postgres.
 
 ```sh
 make bootstrap

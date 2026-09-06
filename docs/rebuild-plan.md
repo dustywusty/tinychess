@@ -296,7 +296,11 @@ boundaries needed to implement those features without another rewrite.
 
 ### Expo compatibility note (2026-08-13)
 
-The initial mobile scaffold used the forward SDK 57 template. Expo Go from the
-Android/iOS stores currently embeds SDK 56, so the app was aligned to the
-official SDK 56 template for QR-code development on physical devices. SDK 57
-remains suitable when the project adopts a dedicated development build.
+The initial mobile scaffold used the SDK 57 template. At the time of the initial
+compatibility change, store Expo Go clients embedded SDK 56, so the app was
+aligned to the SDK 56 template for physical-device previews.
+
+Update (2026-09-05): the app now uses SDK 57.0.20 with matching native packages.
+Expo's SDK 57 Android download page now points to Google Play. Use a matching
+SDK 57 Expo Go client, or rebuild a custom development client. The app requires
+Node 22.13+. CI uses Node 24.
