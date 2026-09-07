@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chess, type Square as ChessSquare } from "chess.js";
+import { capturedLabel, capturedPieces } from "@yourmove/chess";
 import { Board } from "../components/Board/Board";
 import { EmojiPicker } from "../components/EmojiPicker/EmojiPicker";
 import { GameStatus } from "../components/GameStatus/GameStatus";
@@ -28,6 +29,7 @@ export function Game({ gameId }: { gameId: string }) {
   const [promotion, setPromotion] = useState<{ from: Square; to: Square } | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const chess = useMemo(() => new Chess(fen), [fen]);
+  const captured = useMemo(() => capturedPieces(uci), [uci]);
   const recordReaction = useCallback((emoji: string, self: boolean) => {
     setHistory((previous) => [...previous, { emoji, self, id: Date.now() }].slice(-6));
     showReaction(emoji, self ? "self" : "remote");
@@ -87,7 +89,11 @@ export function Game({ gameId }: { gameId: string }) {
   };
   const player = (side: Color) => <div className="player-row">
     <span className="player-avatar"><Piece piece={side === "white" ? "K" : "k"} size={30} /></span>
-    <div><strong>{isSpectator ? (side === "white" ? "White" : "Black") : playerColor === side ? "You" : "Your friend"}</strong><small>{side === "white" ? "White pieces" : "Black pieces"}</small></div>
+    <div className="player-info"><strong>{isSpectator ? (side === "white" ? "White" : "Black") : playerColor === side ? "You" : "Your friend"}</strong><small>{side === "white" ? "White pieces" : "Black pieces"}</small>
+      {captured[side].length > 0 && <div className="captured-pieces" role="img" aria-label={capturedLabel(side, captured[side])} data-testid={"captured-" + side}>
+        {captured[side].map((piece, index) => <span className="captured-piece" key={index}><Piece piece={piece} size={20} /></span>)}
+      </div>}
+    </div>
     {connected && !status && turn === side && <span className="turn-badge"><span className="live-dot" />TO MOVE</span>}
   </div>;
 

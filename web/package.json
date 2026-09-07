@@ -11,6 +11,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@yourmove/chess": "workspace:*",
     "@yourmove/protocol": "workspace:*",
     "chess.js": "^1.4.0",
     "emoji-picker-element": "^1.29.1",

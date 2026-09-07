@@ -4,10 +4,23 @@ test("two players exchange moves and reactions, recover seats, and finish a game
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
-  await expect(page.getByText("Good company.")).toBeVisible();
+  await expect(page.getByTestId("invite-section").getByRole("heading", { name: "A little chess with your favorite people." })).toBeVisible();
+  await expect(page.getByText("Meet your chess coach.")).toBeVisible();
+  await expect(page.getByText(/Good company|Across the board|No sign-up|A SMALL GAME/)).toHaveCount(0);
+  await expect(page.getByTestId("home-play-card").getByRole("heading")).toHaveCount(0);
+  await expect(page.getByText("Send a link. Make your move.", { exact: true })).toHaveCount(1);
   await page.screenshot({ path: "test-results/home.png", fullPage: true });
   await page.getByRole("button", { name: "Play a friend" }).click();
   await expect(page.getByText(/^(Your move\.|Over to them\.)$/)).toBeVisible();
+  // The native navigation stack retains the hidden home screen and its coach card.
+  for (const copy of ["COMING SOON", "Meet your chess coach.", "A FRIENDLY MATCH", "A LITTLE BACK & FORTH", "Say it with an emoji", "Better with a friend.", "Your recent favorites", "A few favorites"]) {
+    await expect(page.getByText(copy, { exact: true })).not.toBeVisible();
+  }
+  const board = await page.getByTestId("game-board").boundingBox();
+  const status = await page.getByTestId("game-status").boundingBox();
+  expect(board!.y).toBeLessThan(160);
+  expect(status!.y).toBeGreaterThan(board!.y + board!.height);
+  expect(status!.height).toBeLessThan(40);
   const gameURL = page.url();
   const opponentContext = await browser.newContext({ viewport: { width: 393, height: 852 } });
   const opponent = await opponentContext.newPage();
@@ -49,12 +62,13 @@ test("two players exchange moves and reactions, recover seats, and finish a game
   const spectatorContext = await browser.newContext();
   const spectator = await spectatorContext.newPage();
   await spectator.goto(gameURL);
-  await expect(spectator.getByText("Enjoy the game.")).toBeVisible();
+  await expect(spectator.getByText("Watching", { exact: true })).toBeVisible();
+  await expect(spectator.getByText("White to move", { exact: true })).toBeVisible();
   await expect(spectator.getByRole("button", { name: /^e2, white pawn/ })).toBeDisabled();
   await move(white, "g2", "g4");
   await expect(black.getByText("Your move.", { exact: true })).toBeVisible();
   await move(black, "d8", "h4");
-  await expect(page.getByText("That’s a game.")).toBeVisible();
+  await expect(page.getByTestId("game-status")).toContainText("Checkmate");
   await page.getByRole("button", { name: /Moves/ }).click();
   await expect(page.getByText("Qh4#", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Back to home" }).click();
@@ -76,7 +90,7 @@ test("small phones have no horizontal overflow and invalid invites stay disabled
   await appearance.click();
   await page.getByRole("radio", { name: "Lilac board" }).click();
   await page.getByRole("radio", { name: "Use dark theme" }).click();
-  await expect(page.getByText("Good company.")).toHaveCSS("color", "rgb(243, 244, 233)");
+  await expect(page.getByText("A little chess with your favorite people.")).toHaveCSS("color", "rgb(243, 244, 233)");
   await page.screenshot({ path: "test-results/appearance-dark.png", fullPage: true });
   await page.getByRole("button", { name: "Close appearance" }).click();
   await page.reload();
@@ -84,7 +98,7 @@ test("small phones have no horizontal overflow and invalid invites stay disabled
   await expect(page.getByRole("radio", { name: "Lilac board" })).toHaveAttribute("aria-checked", "true");
   await expect(page.getByRole("radio", { name: "Use dark theme" })).toHaveAttribute("aria-checked", "true");
   await page.getByRole("radio", { name: "Use light theme" }).click();
-  await expect(page.getByText("Good company.")).toHaveCSS("color", "rgb(37, 43, 40)");
+  await expect(page.getByText("A little chess with your favorite people.")).toHaveCSS("color", "rgb(37, 43, 40)");
   await page.keyboard.press("Escape");
   await expect(appearance).toHaveAttribute("aria-expanded", "false");
   await appearance.click();
