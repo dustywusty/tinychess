@@ -22,12 +22,6 @@ export function Home() {
   return <main className="site-shell home-page">
     <Header />
     <div className="home-content">
-      <section className="home-intro">
-        <p className="eyebrow">A SMALL GAME. A GOOD TIME.</p>
-        <h1>Good company.<br />Great moves.</h1>
-        <p className="intro-copy">A little chess with your favorite people.<br />Send a link. Make your move.</p>
-        <div className="intro-detail"><span aria-hidden="true">↗</span><p>Across the table or across the world.<br /><strong>There’s always room for a game.</strong></p></div>
-      </section>
       <section className="play-card">
         <div className="section-line"><span className="eyebrow">YOUR NEXT GOOD GAME</span><span className="live-dot" /></div>
         <div className="board-art" aria-hidden="true">
@@ -35,8 +29,8 @@ export function Home() {
           <span className="emoji-sticker sticker-wave">👋</span><span className="emoji-sticker sticker-think">🤔</span>
           <span className="art-caption">you + a friend</span>
         </div>
-        <h2>Across the board.<br />Closer together.</h2>
-        <p>No sign-up. No rush. Just chess.</p>
+        <h1>A little chess with your favorite people.</h1>
+        <p>Send a link. Make your move.</p>
         <button id="newgame" type="button" className="primary-button" disabled={busy} onClick={() => void handleNew()}>{busy ? "Opening your board…" : <>Play a friend <span aria-hidden="true">↗</span></>}</button>
         {error && <p role="alert" className="error-message">{error}</p>}
       </section>

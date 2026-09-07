@@ -38,16 +38,7 @@ button, a, summary { touch-action: manipulation; }
 .live-dot { display: inline-block; width: 7px; height: 7px; flex: 0 0 7px; background: #7a9b62; border-radius: 50%; }
 .offline-dot { background: #cba377; }
 .muted { color: var(--muted); font-size: 12px; }
-.home-content { display: grid; grid-template-columns: 1fr 1fr; column-gap: 80px; row-gap: 40px; padding: 30px 0 40px; align-items: center; }
-.home-intro { align-self: center; padding-bottom: 24px; }
-.home-intro > .eyebrow { color: #69814f; margin-bottom: 24px; }
-:root[data-theme="dark"] .home-intro > .eyebrow { color: #bdd49c; }
-.home-intro h1 { font-size: clamp(44px, 5.5vw, 65px); line-height: 1.08; letter-spacing: -3.7px; font-weight: 600; }
-.intro-copy { color: var(--muted); font-size: 17px; line-height: 1.65; margin-top: 25px; }
-.intro-detail { display: flex; align-items: center; gap: 16px; margin-top: 42px; }
-.intro-detail > span { display: grid; place-items: center; width: 43px; height: 43px; border-radius: 50%; border: 1px solid var(--line); font-size: 22px; }
-.intro-detail p { color: var(--muted); font-size: 12px; line-height: 1.8; }
-.intro-detail strong { color: var(--text); font-weight: 500; }
+.home-content { display: grid; grid-template-columns: 1fr 1fr; column-gap: 80px; row-gap: 40px; padding: 30px 0 40px; align-items: start; }
 .play-card { padding: 28px; background: var(--soft); border-radius: 30px; overflow: hidden; }
 .board-art { height: 255px; position: relative; display: grid; place-items: center; margin: 8px 0 20px; }
 .art-board { width: 216px; border: 7px solid #fff; border-radius: 16px; transform: rotate(-9deg); box-shadow: 0 12px 25px #253d3518; overflow: hidden; }
@@ -55,7 +46,7 @@ button, a, summary { touch-action: manipulation; }
 .sticker-wave { left: 4px; top: 25px; background: #f7c5af; transform: rotate(-13deg); }
 .sticker-think { right: 3px; bottom: 22px; background: #e6dffa; transform: rotate(12deg); }
 .art-caption { position: absolute; bottom: -2px; background: #fff; color: #252b28; padding: 8px 17px; border-radius: 18px; font-size: 12px; font-weight: 600; transform: rotate(-4deg); }
-.play-card h2 { font-size: 29px; line-height: 1.12; letter-spacing: -1px; font-weight: 600; margin-bottom: 10px; }
+.play-card h1 { font-size: 29px; line-height: 1.18; letter-spacing: -1px; font-weight: 600; margin-bottom: 10px; }
 .play-card > p { font-size: 14px; color: var(--muted); margin-bottom: 20px; }
 .primary-button { width: 100%; min-height: 56px; background: var(--mint); color: #252b28; border: 0; border-radius: 18px; font-weight: 700; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 20px; padding: 14px 20px; transition: background .15s, transform .15s; }
 .primary-button:hover:not(:disabled) { background: #cde97e; transform: translateY(-1px); }
@@ -176,7 +167,11 @@ dialog::backdrop { background: #252b2877; backdrop-filter: blur(3px); }
 .promotion-options button { display: grid; place-items: center; flex: 1; min-height: 64px; border: 0; border-radius: 14px; background: var(--soft); }
 .big-emoji { position: fixed; inset: 0; margin: auto; width: max-content; height: max-content; font-size: min(260px, 64vw, 40dvh); line-height: 1.2; pointer-events: none; z-index: 100; animation: big-emoji-pop 1.8s ease-in-out forwards; }
 @keyframes big-emoji-pop { 0%, 15% { transform: scale(1); opacity: 1; } 100% { transform: scale(.2); opacity: 0; } }
-@media (min-width: 769px) { .home-intro { grid-column: 1; grid-row: 1; } .play-card { grid-column: 2; grid-row: 1; } }
+@media (min-width: 769px) {
+  .home-secondary { grid-column: 1; grid-row: 1 / span 2; }
+  .play-card { grid-column: 2; grid-row: 1; }
+  .home-coach { grid-column: 2; grid-row: 2; }
+}
 @media (max-width: 1000px) {
   .site-shell { padding: 0 28px; }
   .home-content { column-gap: 40px; }
@@ -192,16 +187,11 @@ dialog::backdrop { background: #252b2877; backdrop-filter: blur(3px); }
   .header-right { gap: 8px; }
   .site-header { gap: 10px; }
   .home-content { display: flex; flex-direction: column; align-items: stretch; gap: 26px; padding: 12px 0 24px; }
-  .home-intro { align-self: stretch; padding: 0; }
-  .home-intro > .eyebrow { margin-bottom: 16px; font-size: 9px; }
-  .home-intro h1 { font-size: 44px; letter-spacing: -2.3px; }
-  .intro-copy { font-size: 15px; margin-top: 18px; }
-  .intro-detail { display: none; }
   .play-card { padding: 22px; border-radius: 28px; }
   .board-art { height: 205px; margin: 8px 0 14px; }
   .art-board { width: 176px; border-width: 6px; }
   .emoji-sticker { width: 53px; height: 53px; font-size: 29px; border-radius: 18px; }
-  .play-card h2 { font-size: 26px; }
+  .play-card h1 { font-size: 26px; }
   .home-secondary, .home-coach { width: 100%; }
   .home-coach .coach-content { align-items: center; }
   .site-footer { font-size: 10px; flex-wrap: wrap; gap: 10px; justify-content: center; text-align: center; }
@@ -221,7 +211,6 @@ dialog::backdrop { background: #252b2877; backdrop-filter: blur(3px); }
   .site-shell { padding: 0 16px; }
   .brand-tag { font-size: 7px; padding: 7px; }
   .brand { font-size: 21px; }
-  .home-intro h1 { font-size: 39px; }
   .play-card { padding: 19px; }
   .board-art { height: 190px; }
   .art-board { width: 159px; }

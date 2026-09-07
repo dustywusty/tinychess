@@ -2,7 +2,9 @@ import { expect, test } from "@playwright/test";
 
 test("responsive home matches the mobile palette, accepts invites and persists themes", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /Good company/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "A little chess with your favorite people.", level: 1 })).toBeVisible();
+  await expect(page.getByText("Send a link. Make your move.", { exact: true })).toHaveCount(1);
+  await expect(page.getByText(/Good company|Great moves|Across the table|Across the board|Closer together|A SMALL GAME/)).toHaveCount(0);
   const appearance = page.getByRole("button", { name: "Appearance", exact: true });
   await expect(appearance).toHaveAttribute("aria-expanded", "false");
   await expect(page.getByRole("button", { name: "Lilac board" })).toHaveCount(0);
@@ -15,6 +17,11 @@ test("responsive home matches the mobile palette, accepts invites and persists t
   await page.getByRole("button", { name: "Close appearance" }).click();
   await page.screenshot({ path: "test-results/home-phone.png", fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1000 });
+  const invite = await page.locator(".join-card").boundingBox();
+  const play = await page.locator(".play-card").boundingBox();
+  expect(invite!.x).toBeLessThan(play!.x);
+  expect(Math.abs(invite!.y - play!.y)).toBeLessThan(2);
+  expect(invite!.y).toBeLessThan(200);
   await page.screenshot({ path: "test-results/home-desktop.png", fullPage: true });
   await appearance.click();
   await page.getByRole("button", { name: "Use dark theme" }).click();
