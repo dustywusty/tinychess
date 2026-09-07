@@ -111,10 +111,10 @@ test("two seats, correct black orientation, live emoji, checkmate, spectators an
   await white.screenshot({ path: "test-results/game-desktop.png", fullPage: true });
   await white.reload();
   await expect(white.locator("#turn")).toHaveText("Your turn");
-  const spectatorContext = await browser.newContext();
+  const spectatorContext = await browser.newContext({ viewport: { width: 393, height: 852 } });
   const spectator = await spectatorContext.newPage();
   await spectator.goto(gameURL);
-  await expect(spectator.getByText("The seats are full. You can watch and react.")).toBeVisible();
+  await expect(spectator.getByText("Watching", { exact: true })).toBeVisible();
   await expect(spectator.locator('[data-square="e2"]')).toBeDisabled();
   await move(white, "g2", "g4");
   await expect(black.locator("#turn")).toHaveText("Your turn");
