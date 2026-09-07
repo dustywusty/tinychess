@@ -29,14 +29,13 @@ export function Home() {
           <span className="emoji-sticker sticker-wave">👋</span><span className="emoji-sticker sticker-think">🤔</span>
           <span className="art-caption">you + a friend</span>
         </div>
-        <h1>A little chess with your favorite people.</h1>
-        <p>Send a link. Make your move.</p>
         <button id="newgame" type="button" className="primary-button" disabled={busy} onClick={() => void handleNew()}>{busy ? "Opening your board…" : <>Play a friend <span aria-hidden="true">↗</span></>}</button>
         {error && <p role="alert" className="error-message">{error}</p>}
       </section>
       <div className="home-secondary">
         <section className="join-card">
-          <h2>Got an invite?</h2><p>A friendly match is a link away.</p>
+          <h1>A little chess with your favorite people.</h1>
+          <p>Send a link. Make your move.</p>
           <form className="join-form" onSubmit={(event) => { event.preventDefault(); if (id && !busy) window.location.assign("/g/" + id); }}>
             <input aria-label="Game link or ID" placeholder="Paste a game link or ID" value={input} onChange={(event) => setInput(event.target.value)} autoCapitalize="none" autoCorrect="off" spellCheck={false} />
             <button type="submit" aria-label="Join game" disabled={!id || busy}>↗</button>

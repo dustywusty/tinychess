@@ -6,7 +6,6 @@ import { GameStatus } from "../components/GameStatus/GameStatus";
 import { Header } from "../components/Header/Header";
 import { ReactionsLayer } from "../components/Reactions/ReactionsLayer";
 import { ShareLink } from "../components/ShareLink/ShareLink";
-import { CoachCard } from "../components/CoachCard";
 import { Piece } from "../components/Piece";
 import { postMove, postReact } from "../api/game";
 import { subscribeSSE } from "../api/sse";
@@ -109,7 +108,6 @@ export function Game({ gameId }: { gameId: string }) {
           <EmojiPicker disabled={!connected} onSend={sendReaction} />
           {history.length > 0 && <div className="reaction-history" aria-live="polite">{history.map((item, index) => <span className={"reaction-bubble" + (item.self ? " from-self" : "")} key={item.id + "-" + index}><span>{item.emoji}</span>{item.self ? "You" : "Them"}</span>)}</div>}
         </section>
-        <CoachCard />
         <details className="moves-panel" open><summary>The game so far <span>{uci.length}</span></summary>
           {uci.length ? <pre id="pgn" data-testid="pgn">{pgn}</pre> : <p>The first move is yours to make.</p>}
         </details>

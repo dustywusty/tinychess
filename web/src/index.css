@@ -46,14 +46,13 @@ button, a, summary { touch-action: manipulation; }
 .sticker-wave { left: 4px; top: 25px; background: #f7c5af; transform: rotate(-13deg); }
 .sticker-think { right: 3px; bottom: 22px; background: #e6dffa; transform: rotate(12deg); }
 .art-caption { position: absolute; bottom: -2px; background: #fff; color: #252b28; padding: 8px 17px; border-radius: 18px; font-size: 12px; font-weight: 600; transform: rotate(-4deg); }
-.play-card h1 { font-size: 29px; line-height: 1.18; letter-spacing: -1px; font-weight: 600; margin-bottom: 10px; }
 .play-card > p { font-size: 14px; color: var(--muted); margin-bottom: 20px; }
 .primary-button { width: 100%; min-height: 56px; background: var(--mint); color: #252b28; border: 0; border-radius: 18px; font-weight: 700; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 20px; padding: 14px 20px; transition: background .15s, transform .15s; }
 .primary-button:hover:not(:disabled) { background: #cde97e; transform: translateY(-1px); }
 .primary-button:disabled { opacity: .55; }
 .primary-button > span { font-size: 21px; }
 .home-secondary { align-self: start; display: grid; gap: 28px; }
-.join-card h2 { font-size: 22px; font-weight: 600; letter-spacing: -.6px; margin-bottom: 6px; }
+.join-card h1 { font-size: 29px; line-height: 1.18; font-weight: 600; letter-spacing: -1px; margin-bottom: 10px; }
 .join-card > p { font-size: 14px; color: var(--muted); }
 .join-form { display: flex; margin-top: 16px; padding: 5px; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; }
 .join-form input { min-width: 0; width: 100%; flex: 1; border: none; background: transparent; padding: 12px; font-size: 14px; color: var(--text); border-radius: 12px; }
@@ -191,7 +190,7 @@ dialog::backdrop { background: #252b2877; backdrop-filter: blur(3px); }
   .board-art { height: 205px; margin: 8px 0 14px; }
   .art-board { width: 176px; border-width: 6px; }
   .emoji-sticker { width: 53px; height: 53px; font-size: 29px; border-radius: 18px; }
-  .play-card h1 { font-size: 26px; }
+  .join-card h1 { font-size: 26px; }
   .home-secondary, .home-coach { width: 100%; }
   .home-coach .coach-content { align-items: center; }
   .site-footer { font-size: 10px; flex-wrap: wrap; gap: 10px; justify-content: center; text-align: center; }

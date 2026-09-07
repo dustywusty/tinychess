@@ -2,7 +2,11 @@ import { expect, test } from "@playwright/test";
 
 test("responsive home matches the mobile palette, accepts invites and persists themes", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "A little chess with your favorite people.", level: 1 })).toBeVisible();
+  await expect(page.locator(".join-card").getByRole("heading", { name: "A little chess with your favorite people.", level: 1 })).toBeVisible();
+  await expect(page.locator(".join-card").getByText("Send a link. Make your move.", { exact: true })).toBeVisible();
+  await expect(page.locator(".play-card").getByRole("heading")).toHaveCount(0);
+  await expect(page.locator(".play-card").getByText("Send a link. Make your move.", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Meet your chess coach." })).toBeVisible();
   await expect(page.getByText("Send a link. Make your move.", { exact: true })).toHaveCount(1);
   await expect(page.getByText(/Good company|Great moves|Across the table|Across the board|Closer together|A SMALL GAME/)).toHaveCount(0);
   const appearance = page.getByRole("button", { name: "Appearance", exact: true });
@@ -60,6 +64,8 @@ test("two seats, correct black orientation, live emoji, checkmate, spectators an
   await page.goto("/");
   await page.getByRole("button", { name: "Play a friend" }).click();
   await expect(page.locator("#turn")).toHaveText(/^(Your turn|Their turn)$/);
+  await expect(page.getByText("COMING SOON", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Meet your chess coach." })).toHaveCount(0);
   await page.getByRole("button", { name: "Appearance", exact: true }).click();
   await page.getByRole("button", { name: "Use dark theme" }).click();
   await page.getByRole("button", { name: "Peach board" }).click();
