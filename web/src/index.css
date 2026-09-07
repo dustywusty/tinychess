@@ -128,7 +128,7 @@ button, a, summary { touch-action: manipulation; }
 .move-target { position: absolute; width: 24%; height: 24%; border-radius: 50%; background: #253d3550; pointer-events: none; }
 .capture-target { position: absolute; inset: 3%; border: 4px solid #253d3570; border-radius: 50%; pointer-events: none; }
 .board-tools { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
-.game-sidebar { display: grid; gap: 22px; padding-top: 5px; min-width: 0; }
+.game-sidebar { display: grid; gap: 22px; min-width: 0; }
 .reaction-card { background: var(--panel); border: 1px solid var(--line); border-radius: 25px; padding: 22px; }
 .reaction-card > p { color: var(--muted); font-size: 13px; margin-top: 10px; }
 .emoji-controls { margin-top: 18px; }
