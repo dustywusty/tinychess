@@ -95,13 +95,13 @@ export function Game({ gameId }: { gameId: string }) {
     <Header rightSlot={<ShareLink />} />
     <div className="game-layout">
       <section className="game-main">
-        <GameStatus connected={connected} />
         {player(perspective === "white" ? "black" : "white")}
         <Board fen={fen} uci={uci} perspective={perspective} selected={selected} disabled={!canMove} onSquareClick={handleSquare} onMove={attemptMove} />
         {player(perspective)}
         <div className="board-tools"><button className="text-button" type="button" onClick={() => setFlipped((value) => !value)}>↻ Flip board</button><span className="muted">{uci.length} moves</span></div>
       </section>
       <aside className="game-sidebar">
+        <GameStatus connected={connected} />
         <section className="reaction-card">
           <div className="section-line"><h2 className="eyebrow">A LITTLE BACK & FORTH</h2><span aria-hidden="true">↗</span></div>
           <p>Say it with an emoji.</p>

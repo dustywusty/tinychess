@@ -64,6 +64,8 @@ test("two seats, correct black orientation, live emoji, checkmate, spectators an
   await page.goto("/");
   await page.getByRole("button", { name: "Play a friend" }).click();
   await expect(page.locator("#turn")).toHaveText(/^(Your turn|Their turn)$/);
+  await expect(page.locator(".game-main .game-heading")).toHaveCount(0);
+  await expect(page.locator(".game-sidebar #turn")).toBeVisible();
   await expect(page.getByText("COMING SOON", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Meet your chess coach." })).toHaveCount(0);
   await page.getByRole("button", { name: "Appearance", exact: true }).click();
@@ -99,6 +101,13 @@ test("two seats, correct black orientation, live emoji, checkmate, spectators an
   await expect(white.locator(".big-emoji")).toHaveCount(0);
   await white.screenshot({ path: "test-results/game-phone.png", fullPage: true });
   await white.setViewportSize({ width: 1440, height: 1050 });
+  await white.evaluate(() => window.scrollTo(0, 0));
+  const board = await white.locator("#board").boundingBox();
+  const heading = await white.locator(".game-heading").boundingBox();
+  const reactions = await white.locator(".reaction-card").boundingBox();
+  expect(board!.y).toBeLessThan(220);
+  expect(heading!.x).toBeGreaterThanOrEqual(board!.x + board!.width);
+  expect(heading!.y + heading!.height).toBeLessThan(reactions!.y);
   await white.screenshot({ path: "test-results/game-desktop.png", fullPage: true });
   await white.reload();
   await expect(white.locator("#turn")).toHaveText("Your turn");
