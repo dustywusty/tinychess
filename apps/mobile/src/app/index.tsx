@@ -41,12 +41,7 @@ export default function HomeScreen() {
           <View style={styles.brand}><View style={styles.mark}><Piece piece="n" size={25} /></View><Text style={styles.wordmark}>your move<Text style={{ color: "#7B9E61" }}>.</Text></Text></View>
           <AppearanceMenu />
         </View>
-        <View style={styles.hero}>
-          <Text style={styles.kicker}>A SMALL GAME. A GOOD TIME.</Text>
-          <Text style={styles.title}>Good company.{"\n"}Great moves.</Text>
-          <Text style={styles.subtitle}>A little chess with your favorite people.{"\n"}Send a link. Make your move.</Text>
-        </View>
-        <View style={styles.playCard}>
+        <View testID="home-play-card" style={styles.playCard}>
           <View style={ui.row}><Text style={ui.eyebrow}>YOUR NEXT GOOD GAME</Text><View style={styles.liveDot} /></View>
           <View style={styles.art} accessible accessibilityLabel="A colorful chessboard, ready for a game">
             <View style={styles.artBoard}><ChessBoard fen={initialFEN} preview /></View>
@@ -54,13 +49,12 @@ export default function HomeScreen() {
             <View style={[styles.bubble, styles.bubbleTwo]}><Text style={styles.emoji}>🤔</Text></View>
             <View style={styles.artCaption}><Text style={styles.artCaptionText}>you + a friend</Text></View>
           </View>
-          <Text style={styles.playTitle}>Across the board.{"\n"}Closer together.</Text>
-          <Text style={[ui.body, { marginBottom: 16 }]}>No sign-up. No rush. Just chess.</Text>
           <Button title="Play a friend    ↗" busy={busy} onPress={() => void handleCreate()} />
         </View>
         {!!error && <ErrorMessage>{error}</ErrorMessage>}
-        <View style={styles.join}>
-          <Text style={ui.cardTitle}>Got an invite?</Text>
+        <View testID="invite-section" style={styles.join}>
+          <Text accessibilityRole="header" style={styles.title}>A little chess with your favorite people.</Text>
+          <Text style={ui.body}>Send a link. Make your move.</Text>
           <View style={styles.inputRow}>
             <TextInput accessibilityLabel="Game link or ID" value={input} onChangeText={setInput} autoCapitalize="none" autoCorrect={false}
               placeholder="Paste a game link or ID" placeholderTextColor={colors.muted} style={styles.input} returnKeyType="go"
@@ -92,13 +86,10 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   brand: { flexDirection: "row", alignItems: "center", gap: 8 },
   mark: { width: 32, height: 32, backgroundColor: colors.mint, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   wordmark: { fontSize: 22, fontWeight: "800", letterSpacing: -1.2, color: colors.ink },
-  hero: { paddingTop: 14, gap: 14 },
-  kicker: { fontSize: 10, letterSpacing: 2, fontWeight: "700", color: colors.kicker },
-  title: { fontSize: 43, lineHeight: 47, fontWeight: "600", letterSpacing: -2.3, color: colors.ink },
-  subtitle: { fontSize: 15, lineHeight: 23, color: colors.muted },
+  title: { fontSize: 26, lineHeight: 31, fontWeight: "600", letterSpacing: -0.8, color: colors.ink },
   playCard: { backgroundColor: colors.soft, borderRadius: 28, padding: 22, overflow: "hidden" },
   liveDot: { width: 7, height: 7, backgroundColor: "#7A9B62", borderRadius: 5 },
-  art: { height: 205, alignItems: "center", justifyContent: "center", marginVertical: 8 },
+  art: { height: 205, alignItems: "center", justifyContent: "center", marginTop: 8, marginBottom: 16 },
   artBoard: { width: 176, transform: [{ rotate: "-9deg" }], borderWidth: 6, borderColor: "#fff", borderRadius: 15, boxShadow: "0 12px 20px #253D3518" },
   bubble: { position: "absolute", width: 53, height: 53, borderRadius: 18, alignItems: "center", justifyContent: "center", boxShadow: "0 6px 12px #253D3510" },
   bubbleOne: { left: 5, top: 24, backgroundColor: colors.coral, transform: [{ rotate: "-13deg" }] },
@@ -106,7 +97,6 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   emoji: { fontSize: 29 },
   artCaption: { position: "absolute", bottom: 0, backgroundColor: colors.surface, paddingHorizontal: 13, paddingVertical: 7, borderRadius: 14, transform: [{ rotate: "-4deg" }] },
   artCaptionText: { fontSize: 11, color: colors.ink, fontWeight: "600" },
-  playTitle: { fontSize: 26, lineHeight: 30, letterSpacing: -0.8, color: colors.ink, fontWeight: "600", marginTop: 5, marginBottom: 8 },
   join: { gap: 8 },
   inputRow: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface, borderRadius: 18, padding: 5 },
   input: { flex: 1, minWidth: 0, minHeight: 44, color: colors.ink, paddingHorizontal: 10, fontSize: 14 },

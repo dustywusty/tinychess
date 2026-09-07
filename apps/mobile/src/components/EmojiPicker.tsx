@@ -69,7 +69,7 @@ export function EmojiPicker({ disabled, onSend }: { disabled: boolean; onSend: (
   return <>
     <View style={styles.quick}>{quickEmojis(recent).map((emoji) => <Pressable key={emoji} accessibilityRole="button" accessibilityLabel={`Send ${labelFor(emoji)}`}
       disabled={unavailable} accessibilityState={{ disabled: unavailable }} onPress={() => void send(emoji)} style={[styles.reaction, unavailable && styles.disabled]}><Text style={styles.emoji}>{emoji}</Text></Pressable>)}</View>
-    <View style={styles.footer}><Text style={styles.hint}>{recent.length ? "Your recent favorites" : "A few favorites"}</Text><Pressable ref={trigger} accessibilityRole="button" accessibilityLabel="More emoji" disabled={unavailable} accessibilityState={{ disabled: unavailable }}
+    <View style={styles.footer}><Pressable ref={trigger} accessibilityRole="button" accessibilityLabel="More emoji" disabled={unavailable} accessibilityState={{ disabled: unavailable }}
       onPress={() => { setQuery(""); setOpen(true); }} style={[styles.more, unavailable && styles.disabled]}><Text style={styles.moreText}>{sending ? "Sending…" : cooldown ? "A little breather…" : "More emoji  +"}</Text></Pressable></View>
     <Modal visible={open} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setOpen(false)} onDismiss={() => trigger.current?.focus()}>
       <KeyboardAvoidingView style={[styles.scrim, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -96,8 +96,7 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   reaction: { flex: 1, minHeight: 48, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line },
   emoji: { fontSize: 26 },
   disabled: { opacity: 0.45 },
-  footer: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: -8 },
-  hint: { fontSize: 11, color: colors.muted },
+  footer: { flexDirection: "row", justifyContent: "flex-end", alignItems: "center", marginTop: -8 },
   more: { minHeight: 44, justifyContent: "center", paddingHorizontal: 8 },
   moreText: { fontSize: 12, fontWeight: "600", color: colors.ink },
   scrim: { flex: 1, backgroundColor: "#15231B77", justifyContent: "center", alignItems: "center" },

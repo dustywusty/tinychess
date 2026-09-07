@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@yourmove/chess": "workspace:*",
     "@expo/dom-webview": "~57.0.1",
     "@expo/log-box": "~57.0.4",
     "@expo/metro-runtime": "~57.0.15",

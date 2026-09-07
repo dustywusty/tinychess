@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Chess, type Square } from "chess.js";
+import { capturedLabel, capturedPieces } from "@yourmove/chess";
 import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ChessBoard } from "@/components/ChessBoard";
 import { Piece } from "@/components/Piece";
-import { Button, CoachCard, ErrorMessage, useUI } from "@/components/UI";
+import { Button, ErrorMessage, useUI } from "@/components/UI";
 import { AppearanceMenu } from "@/components/AppearanceMenu";
 import { EmojiPicker } from "@/components/EmojiPicker";
 import { ReactionBurst } from "@/components/ReactionBurst";
@@ -39,6 +40,7 @@ export default function GameScreen() {
   const fen = state?.fen ?? initialFEN;
   const moves = useMemo(() => selected ? legalMoves(fen, selected) : [], [fen, selected]);
   const notation = useMemo(() => moveLabels(state?.uci ?? []), [state?.uci]);
+  const captured = useMemo(() => capturedPieces(state?.uci ?? []), [state?.uci]);
   const check = useMemo(() => new Chess(fen).isCheck(), [fen]);
   useEffect(() => { setSelected(null); setPromotion(null); }, [fen, gameID, connected]);
   useEffect(() => {
@@ -95,12 +97,16 @@ export default function GameScreen() {
       if (!(cause instanceof Error && cause.name === "AbortError")) setError("Couldn’t share the link. Please try again.");
     }
   };
-  const heading = !state ? "Finding your board…" : !connected ? "Reconnecting…" : state.status ? "That’s a game." : state.role === "spectator" ? "Enjoy the game." : canMove ? (check ? "You’re in check." : "Your move.") : "Over to them.";
+  const heading = !state ? "Finding your board…" : !connected ? "Reconnecting…" : state.status || (state.role === "spectator" ? (turn === "white" ? "White to move" : "Black to move") : canMove ? (check ? "You’re in check." : "Your move.") : "Over to them.");
   const bottomColor = perspective;
   const topColor = bottomColor === "white" ? "black" : "white";
   const player = (side: "white" | "black") => <View style={styles.player}>
     <View style={[styles.avatar, { backgroundColor: side === "white" ? "#EDF0E5" : "#DFE4D9" }]}><Piece piece={side === "white" ? "K" : "k"} size={29} /></View>
-    <View style={{ flex: 1 }}><Text style={styles.playerName}>{state?.role === "player" ? side === playerColor ? "You" : "Your friend" : side === "white" ? "White" : "Black"}</Text><Text style={styles.playerMeta}>{side === "white" ? "White pieces" : "Black pieces"}</Text></View>
+    <View style={{ flex: 1, minWidth: 0 }}><Text style={styles.playerName}>{state?.role === "player" ? side === playerColor ? "You" : "Your friend" : side === "white" ? "White" : "Black"}</Text><Text style={styles.playerMeta}>{side === "white" ? "White pieces" : "Black pieces"}</Text>
+      {captured[side].length > 0 && <View accessible accessibilityRole="image" accessibilityLabel={capturedLabel(side, captured[side])} testID={"captured-" + side} style={styles.captured}>
+        {captured[side].map((piece, index) => <View key={index} style={styles.capturedPiece}><Piece piece={piece} size={20} /></View>)}
+      </View>}
+    </View>
     {connected && !state?.status && turn === side && <View style={styles.turnBadge}><View style={styles.dot} /><Text style={styles.turnText}>TO MOVE</Text></View>}
   </View>;
 
@@ -111,14 +117,9 @@ export default function GameScreen() {
         <Text style={[styles.wordmark, { flex: 1, marginHorizontal: 12 }]}>your move.</Text>
         <View style={[ui.row, { gap: 8 }]}><Pressable accessibilityRole="button" accessibilityLabel="Share game" onPress={() => void share()} style={styles.iconButton}><Text style={styles.icon}>↗</Text></Pressable><AppearanceMenu /></View>
       </View>
-      <View style={styles.headingBlock}>
-        <View style={ui.row}><Text style={ui.eyebrow}>A FRIENDLY MATCH</Text><View style={styles.connection}><View style={[styles.dot, { backgroundColor: connected ? "#76915A" : "#CBA377" }]} /><Text style={styles.connectionText}>{connected ? "LIVE" : "CONNECTING"}</Text></View></View>
-        <Text accessibilityLiveRegion="polite" style={styles.heading}>{heading}</Text>
-        <Text style={ui.body}>{state?.status || (state?.role === "spectator" ? "The seats are full. You can watch and react." : canMove ? "Take your time. Make it a good one." : "Good things come to those who wait.")}</Text>
-      </View>
       <View style={styles.boardArea}>
         {player(topColor)}
-        <View>
+        <View testID="game-board">
           <ChessBoard fen={fen} perspective={perspective} selected={selected} disabled={!canMove}
             destinations={moves.map((move) => move.to)} lastMove={state?.uci.at(-1)} onSquare={handleSquare} />
           {!state && <View style={styles.loading}><ActivityIndicator size="large" color={colors.ink} /><Text style={styles.playerName}>Opening your game…</Text></View>}
@@ -130,26 +131,27 @@ export default function GameScreen() {
         {!!game.error && <Button title="Try reconnecting" onPress={game.retry} />}
       </View>}
       {!!notice && <Text accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text>}
-      {!!state && !state.status && state.uci.length < 2 && <Pressable accessibilityRole="button" onPress={() => void share()} style={styles.invite}>
-        <Text style={{ fontSize: 22 }}>👋</Text><View style={{ flex: 1 }}><Text style={styles.playerName}>Better with a friend.</Text><Text style={styles.playerMeta}>Share this game and meet at the board.</Text></View><Text style={styles.icon}>↗</Text>
-      </Pressable>}
+      <View style={styles.tools}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Flip board" onPress={() => setFlipped((value) => !value)} style={styles.toolButton}><Text style={styles.toolText}>↻  Flip</Text></Pressable>
+        <Pressable accessibilityRole="button" aria-expanded={showMoves} accessibilityState={{ expanded: showMoves }} onPress={() => setShowMoves((value) => !value)} style={styles.toolButton}><Text style={styles.toolText}>≡  Moves{notation.length ? " · " + notation.length : ""}</Text></Pressable>
+      </View>
       <View style={styles.chat}>
-        <View style={ui.row}><Text style={ui.eyebrow}>A LITTLE BACK & FORTH</Text><Text style={styles.playerMeta}>Say it with an emoji</Text></View>
+        <View testID="game-status" style={styles.headingBlock}>
+          <Text accessibilityRole="header" accessibilityLiveRegion="polite" style={styles.heading}>{heading}</Text>
+          <View style={styles.connection}>
+            {state?.role === "spectator" && <Text style={styles.spectator}>Watching</Text>}
+            <View style={[styles.dot, { backgroundColor: connected ? "#76915A" : "#CBA377" }]} /><Text style={styles.connectionText}>{connected ? "LIVE" : "CONNECTING"}</Text>
+          </View>
+        </View>
         <EmojiPicker key={gameID} disabled={!connected || !cid} onSend={sendReaction} />
         {game.reactions.length > 0 && <View accessibilityLiveRegion="polite" style={styles.chatHistory}>{game.reactions.map((reaction, index) => <View key={reaction.sender + reaction.at + index} style={[styles.chatBubble, { backgroundColor: reaction.sender === cid ? colors.soft : colors.lilac }]}>
           <Text style={{ fontSize: 19 }}>{reaction.emoji}</Text><Text style={styles.chatWho}>{reaction.sender === cid ? "You" : "Them"}</Text>
         </View>)}</View>}
       </View>
-      <View style={styles.tools}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Flip board" onPress={() => setFlipped((value) => !value)} style={styles.toolButton}><Text style={styles.toolText}>↻  Flip</Text></Pressable>
-        <Pressable accessibilityRole="button" aria-expanded={showMoves} accessibilityState={{ expanded: showMoves }} onPress={() => setShowMoves((value) => !value)} style={styles.toolButton}><Text style={styles.toolText}>≡  Moves{notation.length ? " · " + notation.length : ""}</Text></Pressable>
-      </View>
       {showMoves && <View style={styles.movePanel}>
         <Text style={ui.eyebrow}>THE GAME SO FAR</Text>
         {notation.length === 0 ? <Text style={ui.body}>The first move is yours to make.</Text> : <View style={styles.moveList}>{notation.map((move, index) => <Text key={index} style={styles.moveText}>{index % 2 === 0 ? Math.floor(index / 2 + 1) + ". " : ""}{move}</Text>)}</View>}
       </View>}
-      <CoachCard />
-      <Text style={styles.footer}>A little less scrolling. A little more chess.</Text>
     </ScrollView>
     <Modal visible={!!promotion} transparent animationType="fade" onRequestClose={() => setPromotion(null)}>
       <View style={styles.scrim}><View accessibilityViewIsModal style={styles.promotion}>
@@ -169,9 +171,10 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   iconButton: { width: 44, height: 44, borderRadius: 15, borderWidth: 1, borderColor: colors.line, alignItems: "center", justifyContent: "center" },
   icon: { fontSize: 22, color: colors.ink },
   wordmark: { fontSize: 20, fontWeight: "800", color: colors.ink, letterSpacing: -1 },
-  headingBlock: { gap: 9, paddingTop: 7 },
-  heading: { fontSize: 36, lineHeight: 42, fontWeight: "600", letterSpacing: -1.5, color: colors.ink },
-  connection: { flexDirection: "row", gap: 5, alignItems: "center" },
+  headingBlock: { flexDirection: "row", gap: 12, alignItems: "center", justifyContent: "space-between" },
+  heading: { flex: 1, minWidth: 0, fontSize: 18, lineHeight: 25, fontWeight: "600", letterSpacing: -0.4, color: colors.ink },
+  connection: { flexDirection: "row", gap: 5, alignItems: "center", flexShrink: 0 },
+  spectator: { fontSize: 10, color: colors.muted, marginRight: 3 },
   connectionText: { fontSize: 9, letterSpacing: 1, color: colors.muted, fontWeight: "600" },
   dot: { width: 6, height: 6, borderRadius: 4, backgroundColor: "#76915A" },
   boardArea: { gap: 12 },
@@ -179,11 +182,12 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   avatar: { width: 41, height: 41, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   playerName: { fontSize: 14, fontWeight: "600", color: colors.ink },
   playerMeta: { fontSize: 11, color: colors.muted, marginTop: 3 },
+  captured: { flexDirection: "row", flexWrap: "wrap", gap: 2, marginTop: 5 },
+  capturedPiece: { width: 20, height: 22, alignItems: "center", justifyContent: "center", borderRadius: 5, backgroundColor: "#E3E8DA" },
   turnBadge: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.turnBg, paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8 },
   turnText: { fontSize: 8, letterSpacing: 1, fontWeight: "700", color: colors.turnInk },
   loading: { position: "absolute", inset: 0, backgroundColor: colors.background + "DD", justifyContent: "center", alignItems: "center", gap: 12, borderRadius: 12 },
   notice: { padding: 14, backgroundColor: colors.mint, color: colors.buttonInk, borderRadius: 14, fontSize: 13 },
-  invite: { backgroundColor: colors.soft, borderRadius: 18, padding: 14, flexDirection: "row", alignItems: "center", gap: 12 },
   chat: { gap: 13 },
   chatHistory: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   chatBubble: { paddingVertical: 7, paddingHorizontal: 9, borderRadius: 12, flexDirection: "row", gap: 5, alignItems: "center" },
@@ -194,7 +198,6 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   movePanel: { padding: 18, gap: 12, backgroundColor: colors.surface, borderRadius: 18 },
   moveList: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   moveText: { color: colors.ink, fontSize: 14, fontVariant: ["tabular-nums"] },
-  footer: { textAlign: "center", fontSize: 11, color: colors.muted },
   scrim: { flex: 1, backgroundColor: "#252B2866", justifyContent: "center", padding: 24 },
   promotion: { width: "100%", maxWidth: 400, alignSelf: "center", backgroundColor: colors.background, borderRadius: 26, padding: 24, gap: 12 },
   promotionOptions: { flexDirection: "row", gap: 8, marginVertical: 8 },

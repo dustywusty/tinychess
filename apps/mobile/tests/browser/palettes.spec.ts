@@ -27,5 +27,5 @@ test("six palettes fit on phones and new board colors persist in both modes", as
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
   await page.setViewportSize({ width: 640, height: 320 });
   await page.getByRole("radio", { name: "Use light theme" }).click();
-  await expect(page.getByText("Good company.")).toHaveCSS("color", "rgb(37, 43, 40)");
+  await expect(page.getByText("A little chess with your favorite people.")).toHaveCSS("color", "rgb(37, 43, 40)");
 });

@@ -23,6 +23,8 @@ jobs:
         run: pnpm build
       - name: Typecheck web, mobile, and shared packages
         run: pnpm typecheck
+      - name: Test shared chess logic and mobile utilities
+        run: pnpm test
       - uses: actions/setup-go@v5
         with:
           go-version: stable
