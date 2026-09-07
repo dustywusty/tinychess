@@ -102,7 +102,7 @@ export function Game({ gameId }: { gameId: string }) {
       </section>
       <aside className="game-sidebar">
         <GameStatus connected={connected} />
-        <section className="reaction-card">
+        <section className="reaction-card" aria-label="Reactions">
           <div className="section-line"><h2 className="eyebrow">A LITTLE BACK & FORTH</h2><span aria-hidden="true">↗</span></div>
           <p>Say it with an emoji.</p>
           <EmojiPicker disabled={!connected} onSend={sendReaction} />
