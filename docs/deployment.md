@@ -3,6 +3,7 @@
 The container serves the Go API and the compiled website on port 8080.
 The Android app connects to the same API through HTTPS.
 The runtime uses a non-root user and includes no shell or package manager.
+DigitalOcean App Platform is the primary deployment target. The `.do/app.yaml` file defines its service.
 
 ## Current limits
 
@@ -72,7 +73,85 @@ If a GHCR package is private, configure registry credentials on the deployment h
 Do not change package visibility without reviewing the intended audience.
 Publishing an image does not deploy it to DigitalOcean or AWS.
 
-## DigitalOcean Droplet
+## DigitalOcean App Platform
+
+App Platform runs the container and provides its public HTTPS endpoint.
+The website and API use one Web Service component, not a separate Static Site.
+The provided spec uses one instance, port 8080, and `/healthz` for health checks.
+It does not create a database or enable automatic deployments.
+The region defaults to `nyc`. The instance size defaults to `apps-s-1vcpu-1gb`.
+
+The published image includes Linux AMD64, which App Platform requires.
+GHCR images support manual deployments through a tag or digest.
+See DigitalOcean's [container deployment instructions](https://docs.digitalocean.com/products/app-platform/how-to/deploy-from-container-images/).
+
+### First deployment
+
+1. Publish a tested image with the GitHub release process described in this guide.
+2. In DigitalOcean, select **Create → App Platform → Container image**.
+3. Select **GitHub Container Registry**.
+4. Enter `ghcr.io/dustywusty/tinychess` as the image repository.
+5. Select the digest from the successful publishing workflow.
+6. For a private image, enter a read-only GHCR credential in the format `username:token`.
+7. Select **Web Service**, port `8080`, and one instance.
+8. Set the health check path to `/healthz`.
+9. Leave build and run commands empty. The image includes its executable and website.
+10. Review the region, instance size, and estimated cost before you create the app.
+
+Keep registry credentials out of Git and chat.
+The control panel stores the credentials needed to pull private images.
+App Platform does not automatically redeploy GHCR images when a tag changes.
+
+Alternatively, copy `.do/app.yaml` and replace its example `tag` with your published `digest`.
+Do not specify both fields.
+After you authenticate `doctl`, create the app from that spec:
+
+```sh
+doctl apps spec validate .do/app.yaml --schema-only
+doctl apps create --spec .do/app.yaml --wait
+```
+
+The first command checks structure only. It does not check registry access or create resources.
+The second command creates billable resources.
+For a private image, enter registry credentials through the control panel or a private spec outside Git.
+See the [App Platform spec reference](https://docs.digitalocean.com/products/app-platform/reference/app-spec/).
+
+After deployment, use the assigned `https://<app-name>.ondigitalocean.app` URL.
+A custom domain is optional for phone testing.
+Check the endpoints with your assigned hostname:
+
+```sh
+curl --fail https://YOUR-APP.ondigitalocean.app/healthz
+curl --fail https://YOUR-APP.ondigitalocean.app/api/version
+```
+
+Set the APK's `EXPO_PUBLIC_API_URL` to this same HTTPS origin.
+Do not use the internal port, container address, or `/api` path in the APK origin.
+The expected health response is `{"ok":true}`.
+The version response identifies the server commit.
+
+### Optional Postgres history
+
+For game history, attach managed Postgres and add `DATABASE_URL` as an encrypted runtime variable on the service.
+Use the database provider's TLS configuration and restrict database access to the app.
+The spec omits this variable so credentials cannot enter Git accidentally.
+Postgres does not restore active games or player seats after a deployment.
+
+### Deployments and live games
+
+CAUTION: Finish games before deployment. Platform restarts and deployments replace the process that owns the live games.
+
+One instance does not provide continuity during a deployment.
+Players must start a new game after the replacement.
+Keep scaling fixed at one instance until shared live state and recovery are implemented.
+
+For updates, change the image digest in the existing app's component source and deploy manually.
+Retain the previous digest for rollback.
+If you update through `doctl`, export the current app spec before you change its image digest.
+Preserve domains, encrypted credentials, and runtime variables from that exported spec.
+Do not replace an existing app with the initial template because that can remove its later configuration.
+
+## Alternative: DigitalOcean Droplet
 
 This path uses Docker Compose and Caddy on one Droplet.
 Caddy provides HTTPS and forwards requests to the application.
@@ -117,7 +196,7 @@ The expected health response is `{"ok":true}`.
 The version response identifies the server commit.
 The health endpoint checks HTTP availability, not Postgres durability.
 
-## ECS Fargate
+## Alternative: ECS Fargate
 
 The same image runs on Fargate without the Caddy container.
 An Application Load Balancer (ALB) provides HTTPS.
@@ -165,6 +244,7 @@ Before an update, back up Postgres if persistence is enabled.
 Record the current image digest.
 Select the new tested digest.
 
+For App Platform, update the existing component's image digest and deploy from the control panel.
 For a Droplet, change `TINYCHESS_IMAGE` in `deploy/.env`.
 Then run the Compose pull and up commands again.
 For ECS, register a task revision with the new digest and update the service.

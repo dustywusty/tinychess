@@ -59,5 +59,6 @@ See [development](docs/development.md), [architecture](docs/architecture.md),
 
 ## Deploy and share an APK
 
-See [deployment and Android builds](docs/deployment.md) for Docker images, releases, DigitalOcean, ECS, and installable APKs.
+See [deployment and Android builds](docs/deployment.md) for Docker releases, DigitalOcean App Platform, and installable APKs.
+The [.do/app.yaml](.do/app.yaml) spec defines the App Platform service.
 Run one server instance. Restarts clear active games, even with Postgres enabled.
