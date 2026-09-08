@@ -14,11 +14,18 @@ E2E_START_DELAY_MS ?= 0
 E2E_CAPTURE_DELAY_MS ?= 200
 E2E_RECORD_HOLD_MS ?= 2000
 E2E_SEND_EMOJI ?= 1
+IMAGE ?= tinychess:local
 
 # ldflags embeds a build stamp and commit hash; feel free to remove
 LDFLAGS := -s -w -X 'main.build=$$(date -u +%Y%m%d-%H%M%S)' -X 'main.commit=$$(git rev-parse --short HEAD)'
 
-.PHONY: all bootstrap build run dev dev-api dev-web dev-mobile clean lint test race test-e2e typecheck web-install web-build web-dev web-typecheck mobile-typecheck
+.PHONY: all bootstrap build run dev dev-api dev-web dev-mobile clean lint test race test-e2e typecheck web-install web-build web-dev web-typecheck mobile-typecheck image image-test
+
+image:
+	docker build --build-arg COMMIT=$$(git rev-parse HEAD) -t $(IMAGE) .
+
+image-test:
+	bash scripts/smoke-image.sh $(IMAGE)
 
 all: build
 

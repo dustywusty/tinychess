@@ -1,12 +1,18 @@
 package main
 
 import (
+	"context"
 	"embed"
+	"errors"
 	"flag"
 	"io/fs"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"strconv"
+	"syscall"
+	"time"
 
 	"tinychess/internal/game"
 	"tinychess/internal/handlers"
@@ -19,8 +25,25 @@ var spaFS embed.FS
 
 func main() {
 	debug := flag.Bool("debug", false, "enable debug logging")
+	healthcheck := flag.Bool("healthcheck", false, "check the local HTTP health endpoint")
 	flag.Parse()
 	logging.Debug = *debug
+	port, err := serverPort(os.Getenv("PORT"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	if *healthcheck {
+		client := &http.Client{Timeout: 3 * time.Second}
+		res, err := client.Get("http://127.0.0.1:" + port + "/healthz")
+		if err != nil {
+			log.Fatal("health check failed")
+		}
+		res.Body.Close()
+		if res.StatusCode != http.StatusOK {
+			os.Exit(1)
+		}
+		return
+	}
 
 	hub := game.NewHub()
 	h := handlers.NewHandler(hub)
@@ -42,6 +65,7 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /healthz", healthHandler)
 
 	// API
 	mux.HandleFunc("POST /api/games", h.HandleCreateGame)
@@ -61,8 +85,47 @@ func main() {
 	// SPA + assets fallback (must be last)
 	mux.HandleFunc("GET /", handlers.SpaHandler(dist))
 
-	log.Printf("Your Move listening on http://localhost:8080 …")
-	log.Fatal(http.ListenAndServe(":8080", mux))
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	server := &http.Server{
+		Addr: ":" + port, Handler: mux,
+		ReadHeaderTimeout: 5 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		// SSE responses remain open. Do not set a global WriteTimeout.
+	}
+	done := make(chan struct{})
+	go func() {
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			// Close long-lived SSE connections after the drain period.
+			_ = server.Close()
+		}
+		close(done)
+	}()
+	log.Printf("Your Move listening on :%s", port)
+	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		log.Fatal(err)
+	}
+	<-done
+}
+
+func serverPort(value string) (string, error) {
+	if value == "" {
+		return "8080", nil
+	}
+	n, err := strconv.Atoi(value)
+	if err != nil || n < 1 || n > 65535 {
+		return "", errors.New("PORT must be an integer from 1 to 65535")
+	}
+	return strconv.Itoa(n), nil
+}
+
+func healthHandler(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write([]byte(`{"ok":true}`))
 }
 
 func versionHandler(w http.ResponseWriter, _ *http.Request) {

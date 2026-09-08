@@ -56,3 +56,8 @@ or Chromium is required; set `CHROME_BIN` if it is not discoverable.
 See [development](docs/development.md), [architecture](docs/architecture.md),
 [protocol](docs/protocol.md), [coach](docs/coach.md), and the full
 [rebuild audit](docs/rebuild-plan.md).
+
+## Deploy and share an APK
+
+See [deployment and Android builds](docs/deployment.md) for Docker images, releases, DigitalOcean, ECS, and installable APKs.
+Run one server instance. Restarts clear active games, even with Postgres enabled.
