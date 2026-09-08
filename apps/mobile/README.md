@@ -13,6 +13,9 @@ For Android previews:
 
 If you use a custom development build, rebuild it for SDK 57.
 
+For a standalone Android APK, use the [deployment and APK guide](../../docs/deployment.md#build-the-shareable-android-apk).
+The `preview` profile requires a public HTTPS API origin in the EAS environment.
+
 In development the app derives the Go API host from Metro's LAN address, so a
 phone opened from the QR code reaches port 8080 on the development machine.
 Set `EXPO_PUBLIC_API_URL` to override it. Set `EXPO_PUBLIC_WEB_URL` to the

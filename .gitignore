@@ -27,6 +27,14 @@ go.work.sum
 # env file
 .env
 .env.local
+.env.*
+!.env.example
+credentials.json
+*.jks
+*.keystore
+*.apk
+*.aab
+tinychess-linux-*.tar.gz
 
 # JavaScript / Expo
 node_modules/

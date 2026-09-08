@@ -4,6 +4,7 @@
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
+    "eas-build-pre-install": "node scripts/check-build-env.cjs",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
