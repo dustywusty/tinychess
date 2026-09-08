@@ -12,7 +12,7 @@
     },
     "ios": {
       "bundleIdentifier": "com.yourmove.app",
-      "associatedDomains": ["applinks:yourmove.example"]
+      "associatedDomains": ["applinks:yourmove.fun"]
     },
     "android": {
       "package": "com.yourmove.app",
@@ -23,7 +23,7 @@
           "data": [
             {
               "scheme": "https",
-              "host": "yourmove.example",
+              "host": "yourmove.fun",
               "pathPrefix": "/g"
             }
           ],

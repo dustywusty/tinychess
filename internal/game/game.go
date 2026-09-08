@@ -106,6 +106,9 @@ func (g *Game) MakeMoveFor(clientID, uci string) (string, error) {
 }
 
 func (g *Game) makeMoveLocked(uci string) error {
+	if g.g.Outcome() != chess.NoOutcome {
+		return fmt.Errorf("game is over")
+	}
 	mv, err := chess.UCINotation{}.Decode(g.g.Position(), uci)
 	if err != nil {
 		return err

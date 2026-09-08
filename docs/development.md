@@ -48,6 +48,33 @@ Set `DATABASE_URL` for Postgres. Current startup uses GORM auto-migration as an
 intermediate migration path. Do not rely on it for irreversible production
 schema changes; checked migrations are planned before deployment.
 
+Postgres transactions save moves and seats before publication. Recovery replays the full legal move history.
+The database stores private seat identities in `games.live_state`, not public review metadata.
+Without `DATABASE_URL`, the API uses temporary in-memory games.
+
+### Backend recovery tests
+
+Run the unit tests and race detector:
+
+```sh
+go test -race ./...
+```
+
+The PostgreSQL integration tests require a separate test database.
+They never use `DATABASE_URL`. Each test creates and removes its own schema.
+
+CAUTION: Use a disposable database for `TEST_DATABASE_URL`, never a production database.
+
+Run the integration tests against that database:
+
+```sh
+TEST_DATABASE_URL='postgres://test_user:test_password@localhost:5432/tinychess_test?sslmode=disable' go test -race ./...
+```
+
+Without this variable, the integration tests skip. GitHub CI supplies PostgreSQL and runs them on each change.
+Coverage includes restart recovery, seats, captures, special moves, repetition, concurrent moves, commit failure, unavailable storage, and legacy rows.
+The commit-failure test checks that no board update or SSE event escapes a failed transaction.
+
 ## Tests to add next
 
 Mobile unit tests now cover invitation parsing, board coordinates, special
@@ -59,7 +86,7 @@ Remaining coverage:
 
 1. Native device lifecycle and interaction tests on iOS and Android
 2. Shared protocol fixtures decoded by both TypeScript and Go
-3. Snapshot role and reconnect handler tests
+3. Native device tests for server restart and seat recovery
 4. WebSocket two-player/replay tests
 5. Stockfish parser/classification fixtures
 6. Coach provider failure and artifact-cache tests

@@ -7,12 +7,18 @@ DigitalOcean App Platform is the primary deployment target. The `.do/app.yaml` f
 
 ## Current limits
 
-CAUTION: Run exactly one application instance. Live games, seats, and reaction streams exist only in that process.
+CAUTION: Run exactly one application instance. SSE connections and reaction cooldowns remain local to that process.
 
-CAUTION: Deploy between games. A restart or deployment clears active games, even when Postgres stores their history.
+With `DATABASE_URL`, Postgres stores each accepted move and player seat before the server acknowledges the change.
+After a restart, the next request restores the game from its full move history.
+Both web and mobile clients recover through the same API.
+Players retain their seats with the same browser profile or app installation.
+Cleared browser storage or a reinstalled app loses that anonymous identity.
 
-Postgres persistence is optional and best-effort. It does not provide active-game recovery or synchronization between replicas.
-The server also removes games after 24 hours without activity.
+Without `DATABASE_URL`, games remain in memory and disappear after a restart.
+The server removes inactive memory entries after 24 hours, but saved games remain in Postgres.
+Redis is not required for recovery and is not connected yet.
+Multiple replicas still require shared event delivery.
 This deployment is suitable for a small testing group, not a highly available service.
 Automatic database migrations run at startup when `DATABASE_URL` is set.
 
@@ -129,20 +135,43 @@ Do not use the internal port, container address, or `/api` path in the APK origi
 The expected health response is `{"ok":true}`.
 The version response identifies the server commit.
 
-### Optional Postgres history
+### Domain: yourmove.fun
 
-For game history, attach managed Postgres and add `DATABASE_URL` as an encrypted runtime variable on the service.
+The app spec declares `yourmove.fun` as the primary domain without taking over its DNS zone.
+The website and API will share `https://yourmove.fun`.
+
+1. In App Platform, add `yourmove.fun` under the app's domain configuration if the spec did not add it.
+2. At your DNS provider, add the exact records that DigitalOcean supplies for this domain.
+3. Wait for domain verification and the HTTPS certificate.
+4. Check `https://yourmove.fun/healthz` and `https://yourmove.fun/api/version` before you build the APK.
+
+No DNS records or cloud resources change when you edit this repository.
+See DigitalOcean's [domain instructions](https://docs.digitalocean.com/products/app-platform/how-to/manage-domains/).
+
+### Postgres recovery
+
+Use a dedicated Tinychess database and database user on your existing PostgreSQL cluster.
+Add its `DATABASE_URL` as an encrypted runtime variable on the service.
 Use the database provider's TLS configuration and restrict database access to the app.
 The spec omits this variable so credentials cannot enter Git accidentally.
-Postgres does not restore active games or player seats after a deployment.
+Startup adds a nullable `games.live_state` JSONB column through GORM auto-migration.
+The database user requires permission to migrate the Tinychess tables.
+Connection or migration failure prevents startup.
+
+CAUTION: Back up the database before the first upgrade. Finish games that started on the older server before replacement.
+
+Older rows lack saved player identities and cannot recover safely.
+The API returns HTTP 409 for those games and preserves their existing review history.
+New games created with this version support recovery.
+Invalid recovery data also returns HTTP 409, without overwriting the saved game.
+An unavailable database returns HTTP 503 instead of creating an empty game or accepting an unsaved move.
 
 ### Deployments and live games
 
-CAUTION: Finish games before deployment. Platform restarts and deployments replace the process that owns the live games.
-
-One instance does not provide continuity during a deployment.
-Players must start a new game after the replacement.
-Keep scaling fixed at one instance until shared live state and recovery are implemented.
+Deployments interrupt SSE connections. After reconnect, clients restore the saved position and their original seats.
+Missed emoji reactions do not replay.
+One instance still has temporary downtime during replacement.
+Keep scaling fixed at one instance until shared event delivery is implemented.
 
 For updates, change the image digest in the existing app's component source and deploy manually.
 Retain the previous digest for rollback.
@@ -178,19 +207,18 @@ Railway checks the configured health endpoint before it activates a deployment.
 It does not continuously poll that endpoint after activation.
 See [Railway health checks](https://docs.railway.com/deployments/healthchecks).
 
-CAUTION: Keep Serverless disabled. A sleeping service can lose its in-memory games and player seats.
-CAUTION: Finish games before deployment. Health checks do not preserve active games during replacement.
+CAUTION: Keep Serverless disabled for live streams. Without Postgres, a sleeping service can also lose its games and player seats.
 
 After deployment, check `/healthz` and `/api/version` on the generated HTTPS domain.
 Set the APK's `EXPO_PUBLIC_API_URL` to that HTTPS origin without an `/api` suffix.
 Railway provides HTTPS through its [public networking](https://docs.railway.com/networking/public-networking).
 
-For optional Postgres history, set `DATABASE_URL` through Railway service variables.
-Postgres still does not restore active games after a restart.
+For Postgres recovery, set `DATABASE_URL` through Railway service variables.
+The same recovery rules and single-instance limit apply on both platforms.
 
 ## Update or roll back
 
-CAUTION: Finish active games before replacement. Neither an update nor a rollback restores in-memory games.
+CAUTION: Without Postgres, finish active games before replacement. Restarts erase in-memory games.
 
 Before an update, back up Postgres if persistence is enabled.
 Record the current image reference.
@@ -202,6 +230,8 @@ Check `/healthz`, `/api/version`, and a two-phone game after deployment.
 
 For rollback, repeat the same process with the previous image reference.
 Check database schema compatibility before rollback because startup migrations can change the schema.
+Do not roll back active games to a version without recovery support.
+Older versions do not update the saved recovery state.
 
 ## Build the shareable Android APK
 
@@ -224,10 +254,10 @@ Commit that change before subsequent builds.
 Set the API origin in the EAS `preview` environment:
 
 ```sh
-npx eas-cli@latest env:set --name EXPO_PUBLIC_API_URL --value https://chess.example.com --environment preview --visibility plaintext
+npx eas-cli@latest env:set --name EXPO_PUBLIC_API_URL --value https://yourmove.fun --environment preview --visibility plaintext
 ```
 
-Replace the example domain with your live domain.
+Use this origin only after the domain passes the HTTPS checks.
 Do not append `/api` because the client adds endpoint paths.
 The pre-install check rejects a missing origin, HTTP, localhost, credentials, and URL paths.
 `EXPO_PUBLIC_*` values are visible in the app bundle. They must not contain secrets.
@@ -236,8 +266,9 @@ See [Expo's environment-variable instructions](https://docs.expo.dev/eas/environ
 For app-to-app testing, leave `EXPO_PUBLIC_WEB_URL` unset.
 The share action then uses `yourmove://g/<id>` links for the installed app.
 The friend can also paste a game ID or game link into the invite field.
-HTTPS app links still use `yourmove.example` placeholders in `app.json` and are not configured for your domain.
+The native configuration names `yourmove.fun`, but verified HTTPS app links still require website association files and app signing identities.
 Setting `EXPO_PUBLIC_WEB_URL` alone does not enable verified Android app links.
+See Expo's [Android app-link instructions](https://docs.expo.dev/linking/android-app-links/).
 
 Build the APK:
 

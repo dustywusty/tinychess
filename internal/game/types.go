@@ -15,6 +15,8 @@ type Hub struct {
 
 // Game represents a single chess game with its state and watchers
 type Game struct {
+	// OpMu orders durable operations and their local publication.
+	OpMu       sync.Mutex
 	Mu         sync.Mutex
 	g          *chess.Game
 	Watchers   map[chan []byte]struct{}
