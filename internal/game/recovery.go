@@ -3,6 +3,7 @@ package game
 import (
 	"fmt"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/corentings/chess/v2"
@@ -19,13 +20,20 @@ type PersistentState struct {
 	LastSeen   time.Time         `json:"lastSeen"`
 }
 
+// chess v2.2.0 uses a shared scratch buffer while parsing the starting FEN.
+// Serialize construction, not gameplay, until that upstream race is fixed.
+var engineInitMu sync.Mutex
+
 func NewGame() *Game {
+	engineInitMu.Lock()
+	engine := chess.NewGame()
+	engineInitMu.Unlock()
 	color := chess.White
 	if rand.Intn(2) == 0 {
 		color = chess.Black
 	}
 	return &Game{
-		g: chess.NewGame(), OwnerColor: color, LastSeen: time.Now(),
+		g: engine, OwnerColor: color, LastSeen: time.Now(),
 		Watchers:  make(map[chan []byte]struct{}),
 		LastReact: make(map[string]time.Time), Clients: make(map[string]chess.Color),
 	}

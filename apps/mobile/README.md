@@ -40,6 +40,8 @@ The default API host remains local for development.
 
 With Postgres enabled on the server, the same app installation recovers its game and seat after a server restart.
 Clearing app data or reinstalling the app removes its anonymous identity.
+New identities use cryptographic UUIDv4 values from `expo-crypto`. Existing saved identities remain valid.
+Rebuild a custom native development client to include the new crypto module.
 
 ## Included
 

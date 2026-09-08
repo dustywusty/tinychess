@@ -3,10 +3,38 @@ package game
 import (
 	"encoding/json"
 	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/corentings/chess/v2"
 )
+
+func TestConcurrentGameConstructionAndRecovery(t *testing.T) {
+	var wg sync.WaitGroup
+	for range 32 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for range 10 {
+				g := NewGame()
+				if err := g.MakeMove("e2e4"); err != nil {
+					t.Error(err)
+					return
+				}
+				restored, err := Restore(g.PersistentState())
+				if err != nil {
+					t.Error(err)
+					return
+				}
+				if err := restored.MakeMove("e7e5"); err != nil {
+					t.Error(err)
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
+}
 
 func TestRecoveryRetainsHistoryAndRules(t *testing.T) {
 	for _, tc := range []struct {

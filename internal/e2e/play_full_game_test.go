@@ -381,7 +381,7 @@ func submitMoveViaFetch(t *testing.T, ctx context.Context, gameID, uci string) e
 	t.Helper()
 
 	script := fmt.Sprintf(`(async () => {
-		const clientId = sessionStorage.getItem("tinychess:clientId") || "";
+		const clientId = localStorage.getItem("tinychess:clientId") || "";
 		if (!clientId) return { ok: false, error: "missing clientId" };
 		const res = await fetch("/api/games/%s/move", {
 			method: "POST",

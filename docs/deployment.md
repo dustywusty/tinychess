@@ -168,6 +168,20 @@ An unavailable database returns HTTP 503 instead of creating an empty game or ac
 
 ### Deployments and live games
 
+The anonymous client ID acts as a bearer credential. Anyone with that ID can act as its player.
+New identities use cryptographically random UUIDv4 values.
+Web stores the ID in localStorage. Native apps store it in AsyncStorage.
+Existing IDs remain valid, including IDs from older app builds.
+The website migrates a legacy tab identity when no persistent identity exists.
+
+CAUTION: Keep client IDs out of shared links, screenshots, analytics, and access logs.
+
+The current SSE transport sends the credential in its connection query string.
+Proxy access logs must omit query strings. Application logs do not record these request URLs.
+Emoji events give other viewers a public alias, not the player credential.
+Snapshot and stream responses prohibit caching.
+Account recovery and identity transfer between devices are not available yet.
+
 Deployments interrupt SSE connections. After reconnect, clients restore the saved position and their original seats.
 Missed emoji reactions do not replay.
 One instance still has temporary downtime during replacement.

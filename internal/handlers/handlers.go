@@ -108,7 +108,7 @@ func (h *Handler) HandleSSE(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Cache-Control", "private, no-store")
 	w.Header().Set("Connection", "keep-alive")
 
 	ch := make(chan []byte, 16)
@@ -146,6 +146,7 @@ func (h *Handler) HandleSSE(w http.ResponseWriter, r *http.Request) {
 			_, _ = w.Write([]byte("data: {}\n\n"))
 			flusher.Flush()
 		case msg := <-ch:
+			msg = eventForClient(msg, id, clientID)
 			_, _ = w.Write([]byte("data: "))
 			_, _ = w.Write(msg)
 			_, _ = w.Write([]byte("\n\n"))
