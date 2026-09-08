@@ -45,8 +45,7 @@ docker load --input tinychess-linux-amd64.tar.gz
 ```
 
 The imported image name is `tinychess:ci`.
-For a Droplet trial, set `TINYCHESS_IMAGE=tinychess:ci` in the deployment environment file.
-Do not run the registry pull command for this local artifact.
+This artifact is for local Docker testing. Hosted services use the published registry image.
 
 After successful tests, pushes to `main`, version tags, and manual runs publish AMD64 and ARM64 images to GHCR.
 Pull requests never publish registry images.
@@ -71,7 +70,7 @@ Deploy the digest from the successful workflow summary.
 Retain the previous digest for rollback.
 If a GHCR package is private, configure registry credentials on the deployment host.
 Do not change package visibility without reviewing the intended audience.
-Publishing an image does not deploy it to DigitalOcean or AWS.
+Publishing an image does not deploy it to DigitalOcean App Platform or Railway.
 
 ## DigitalOcean App Platform
 
@@ -151,108 +150,58 @@ If you update through `doctl`, export the current app spec before you change its
 Preserve domains, encrypted credentials, and runtime variables from that exported spec.
 Do not replace an existing app with the initial template because that can remove its later configuration.
 
-## Alternative: DigitalOcean Droplet
+## Alternative: Railway
 
-This path uses Docker Compose and Caddy on one Droplet.
-Caddy provides HTTPS and forwards requests to the application.
-It flushes streaming responses immediately.
-See the [Caddy reverse-proxy reference](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy).
+Railway can run the same published GHCR image without a separate proxy container.
+Keep the website and API together in one service.
+Private registry credentials require Railway's Pro plan. See the [private registry guide](https://docs.railway.com/guides/private-container-registry).
+Public images do not require registry credentials.
 
-1. Install Docker Engine and the Compose plugin on the Droplet.
-2. Point your domain's DNS records to the Droplet.
-3. Permit inbound TCP ports 80 and 443 through the firewall.
-4. Restrict SSH access to your administration addresses.
-5. Copy the repository's `deploy` directory to the Droplet.
-6. Copy `deploy/.env.example` to `deploy/.env`.
-7. Set `DOMAIN` to the hostname without a scheme or path.
-8. Set `TINYCHESS_IMAGE` to the published image digest.
-9. If you want game history, set `DATABASE_URL` to your managed Postgres connection string.
+To deploy the service:
 
-Keep `deploy/.env` private. It can contain database credentials.
-For managed Postgres, use the provider's TLS configuration and restrict database access to the application host.
-The application does not require a writable volume.
-The Caddy volumes retain certificate data across container replacements.
+1. Create a Railway service from a Docker image.
+2. Enter the published image reference, such as `ghcr.io/dustywusty/tinychess:0.1.0`.
+3. For a private image, configure read-only registry credentials in Railway.
+4. Set the service variable `PORT=8080`.
+5. Set the health check path to `/healthz`.
+6. Keep exactly one replica in one region.
+7. Disable Serverless and image auto updates.
+8. Leave the start command empty so Railway uses the image entrypoint.
+9. Generate a public domain with target port `8080`.
+10. Review the estimated cost before deployment.
 
-From the repository root, start the deployment:
+Replace the example tag with your tested, uniquely versioned release tag.
+Keep registry credentials out of Git.
+See Railway's [image deployment guide](https://docs.railway.com/services).
 
-```sh
-docker compose --env-file deploy/.env -f deploy/compose.yml pull
-docker compose --env-file deploy/.env -f deploy/compose.yml up -d
-docker compose --env-file deploy/.env -f deploy/compose.yml ps
-```
+Railway checks the configured health endpoint before it activates a deployment.
+It does not continuously poll that endpoint after activation.
+See [Railway health checks](https://docs.railway.com/deployments/healthchecks).
 
-If you copied only the deployment directory, adjust the file paths to its location.
-Do not expose port 8080 directly to the internet.
+CAUTION: Keep Serverless disabled. A sleeping service can lose its in-memory games and player seats.
+CAUTION: Finish games before deployment. Health checks do not preserve active games during replacement.
 
-Check the public endpoint:
+After deployment, check `/healthz` and `/api/version` on the generated HTTPS domain.
+Set the APK's `EXPO_PUBLIC_API_URL` to that HTTPS origin without an `/api` suffix.
+Railway provides HTTPS through its [public networking](https://docs.railway.com/networking/public-networking).
 
-```sh
-curl --fail https://chess.example.com/healthz
-curl --fail https://chess.example.com/api/version
-```
-
-Replace `chess.example.com` with your domain.
-The expected health response is `{"ok":true}`.
-The version response identifies the server commit.
-The health endpoint checks HTTP availability, not Postgres durability.
-
-## Alternative: ECS Fargate
-
-The same image runs on Fargate without the Caddy container.
-An Application Load Balancer (ALB) provides HTTPS.
-The task accepts HTTP traffic on port 8080 from the ALB security group only.
-
-Configure the task and service with these values:
-
-| Setting | Value |
-| --- | --- |
-| Image | Published digest, or the same image copied to ECR |
-| Runtime | Linux, X86_64 or ARM64 to match the image |
-| Initial CPU and memory | 0.25 vCPU and 512 MiB, then measure usage |
-| Network mode | `awsvpc` |
-| Container port | 8080 |
-| User | `65532:65532` |
-| Read-only root filesystem | Enabled |
-| Health command | `["CMD", "/app/tinychess", "-healthcheck"]` |
-| Health interval / timeout / retries | 30 seconds / 5 seconds / 3 |
-| Health start period | 10 seconds |
-| Stop timeout | 15 seconds or more |
-| Desired count | 1 |
-| Autoscaling | Disabled |
-| Deployment minimum / maximum | 0% / 100% |
-| ALB target type | `ip` |
-| ALB health path | `/healthz`, success code 200 |
-| ALB idle timeout | 60 seconds or more |
-| Logs | CloudWatch through the `awslogs` driver |
-
-The server sends an SSE heartbeat every 15 seconds.
-The 0% / 100% deployment configuration stops the old task before it starts the new task.
-This causes downtime but prevents two independent live-game servers during a rolling deployment.
-See the [ECS service parameters](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service_definition_parameters.html).
-
-Store `DATABASE_URL` in Secrets Manager or Systems Manager Parameter Store, not in a committed task definition.
-Grant the task execution role access to the selected secret and registry.
-For private GHCR images, configure ECS repository credentials or copy the image to private ECR.
-Configure outbound connectivity for image pulls and logs.
-For private subnets, provide the required NAT access or service endpoints.
+For optional Postgres history, set `DATABASE_URL` through Railway service variables.
+Postgres still does not restore active games after a restart.
 
 ## Update or roll back
 
 CAUTION: Finish active games before replacement. Neither an update nor a rollback restores in-memory games.
 
 Before an update, back up Postgres if persistence is enabled.
-Record the current image digest.
-Select the new tested digest.
+Record the current image reference.
+Select the new tested digest for App Platform or release tag for Railway.
 
 For App Platform, update the existing component's image digest and deploy from the control panel.
-For a Droplet, change `TINYCHESS_IMAGE` in `deploy/.env`.
-Then run the Compose pull and up commands again.
-For ECS, register a task revision with the new digest and update the service.
+For Railway, update the service's image reference to the tested release and deploy manually.
 Check `/healthz`, `/api/version`, and a two-phone game after deployment.
 
-For rollback, repeat the same process with the previous digest.
+For rollback, repeat the same process with the previous image reference.
 Check database schema compatibility before rollback because startup migrations can change the schema.
-Do not remove the Caddy volumes during an application update.
 
 ## Build the shareable Android APK
 
