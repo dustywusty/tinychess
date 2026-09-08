@@ -34,9 +34,12 @@ a deployed web export needs an equivalent reverse proxy.
 Routes mirror web links: `/g/[id]`. Set `EXPO_PUBLIC_WEB_URL` to share web links.
 Without it, native shares use `yourmove://g/<id>`, which requires an installed
 development or release build. The browser preview shares its own origin.
-Universal/app links still require replacing `yourmove.example` in `app.json`
-and hosting the platform association files. Set the deployed API origin before
-building a release; the default API host is for local development.
+The native configuration uses `yourmove.fun`. Universal/app links still require website association files with the app signing identities.
+Set `EXPO_PUBLIC_API_URL=https://yourmove.fun` for release builds after the domain and API work over HTTPS.
+The default API host remains local for development.
+
+With Postgres enabled on the server, the same app installation recovers its game and seat after a server restart.
+Clearing app data or reinstalling the app removes its anonymous identity.
 
 ## Included
 

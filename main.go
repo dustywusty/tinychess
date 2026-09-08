@@ -54,9 +54,9 @@ func main() {
 			log.Fatalf("failed to initialize database: %v", err)
 		}
 		h.DB = db
-		log.Printf("persistence: enabled")
+		log.Printf("persistence: enabled (durable games and restart recovery)")
 	} else {
-		log.Printf("persistence: disabled (set DATABASE_URL to enable game review)")
+		log.Printf("persistence: disabled (games are lost on restart; set DATABASE_URL for recovery)")
 	}
 
 	dist, err := fs.Sub(spaFS, "web/dist")

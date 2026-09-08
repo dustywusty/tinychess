@@ -10,23 +10,21 @@ import (
 
 	"tinychess/internal/game"
 	"tinychess/internal/logging"
-	"tinychess/internal/storage"
 
 	"github.com/corentings/chess/v2"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
-// Handler contains dependencies for HTTP handlers. DB is optional; when nil
-// every persistence call is a no-op so unit tests and the e2e harness can
-// run without a database.
+// Handler contains dependencies for HTTP handlers. A nil DB selects volatile
+// in-memory games. With a DB, storage errors must never fall back to memory.
 type Handler struct {
 	Hub *game.Hub
 	DB  *gorm.DB
 }
 
 // NewHandler creates a new handler instance with no persistence layer.
-// Production callers set DB after construction (or via NewHandlerWithStore).
+// Production callers use NewHandlerWithStore for durable games.
 func NewHandler(hub *game.Hub) *Handler {
 	return &Handler{Hub: hub}
 }
@@ -39,14 +37,20 @@ func NewHandlerWithStore(hub *game.Hub, db *gorm.DB) *Handler {
 // HandleCreateGame creates a new game and returns its id (POST /api/games).
 func (h *Handler) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
 	id := uuid.NewString()
-	_, _ = h.Hub.Get(id, "")
+	if _, err := h.operate(r.Context(), id, true, nil); err != nil {
+		gameStorageError(w, err)
+		return
+	}
 	WriteJSON(w, http.StatusOK, map[string]any{"id": id})
 }
 
 // HandleNewRedirect creates a new game and redirects to it (GET /new).
 func (h *Handler) HandleNewRedirect(w http.ResponseWriter, r *http.Request) {
 	id := uuid.NewString()
-	_, _ = h.Hub.Get(id, "")
+	if _, err := h.operate(r.Context(), id, true, nil); err != nil {
+		gameStorageError(w, err)
+		return
+	}
 	http.Redirect(w, r, "/g/"+id, http.StatusFound)
 }
 
@@ -59,8 +63,15 @@ func (h *Handler) HandleSnapshot(w http.ResponseWriter, r *http.Request) {
 	if clientID == "" {
 		clientID = uuid.NewString()
 	}
-	g, col := h.Hub.Get(id, clientID)
-	g.Touch()
+	var col *chess.Color
+	g, err := h.operate(r.Context(), id, false, func(candidate *game.Game) bool {
+		col = candidate.AssignClient(clientID)
+		return false
+	})
+	if err != nil {
+		gameStorageError(w, err)
+		return
+	}
 
 	g.Mu.Lock()
 	state := g.StateLocked()
@@ -82,17 +93,18 @@ func (h *Handler) HandleSSE(w http.ResponseWriter, r *http.Request) {
 	if clientID == "" {
 		clientID = uuid.NewString()
 	}
-	g, col := h.Hub.Get(id, clientID)
-
-	// Best-effort persistence: ensure a Game row exists. Skip silently on error
-	// so DB outages don't break gameplay.
-	if err := storage.EnsureGame(h.DB, id, time.Now()); err != nil {
-		logging.Debugf("EnsureGame %s: %v", id, err)
-	}
-
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+	var col *chess.Color
+	g, err := h.operate(r.Context(), id, false, func(candidate *game.Game) bool {
+		col = candidate.AssignClient(clientID)
+		return false
+	})
+	if err != nil {
+		gameStorageError(w, err)
 		return
 	}
 	w.Header().Set("Content-Type", "text/event-stream")
@@ -100,11 +112,13 @@ func (h *Handler) HandleSSE(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 
 	ch := make(chan []byte, 16)
+	g.OpMu.Lock()
 	g.AddWatcher(ch)
 
 	g.Mu.Lock()
 	state := g.StateLocked()
 	g.Mu.Unlock()
+	g.OpMu.Unlock()
 
 	initial := game.ClientState{GameState: state, Role: "spectator", ClientID: clientID}
 	if col != nil {
@@ -143,7 +157,6 @@ func (h *Handler) HandleSSE(w http.ResponseWriter, r *http.Request) {
 // HandleMove processes a chess move.
 func (h *Handler) HandleMove(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("gameId")
-	g, _ := h.Hub.Get(id, "")
 
 	var m game.MoveRequest
 	if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
@@ -173,37 +186,26 @@ func (h *Handler) HandleMove(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	acceptedUCI, err := g.MakeMoveFor(clientID, uci)
-	if err != nil {
+	var moveErr error
+	var state game.GameState
+	g, err := h.operate(r.Context(), id, false, func(g *game.Game) bool {
+		_, moveErr = g.MakeMoveFor(clientID, uci)
 		g.Mu.Lock()
-		state := g.StateLocked()
+		state = g.StateLocked()
 		g.Mu.Unlock()
-		WriteJSON(w, http.StatusOK, map[string]any{"ok": false, "error": err.Error(), "state": state})
+		return moveErr == nil
+	})
+	if err != nil {
+		gameStorageError(w, err)
 		return
 	}
-
-	g.Broadcast()
-
+	// Watchers belong to the live process, not the private durable candidate.
 	g.Mu.Lock()
-	state := g.StateLocked()
+	state.Watchers = len(g.Watchers)
 	g.Mu.Unlock()
-
-	// Best-effort persistence — log on failure, don't break gameplay.
-	if h.DB != nil {
-		ply := len(state.UCI)
-		if err := storage.RecordMove(h.DB, id, ply, acceptedUCI, state.FEN); err != nil {
-			logging.Debugf("RecordMove %s/%d: %v", id, ply, err)
-		}
-		if state.Status != "" {
-			result := resultFromPGN(state.PGN)
-			if err := storage.FinishGame(h.DB, id, result, state.PGN, state.FEN, time.Now(), ply); err != nil {
-				logging.Debugf("FinishGame %s: %v", id, err)
-			}
-		} else {
-			if err := storage.UpdateGamePosition(h.DB, id, state.FEN, state.PGN, ply); err != nil {
-				logging.Debugf("UpdateGamePosition %s: %v", id, err)
-			}
-		}
+	if moveErr != nil {
+		WriteJSON(w, http.StatusOK, map[string]any{"ok": false, "error": moveErr.Error(), "state": state})
+		return
 	}
 
 	WriteJSON(w, http.StatusOK, map[string]any{"ok": true, "state": state})
@@ -223,7 +225,6 @@ func resultFromPGN(pgn string) string {
 // HandleReact processes a reaction/emoji.
 func (h *Handler) HandleReact(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("gameId")
-	g, _ := h.Hub.Get(id, "")
 
 	var body game.ReactionRequest
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -231,6 +232,11 @@ func (h *Handler) HandleReact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	g, err := h.operate(r.Context(), id, false, nil)
+	if err != nil {
+		gameStorageError(w, err)
+		return
+	}
 	canReact, wait := g.CanReact(body.Sender)
 	if !canReact {
 		WriteJSON(w, http.StatusOK, map[string]any{"ok": false, "error": fmt.Sprintf("cooldown %ds", wait)})
@@ -251,7 +257,6 @@ func (h *Handler) HandleReact(w http.ResponseWriter, r *http.Request) {
 // HandleRelease removes a client from a game if requested by the owner.
 func (h *Handler) HandleRelease(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("gameId")
-	g, _ := h.Hub.Get(id, "")
 
 	var body struct {
 		ClientID string `json:"clientId"`
@@ -267,16 +272,25 @@ func (h *Handler) HandleRelease(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	g.Mu.Lock()
-	owner := g.OwnerID
-	g.Mu.Unlock()
-	if body.ClientID != owner {
+	allowed := false
+	_, err := h.operate(r.Context(), id, false, func(g *game.Game) bool {
+		g.Mu.Lock()
+		allowed = body.ClientID == g.OwnerID
+		g.Mu.Unlock()
+		if allowed {
+			g.RemoveClient(body.TargetID)
+		}
+		return allowed
+	})
+	if err != nil {
+		gameStorageError(w, err)
+		return
+	}
+	if !allowed {
 		WriteJSON(w, http.StatusOK, map[string]any{"ok": false, "error": "not owner"})
 		return
 	}
 
-	g.RemoveClient(body.TargetID)
-	g.Broadcast()
 	WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 

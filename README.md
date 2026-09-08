@@ -42,6 +42,11 @@ Set `DATABASE_URL` to enable Postgres persistence:
 export DATABASE_URL="postgres://user:pass@localhost:5432/yourmove?sslmode=disable"
 ```
 
+Postgres saves games and anonymous player seats before the server acknowledges changes.
+After a restart, web and mobile clients recover the full game with their existing client identity.
+Without Postgres, games remain temporary and disappear on restart.
+Older games without saved seat data retain review history but cannot resume safely.
+
 ## Verify
 
 ```sh
@@ -61,4 +66,5 @@ See [development](docs/development.md), [architecture](docs/architecture.md),
 
 See [deployment and Android builds](docs/deployment.md) for Docker releases, DigitalOcean App Platform, and installable APKs.
 The [.do/app.yaml](.do/app.yaml) spec defines the App Platform service.
-Run one server instance. Restarts clear active games, even with Postgres enabled.
+The production domain is `yourmove.fun`. DNS and HTTPS activation require configuration in DigitalOcean and your DNS provider.
+Run one server instance. Postgres provides game recovery, but live event delivery remains local to one server.
