@@ -10,6 +10,8 @@ import (
 // WriteJSON writes a JSON response with the given status code
 func WriteJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
+	// Snapshot responses contain the caller's anonymous credential and role.
+	w.Header().Set("Cache-Control", "private, no-store")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
 }

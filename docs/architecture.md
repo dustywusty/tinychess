@@ -75,7 +75,7 @@ bypass server coach policy. The constrained HTTP policy/analysis API lands first
 
 ## Deferred production work
 
-- Signed anonymous session tokens (current opaque client IDs and seats already survive restart)
+- Optional account recovery and credential rotation (anonymous UUID credentials and seats already survive restart)
 - WebSocket replay/resume and multi-replica fanout
 - Explicit database migrations (GORM auto-migration currently adds recovery state)
 - Server-side Stockfish worker pool

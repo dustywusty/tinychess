@@ -1,30 +1,34 @@
 const KEY = "tinychess:clientId";
+let memoryID: string | undefined;
 
 export function getOrCreateClientId(): string {
   try {
-    const existing = sessionStorage.getItem(KEY);
-    if (existing) return existing;
+    const existing = localStorage.getItem(KEY);
+    if (existing) return (memoryID = existing);
   } catch {
-    /* sessionStorage unavailable */
+    /* Storage can be blocked. Keep a stable identity for this page. */
   }
-  const id = crypto.randomUUID();
-  try {
-    sessionStorage.setItem(KEY, id);
-  } catch {
-    /* ignore */
-  }
+  if (memoryID) return memoryID;
+  let previous: string | null = null;
+  try { previous = sessionStorage.getItem(KEY); } catch { /* Legacy storage unavailable. */ }
+  const id = previous || crypto.randomUUID();
+  setClientId(id);
   return id;
 }
 
 export function setClientId(id: string): void {
+  memoryID = id;
   try {
-    sessionStorage.setItem(KEY, id);
+    localStorage.setItem(KEY, id);
   } catch {
-    /* ignore */
+    /* Keep the in-memory identity when persistent storage is unavailable. */
   }
+  try { sessionStorage.removeItem(KEY); } catch { /* Legacy storage unavailable. */ }
 }
 
 export function clearClientId(): void {
+  memoryID = undefined;
+  try { localStorage.removeItem(KEY); } catch { /* Storage unavailable. */ }
   try {
     sessionStorage.removeItem(KEY);
   } catch {

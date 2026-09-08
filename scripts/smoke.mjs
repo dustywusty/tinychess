@@ -66,6 +66,9 @@ try {
   let reaction;
   do { reaction = await event(); } while (reaction.kind !== "emoji");
   assert.equal(reaction.emoji, "👏");
+  assert.notEqual(reaction.sender, white, "spectators must not receive seat credentials");
+  assert.match(reaction.sender, /^public:[0-9a-f]{64}$/);
+  assert.equal((await json(path + "/move", { uci: "b8c6", clientId: reaction.sender })).ok, false, "public alias cannot move");
   assert.deepEqual((await json(path + "/snapshot?clientId=smoke-watcher")).uci, moves);
 } finally {
   clearTimeout(timeout);
