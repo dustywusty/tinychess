@@ -16,12 +16,16 @@ import { recordGameSeen } from "../lib/recentGames";
 import { useGameStore } from "../state/gameStore";
 import { useUiStore } from "../state/uiStore";
 import type { Color, Square } from "../types/chess";
+import { botDefinition } from "@yourmove/chess/bots";
+import { useBotGame } from "../hooks/useBotGame";
 
 export function Game({ gameId }: { gameId: string }) {
-  const { fen, uci, turn, status, playerColor, isSpectator, clientId, pgn, applyServerState, setClientId, reset } = useGameStore();
+  const { fen, uci, turn, status, playerColor, isSpectator, clientId, pgn, bot, applyServerState, setClientId, reset } = useGameStore();
   const { selected, selectSquare, setStatus, clearStatus } = useUiStore();
   const { active: reactions, show: showReaction } = useReactions();
   const [connected, setConnected] = useState(false);
+  const computer = useBotGame(gameId, connected);
+  const opponent = bot ? botDefinition(bot.id) : null;
   const [busy, setBusy] = useState(false);
   const moveLock = useRef(false);
   const [flipped, setFlipped] = useState(false);
@@ -41,7 +45,7 @@ export function Game({ gameId }: { gameId: string }) {
     const sub = subscribeSSE(gameId, cid, {
       onState: (event) => {
         applyServerState(event); setConnected(true);
-        recordGameSeen(gameId, { status: event.status, lastSeen: event.lastSeen, pgn: event.pgn });
+        recordGameSeen(gameId, event);
       },
       onError: () => setConnected(false),
       onEmoji: (event) => { if (event.sender !== cid) recordReaction(event.emoji, false); },
@@ -89,7 +93,7 @@ export function Game({ gameId }: { gameId: string }) {
   };
   const player = (side: Color) => <div className="player-row">
     <span className="player-avatar"><Piece piece={side === "white" ? "K" : "k"} size={30} /></span>
-    <div className="player-info"><strong>{isSpectator ? (side === "white" ? "White" : "Black") : playerColor === side ? "You" : "Your friend"}</strong><small>{side === "white" ? "White pieces" : "Black pieces"}</small>
+    <div className="player-info"><strong>{bot && bot.color === (side === "white" ? "w" : "b") ? `${opponent?.emoji} ${opponent?.name}` : isSpectator ? (side === "white" ? "White" : "Black") : playerColor === side ? "You" : "Your friend"}</strong><small>{side === "white" ? "White pieces" : "Black pieces"}</small>
       {captured[side].length > 0 && <div className="captured-pieces" role="img" aria-label={capturedLabel(side, captured[side])} data-testid={"captured-" + side}>
         {captured[side].map((piece, index) => <span className="captured-piece" key={index}><Piece piece={piece} size={20} /></span>)}
       </div>}
@@ -107,7 +111,8 @@ export function Game({ gameId }: { gameId: string }) {
         <div className="board-tools"><button className="text-button" type="button" onClick={() => setFlipped((value) => !value)}>↻ Flip board</button><span className="muted">{uci.length} moves</span></div>
       </section>
       <aside className="game-sidebar">
-        <GameStatus connected={connected} />
+        <GameStatus connected={connected} thinkingLabel={computer.thinking ? `${opponent?.name} is thinking…` : ""} />
+        {computer.error && <div role="alert" className="error-message">{computer.error} <button type="button" className="text-button" onClick={computer.retry}>Try again</button></div>}
         <section className="reaction-card" aria-label="Reactions">
           <div className="section-line"><h2 className="eyebrow">A LITTLE BACK & FORTH</h2><span aria-hidden="true">↗</span></div>
           <p>Say it with an emoji.</p>
@@ -117,7 +122,7 @@ export function Game({ gameId }: { gameId: string }) {
         <details className="moves-panel" open><summary>The game so far <span>{uci.length}</span></summary>
           {uci.length ? <pre id="pgn" data-testid="pgn">{pgn}</pre> : <p>The first move is yours to make.</p>}
         </details>
-        <p className="sidebar-note">{!status && uci.length < 2 ? "Send your friend the game link and meet at the board." : "A little less scrolling. A little more chess."}</p>
+        <p className="sidebar-note">{bot ? "Your opponent plays on your device. Friends can watch with your game link." : !status && uci.length < 2 ? "Send your friend the game link and meet at the board." : "A little less scrolling. A little more chess."}</p>
       </aside>
     </div>
     <footer className="site-footer"><a href="/">← Back to your games</a><span>64 squares. Endless possibilities.</span></footer>

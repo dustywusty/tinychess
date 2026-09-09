@@ -73,6 +73,8 @@ test("two players exchange moves and reactions, recover seats, and finish a game
   await expect(page.getByText("Qh4#", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Back to home" }).click();
   await expect(page.getByText("PICK UP WHERE YOU LEFT OFF")).toBeVisible();
+  await expect(page.getByTestId("recent-games").getByText("PvP", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("recent-result")).toContainText(white === page ? "Loss" : "Win");
   expect(errors).toEqual([]);
   await spectatorContext.close();
   await opponentContext.close();

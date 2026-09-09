@@ -284,7 +284,17 @@ The native configuration names `yourmove.fun`, but verified HTTPS app links stil
 Setting `EXPO_PUBLIC_WEB_URL` alone does not enable verified Android app links.
 See Expo's [Android app-link instructions](https://docs.expo.dev/linking/android-app-links/).
 
-Build the APK:
+Before the EAS upload, build the local engine assets from the repository root:
+
+```sh
+pnpm engine:build
+pnpm engine:check
+```
+
+This step requires Emscripten 4.0.14. See [computer opponents](computer-opponents.md) for toolchain and licensing details.
+The EAS archive must include the generated engine assets. The post-install check rejects an archive without them.
+
+From `apps/mobile`, build the APK:
 
 ```sh
 npx eas-cli@latest build --platform android --profile preview

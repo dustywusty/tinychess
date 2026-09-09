@@ -5,6 +5,7 @@ import type {
   CreateGameResponse,
   MoveResponse,
   StateEvent,
+  CreateGameInput, BotMoveInput,
 } from "@yourmove/protocol";
 
 const metroHost = Constants.expoConfig?.hostUri?.split(":")[0];
@@ -26,8 +27,8 @@ async function json<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
-export async function createGame(): Promise<CreateGameResponse> {
-  return json(await request("/api/games", { method: "POST" }));
+export async function createGame(input?: CreateGameInput): Promise<CreateGameResponse> {
+  return json(await request("/api/games", { method: "POST", headers: { "Content-Type": "application/json" }, body: input ? JSON.stringify(input) : undefined }));
 }
 
 export async function getSnapshot(gameID: string, clientID: string): Promise<StateEvent> {
@@ -35,12 +36,12 @@ export async function getSnapshot(gameID: string, clientID: string): Promise<Sta
   return json(await request(`/api/games/${encodeURIComponent(gameID)}/snapshot?${query}`));
 }
 
-export async function makeMove(gameID: string, uci: string, clientID: string): Promise<MoveResponse> {
+export async function makeMove(gameID: string, uci: string, clientID: string, bot?: BotMoveInput): Promise<MoveResponse> {
   return json(
     await request(`/api/games/${encodeURIComponent(gameID)}/move`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ uci, clientId: clientID }),
+      body: JSON.stringify({ uci, clientId: clientID, ...bot }),
     }),
   );
 }

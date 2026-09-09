@@ -18,6 +18,7 @@ type PersistentState struct {
 	OwnerColor string            `json:"ownerColor"`
 	Clients    map[string]string `json:"clients"`
 	LastSeen   time.Time         `json:"lastSeen"`
+	Bot        *BotOpponent      `json:"bot,omitempty"`
 }
 
 // chess v2.2.0 uses a shared scratch buffer while parsing the starting FEN.
@@ -43,7 +44,7 @@ func (g *Game) PersistentState() PersistentState {
 	g.Mu.Lock()
 	defer g.Mu.Unlock()
 	p := PersistentState{Version: 1, UCI: g.MovesUCI(), OwnerID: g.OwnerID,
-		OwnerColor: g.OwnerColor.String(), Clients: make(map[string]string), LastSeen: g.LastSeen}
+		OwnerColor: g.OwnerColor.String(), Clients: make(map[string]string), LastSeen: g.LastSeen, Bot: g.Bot}
 	for id, color := range g.Clients {
 		p.Clients[id] = color.String()
 	}
@@ -88,6 +89,13 @@ func Restore(p PersistentState) (*Game, error) {
 	} else if len(p.Clients) == 2 {
 		return nil, fmt.Errorf("missing recovery owner")
 	}
+	if p.Bot != nil {
+		if !ValidBotID(p.Bot.ID) || p.Bot.PolicyVersion != BotPolicyVersion || p.OwnerID == "" || len(p.Clients) != 1 || (p.Bot.Color != "w" && p.Bot.Color != "b") || p.Bot.Color == p.OwnerColor {
+			return nil, fmt.Errorf("invalid recovery computer opponent")
+		}
+		bot := *p.Bot
+		g.Bot = &bot
+	}
 	for i, uci := range p.UCI {
 		if err := g.makeMoveLocked(uci); err != nil {
 			return nil, fmt.Errorf("invalid recovery move at ply %d", i+1)
@@ -103,4 +111,5 @@ func (g *Game) ApplyCommitted(from *Game) {
 	defer g.Mu.Unlock()
 	g.g, g.Clients = from.g, from.Clients
 	g.OwnerID, g.OwnerColor, g.LastSeen = from.OwnerID, from.OwnerColor, from.LastSeen
+	g.Bot = from.Bot
 }

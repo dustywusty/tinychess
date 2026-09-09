@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -36,8 +37,28 @@ func NewHandlerWithStore(hub *game.Hub, db *gorm.DB) *Handler {
 
 // HandleCreateGame creates a new game and returns its id (POST /api/games).
 func (h *Handler) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		BotID    string `json:"botId"`
+		ClientID string `json:"clientId"`
+		Color    string `json:"color"`
+	}
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096))
+	if err := decoder.Decode(&request); err != nil && err != io.EOF {
+		WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid game request"})
+		return
+	}
+	request.ClientID = strings.TrimSpace(request.ClientID)
+	if request.BotID != "" && (!game.ValidBotID(request.BotID) || request.ClientID == "" || (request.Color != "w" && request.Color != "b")) {
+		WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid computer opponent or color"})
+		return
+	}
 	id := uuid.NewString()
-	if _, err := h.operate(r.Context(), id, true, nil); err != nil {
+	if _, err := h.operate(r.Context(), id, true, func(g *game.Game) bool {
+		if request.BotID != "" {
+			_ = g.ConfigureBot(request.BotID, request.ClientID, request.Color)
+		}
+		return false
+	}); err != nil {
 		gameStorageError(w, err)
 		return
 	}
@@ -190,7 +211,8 @@ func (h *Handler) HandleMove(w http.ResponseWriter, r *http.Request) {
 	var moveErr error
 	var state game.GameState
 	g, err := h.operate(r.Context(), id, false, func(g *game.Game) bool {
-		_, moveErr = g.MakeMoveFor(clientID, uci)
+		m.ClientID, m.UCI = clientID, uci
+		_, moveErr = g.SubmitMove(m)
 		g.Mu.Lock()
 		state = g.StateLocked()
 		g.Mu.Unlock()
@@ -276,7 +298,7 @@ func (h *Handler) HandleRelease(w http.ResponseWriter, r *http.Request) {
 	allowed := false
 	_, err := h.operate(r.Context(), id, false, func(g *game.Game) bool {
 		g.Mu.Lock()
-		allowed = body.ClientID == g.OwnerID
+		allowed = body.ClientID == g.OwnerID && g.Bot == nil
 		g.Mu.Unlock()
 		if allowed {
 			g.RemoveClient(body.TargetID)

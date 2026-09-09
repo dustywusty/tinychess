@@ -44,6 +44,7 @@ func (g *Game) StateLocked() GameState {
 		UCI:      g.MovesUCI(),
 		LastSeen: g.LastSeen.UnixMilli(),
 		Watchers: len(g.Watchers),
+		Bot:      g.Bot,
 	}
 }
 
@@ -78,7 +79,10 @@ func (g *Game) MakeMoveFor(clientID, uci string) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("unknown client")
 	}
+	return g.makeMoveForColorLocked(playerColor, uci)
+}
 
+func (g *Game) makeMoveForColorLocked(playerColor chess.Color, uci string) (string, error) {
 	position := g.g.Position()
 	if len(uci) == 4 && (uci[3] == '1' || uci[3] == '8') {
 		candidate, err := chess.UCINotation{}.Decode(position, uci)
@@ -144,6 +148,10 @@ func (g *Game) RemoveWatcher(ch chan []byte) {
 // the owner slot is cleared so another client can claim it later.
 func (g *Game) RemoveClient(id string) {
 	g.Mu.Lock()
+	if g.Bot != nil {
+		g.Mu.Unlock()
+		return
+	}
 	delete(g.Clients, id)
 	if g.OwnerID == id {
 		g.OwnerID = ""

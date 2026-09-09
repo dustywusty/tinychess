@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { useBoardTheme, useThemedStyles, type AppColors } from "@/lib/theme";
 
@@ -15,8 +16,22 @@ export function Button({ title, onPress, disabled = false, busy = false }: {
 export function CoachCard() {
   const { colors } = useBoardTheme();
   const ui = useUI();
+  const [dismissed, setDismissed] = useState<boolean | null>(null);
+  useEffect(() => {
+    let active = true;
+    void AsyncStorage.getItem("yourmove.coach-dismissed")
+      .then((value) => { if (active) setDismissed(value === "1"); })
+      .catch(() => { if (active) setDismissed(false); });
+    return () => { active = false; };
+  }, []);
+  const dismiss = () => {
+    setDismissed(true);
+    void AsyncStorage.setItem("yourmove.coach-dismissed", "1").catch(() => {});
+  };
+  if (dismissed !== false) return null;
   return <View style={ui.coach}>
-    <View style={ui.row}><Text style={[ui.eyebrow, { color: colors.coachInk }]}>A LITTLE WISDOM</Text><View style={ui.badge}><Text style={ui.badgeText}>COMING SOON</Text></View></View>
+    <Pressable accessibilityRole="button" accessibilityLabel="Dismiss chess coach" onPress={dismiss} style={ui.coachDismiss}><Text style={{ fontSize: 20, color: colors.coachInk }}>×</Text></Pressable>
+    <View style={[ui.row, ui.coachHeader]}><Text style={[ui.eyebrow, { color: colors.coachInk }]}>A LITTLE WISDOM</Text><View style={ui.badge}><Text style={ui.badgeText}>COMING SOON</Text></View></View>
     <View style={[ui.row, { gap: 16 }]}>
       <View style={ui.coachIcon}><Text style={{ fontSize: 28, color: colors.coachInk }}>✳</Text></View>
       <View style={{ flex: 1 }}><Text style={[ui.cardTitle, { color: colors.coachInk }]}>Meet your chess coach.</Text><Text style={[ui.body, { color: colors.coachInk }]}>A nudge when you need it. A little more “aha” in every game.</Text></View>
@@ -36,6 +51,8 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   button: { minHeight: 56, borderRadius: 18, backgroundColor: colors.mint, alignItems: "center", justifyContent: "center", paddingHorizontal: 20 },
   buttonText: { fontSize: 16, fontWeight: "700", color: colors.buttonInk },
   coach: { borderRadius: 24, backgroundColor: colors.lilac, padding: 20, gap: 18 },
+  coachHeader: { paddingRight: 32, flexWrap: "wrap", gap: 8 },
+  coachDismiss: { position: "absolute", top: 5, right: 5, zIndex: 1, width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
   coachIcon: { width: 48, height: 48, borderRadius: 16, backgroundColor: colors.coachIcon, alignItems: "center", justifyContent: "center" },
   badge: { backgroundColor: colors.coachIcon, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 5 },
   badgeText: { fontSize: 8, fontWeight: "800", color: colors.badgeInk, letterSpacing: 1 },

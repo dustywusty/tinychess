@@ -1,10 +1,10 @@
 import { useGameStore } from "../../state/gameStore";
 import { useUiStore } from "../../state/uiStore";
 
-export function GameStatus({ connected }: { connected: boolean }) {
+export function GameStatus({ connected, thinkingLabel = "" }: { connected: boolean; thinkingLabel?: string }) {
   const { turn, status, playerColor, isSpectator, lastSeen } = useGameStore();
   const { status: uiStatus, statusError } = useUiStore();
-  const turnText = !lastSeen ? "Finding your board…" : !connected ? "Reconnecting…" : status || (isSpectator ? (turn === "white" ? "White to move" : "Black to move") : turn === playerColor ? "Your turn" : "Their turn");
+  const turnText = !lastSeen ? "Finding your board…" : !connected ? "Reconnecting…" : status || thinkingLabel || (isSpectator ? (turn === "white" ? "White to move" : "Black to move") : turn === playerColor ? "Your turn" : "Their turn");
   return <div className="game-heading">
     <div className="section-line"><span className="eyebrow">A FRIENDLY MATCH</span>{lastSeen && isSpectator && <span className="spectator-label">Watching</span>}<span className="connection-label"><span className={"live-dot" + (!connected ? " offline-dot" : "")} />{connected ? "LIVE" : "CONNECTING"}</span></div>
     <h1 id="turn" data-testid="turn" aria-live="polite">{turnText}</h1>
