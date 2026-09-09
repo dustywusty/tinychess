@@ -15,6 +15,8 @@ type Hub struct {
 
 // Game represents a single chess game with its state and watchers
 type Game struct {
+	// OpMu orders durable operations and their local publication.
+	OpMu       sync.Mutex
 	Mu         sync.Mutex
 	g          *chess.Game
 	Watchers   map[chan []byte]struct{}
@@ -23,12 +25,15 @@ type Game struct {
 	OwnerID    string
 	OwnerColor chess.Color
 	Clients    map[string]chess.Color // clientId -> color
+	Bot        *BotOpponent
 }
 
 // MoveRequest represents a move request from a client
 type MoveRequest struct {
-	UCI      string `json:"uci"`
-	ClientID string `json:"clientId"`
+	UCI         string `json:"uci"`
+	ClientID    string `json:"clientId"`
+	BotMove     bool   `json:"botMove,omitempty"`
+	ExpectedPly *int   `json:"expectedPly,omitempty"`
 }
 
 // ReactionRequest represents a reaction request from a client
@@ -39,14 +44,15 @@ type ReactionRequest struct {
 
 // GameState represents the current state of a game
 type GameState struct {
-	Kind     string   `json:"kind"`
-	FEN      string   `json:"fen"`
-	Turn     string   `json:"turn"`
-	Status   string   `json:"status"`
-	PGN      string   `json:"pgn"`
-	UCI      []string `json:"uci"`
-	LastSeen int64    `json:"lastSeen"`
-	Watchers int      `json:"watchers"`
+	Kind     string       `json:"kind"`
+	FEN      string       `json:"fen"`
+	Turn     string       `json:"turn"`
+	Status   string       `json:"status"`
+	PGN      string       `json:"pgn"`
+	UCI      []string     `json:"uci"`
+	LastSeen int64        `json:"lastSeen"`
+	Watchers int          `json:"watchers"`
+	Bot      *BotOpponent `json:"bot,omitempty"`
 }
 
 // ClientState represents the state sent to a specific client, including their color

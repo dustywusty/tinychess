@@ -1,0 +1,5 @@
+{
+  "extends": "../protocol/tsconfig.json",
+  "compilerOptions": { "allowImportingTsExtensions": true },
+  "include": ["src"]
+}

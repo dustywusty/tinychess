@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -10,63 +11,135 @@ import (
 
 	"tinychess/internal/game"
 	"tinychess/internal/logging"
-	"tinychess/internal/templates"
 
 	"github.com/corentings/chess/v2"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
-// Handler contains dependencies for HTTP handlers
+// Handler contains dependencies for HTTP handlers. A nil DB selects volatile
+// in-memory games. With a DB, storage errors must never fall back to memory.
 type Handler struct {
 	Hub *game.Hub
+	DB  *gorm.DB
 }
 
-// NewHandler creates a new handler instance
+// NewHandler creates a new handler instance with no persistence layer.
+// Production callers use NewHandlerWithStore for durable games.
 func NewHandler(hub *game.Hub) *Handler {
 	return &Handler{Hub: hub}
 }
 
-// HandleNew creates a new game and redirects to it
-func (h *Handler) HandleNew(w http.ResponseWriter, r *http.Request) {
-	id := uuid.NewString()
-	http.Redirect(w, r, "/"+id, http.StatusFound)
+// NewHandlerWithStore creates a handler with persistence enabled.
+func NewHandlerWithStore(hub *game.Hub, db *gorm.DB) *Handler {
+	return &Handler{Hub: hub, DB: db}
 }
 
-// HandlePage serves the home page or game page
-func (h *Handler) HandlePage(w http.ResponseWriter, r *http.Request) {
-	path := strings.TrimPrefix(r.URL.Path, "/")
-	if path == "" || path == "index.html" {
-		templates.WriteHomeHTML(w)
+// HandleCreateGame creates a new game and returns its id (POST /api/games).
+func (h *Handler) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		BotID    string `json:"botId"`
+		ClientID string `json:"clientId"`
+		Color    string `json:"color"`
+	}
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096))
+	if err := decoder.Decode(&request); err != nil && err != io.EOF {
+		WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid game request"})
 		return
 	}
-	_, _ = h.Hub.Get(path, "")
-	templates.WriteGameHTML(w, path)
+	request.ClientID = strings.TrimSpace(request.ClientID)
+	if request.BotID != "" && (!game.ValidBotID(request.BotID) || request.ClientID == "" || (request.Color != "w" && request.Color != "b")) {
+		WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid computer opponent or color"})
+		return
+	}
+	id := uuid.NewString()
+	if _, err := h.operate(r.Context(), id, true, func(g *game.Game) bool {
+		if request.BotID != "" {
+			_ = g.ConfigureBot(request.BotID, request.ClientID, request.Color)
+		}
+		return false
+	}); err != nil {
+		gameStorageError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, map[string]any{"id": id})
 }
 
-// HandleSSE handles Server-Sent Events for real-time game updates
+// HandleNewRedirect creates a new game and redirects to it (GET /new).
+func (h *Handler) HandleNewRedirect(w http.ResponseWriter, r *http.Request) {
+	id := uuid.NewString()
+	if _, err := h.operate(r.Context(), id, true, nil); err != nil {
+		gameStorageError(w, err)
+		return
+	}
+	http.Redirect(w, r, "/g/"+id, http.StatusFound)
+}
+
+// HandleSnapshot returns the current authoritative state and assigns an
+// anonymous seat when one is available. Mobile uses this during the SSE to
+// WebSocket migration; clients should poll sparingly.
+func (h *Handler) HandleSnapshot(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("gameId")
+	clientID := strings.TrimSpace(r.URL.Query().Get("clientId"))
+	if clientID == "" {
+		clientID = uuid.NewString()
+	}
+	var col *chess.Color
+	g, err := h.operate(r.Context(), id, false, func(candidate *game.Game) bool {
+		col = candidate.AssignClient(clientID)
+		return false
+	})
+	if err != nil {
+		gameStorageError(w, err)
+		return
+	}
+
+	g.Mu.Lock()
+	state := g.StateLocked()
+	g.Mu.Unlock()
+
+	result := game.ClientState{GameState: state, Role: "spectator", ClientID: clientID}
+	if col != nil {
+		color := col.String()
+		result.Color = &color
+		result.Role = "player"
+	}
+	WriteJSON(w, http.StatusOK, result)
+}
+
+// HandleSSE handles Server-Sent Events for real-time game updates.
 func (h *Handler) HandleSSE(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimPrefix(r.URL.Path, "/sse/")
+	id := r.PathValue("gameId")
 	clientID := r.URL.Query().Get("clientId")
 	if clientID == "" {
 		clientID = uuid.NewString()
 	}
-	g, col := h.Hub.Get(id, clientID)
-
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
 		return
 	}
+	var col *chess.Color
+	g, err := h.operate(r.Context(), id, false, func(candidate *game.Game) bool {
+		col = candidate.AssignClient(clientID)
+		return false
+	})
+	if err != nil {
+		gameStorageError(w, err)
+		return
+	}
 	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Cache-Control", "private, no-store")
 	w.Header().Set("Connection", "keep-alive")
 
 	ch := make(chan []byte, 16)
+	g.OpMu.Lock()
 	g.AddWatcher(ch)
 
 	g.Mu.Lock()
 	state := g.StateLocked()
 	g.Mu.Unlock()
+	g.OpMu.Unlock()
 
 	initial := game.ClientState{GameState: state, Role: "spectator", ClientID: clientID}
 	if col != nil {
@@ -91,10 +164,10 @@ func (h *Handler) HandleSSE(w http.ResponseWriter, r *http.Request) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			// heartbeat
 			_, _ = w.Write([]byte("data: {}\n\n"))
 			flusher.Flush()
 		case msg := <-ch:
+			msg = eventForClient(msg, id, clientID)
 			_, _ = w.Write([]byte("data: "))
 			_, _ = w.Write(msg)
 			_, _ = w.Write([]byte("\n\n"))
@@ -103,10 +176,9 @@ func (h *Handler) HandleSSE(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// HandleMove processes a chess move
+// HandleMove processes a chess move.
 func (h *Handler) HandleMove(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimPrefix(r.URL.Path, "/move/")
-	g, _ := h.Hub.Get(id, "")
+	id := r.PathValue("gameId")
 
 	var m game.MoveRequest
 	if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
@@ -121,69 +193,61 @@ func (h *Handler) HandleMove(w http.ResponseWriter, r *http.Request) {
 	}
 
 	uci := strings.ToLower(strings.TrimSpace(m.UCI))
-	uci = appendPromotionIfPawn(g, uci)
+	if len(uci) != 4 && len(uci) != 5 {
+		WriteJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "invalid uci"})
+		return
+	}
+	if parseSquare(uci[:2]) == chess.NoSquare || parseSquare(uci[2:4]) == chess.NoSquare {
+		WriteJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "invalid uci"})
+		return
+	}
 
-	// Handle castling moves - ensure they're properly formatted
 	if len(uci) == 4 {
-		// Check for castling moves
 		if uci == "e1g1" || uci == "e1c1" || uci == "e8g8" || uci == "e8c8" {
 			logging.Debugf("Castling move detected: %s", uci)
 		}
 	}
 
-	from := uci[:2]
-
-	g.Mu.Lock()
-	state := g.StateLocked()
-	playerColor, ok := g.Clients[clientID]
-	g.Mu.Unlock()
-
-	fenOpt, err := chess.FEN(state.FEN)
+	var moveErr error
+	var state game.GameState
+	g, err := h.operate(r.Context(), id, false, func(g *game.Game) bool {
+		m.ClientID, m.UCI = clientID, uci
+		_, moveErr = g.SubmitMove(m)
+		g.Mu.Lock()
+		state = g.StateLocked()
+		g.Mu.Unlock()
+		return moveErr == nil
+	})
 	if err != nil {
-		WriteJSON(w, http.StatusOK, map[string]any{"ok": false, "error": "bad fen", "state": state})
+		gameStorageError(w, err)
 		return
 	}
-	tmp := chess.NewGame(fenOpt)
-	board := tmp.Position().Board()
-	fsq := parseSquare(from)
-	piece := board.Piece(fsq)
-	turn := tmp.Position().Turn()
-
-	if !ok {
-		WriteJSON(w, http.StatusOK, map[string]any{"ok": false, "error": "unknown client", "state": state})
-		return
-	}
-
-	if piece == chess.NoPiece || piece.Color() != playerColor {
-		WriteJSON(w, http.StatusOK, map[string]any{"ok": false, "error": "wrong color", "state": state})
-		return
-	}
-
-	if turn != playerColor {
-		WriteJSON(w, http.StatusOK, map[string]any{"ok": false, "error": "not your turn", "state": state})
-		return
-	}
-
-	g.Touch()
-
-	if err := g.MakeMove(uci); err != nil {
-		WriteJSON(w, http.StatusOK, map[string]any{"ok": false, "error": err.Error(), "state": state})
-		return
-	}
-
-	go g.Broadcast()
-
+	// Watchers belong to the live process, not the private durable candidate.
 	g.Mu.Lock()
-	state = g.StateLocked()
+	state.Watchers = len(g.Watchers)
 	g.Mu.Unlock()
+	if moveErr != nil {
+		WriteJSON(w, http.StatusOK, map[string]any{"ok": false, "error": moveErr.Error(), "state": state})
+		return
+	}
 
 	WriteJSON(w, http.StatusOK, map[string]any{"ok": true, "state": state})
 }
 
-// HandleReact processes a reaction/emoji
+// resultFromPGN extracts the result token ("1-0" / "0-1" / "1/2-1/2") from a
+// PGN if present. Returns "" if the PGN is missing a terminator.
+func resultFromPGN(pgn string) string {
+	for _, token := range []string{"1-0", "0-1", "1/2-1/2"} {
+		if strings.Contains(pgn, " "+token) || strings.HasSuffix(pgn, token) {
+			return token
+		}
+	}
+	return ""
+}
+
+// HandleReact processes a reaction/emoji.
 func (h *Handler) HandleReact(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimPrefix(r.URL.Path, "/react/")
-	g, _ := h.Hub.Get(id, "")
+	id := r.PathValue("gameId")
 
 	var body game.ReactionRequest
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -191,6 +255,11 @@ func (h *Handler) HandleReact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	g, err := h.operate(r.Context(), id, false, nil)
+	if err != nil {
+		gameStorageError(w, err)
+		return
+	}
 	canReact, wait := g.CanReact(body.Sender)
 	if !canReact {
 		WriteJSON(w, http.StatusOK, map[string]any{"ok": false, "error": fmt.Sprintf("cooldown %ds", wait)})
@@ -210,8 +279,7 @@ func (h *Handler) HandleReact(w http.ResponseWriter, r *http.Request) {
 
 // HandleRelease removes a client from a game if requested by the owner.
 func (h *Handler) HandleRelease(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimPrefix(r.URL.Path, "/release/")
-	g, _ := h.Hub.Get(id, "")
+	id := r.PathValue("gameId")
 
 	var body struct {
 		ClientID string `json:"clientId"`
@@ -227,20 +295,29 @@ func (h *Handler) HandleRelease(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	g.Mu.Lock()
-	owner := g.OwnerID
-	g.Mu.Unlock()
-	if body.ClientID != owner {
+	allowed := false
+	_, err := h.operate(r.Context(), id, false, func(g *game.Game) bool {
+		g.Mu.Lock()
+		allowed = body.ClientID == g.OwnerID && g.Bot == nil
+		g.Mu.Unlock()
+		if allowed {
+			g.RemoveClient(body.TargetID)
+		}
+		return allowed
+	})
+	if err != nil {
+		gameStorageError(w, err)
+		return
+	}
+	if !allowed {
 		WriteJSON(w, http.StatusOK, map[string]any{"ok": false, "error": "not owner"})
 		return
 	}
 
-	g.RemoveClient(body.TargetID)
-	go g.Broadcast()
 	WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
-// ClientIP extracts the client IP from the request
+// ClientIP extracts the client IP from the request.
 func ClientIP(r *http.Request) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 		parts := strings.Split(xff, ",")

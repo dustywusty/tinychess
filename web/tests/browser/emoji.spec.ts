@@ -1,0 +1,63 @@
+import { expect, test } from "@playwright/test";
+
+test("full picker searches bundled emoji, saves recents and restarts centered bursts", async ({ page, browser }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  // The full picker must work without an external emoji-data download.
+  await page.route("https://cdn.jsdelivr.net/**", (route) => route.abort());
+  await page.goto("/");
+  await page.getByRole("button", { name: "Play a friend" }).click();
+  await expect(page.locator("#turn")).toHaveText(/^(Your turn|Their turn)$/);
+  const otherContext = await browser.newContext({ viewport: { width: 393, height: 852 } });
+  const other = await otherContext.newPage();
+  await other.goto(page.url());
+  await expect(other.locator("#turn")).toHaveText(/^(Your turn|Their turn)$/);
+  await page.getByRole("button", { name: "More emoji" }).click();
+  await page.getByRole("combobox", { name: "Search", exact: true }).fill("rocket");
+  await expect(page.locator("emoji-picker").getByRole("option", { name: /rocket/ }).first()).toBeVisible();
+  await page.screenshot({ path: "test-results/emoji-picker.png" });
+  await page.locator("emoji-picker").getByRole("option", { name: /rocket/ }).first().click();
+  await expect(page.locator(".big-emoji")).toHaveText("🚀");
+  await expect(other.locator(".big-emoji")).toHaveText("🚀");
+  const burst = other.locator(".big-emoji");
+  const box = await burst.boundingBox();
+  expect(box!.width).toBeGreaterThan(150);
+  expect(Math.abs(box!.x + box!.width / 2 - 393 / 2)).toBeLessThan(3);
+  expect(Math.abs(box!.y + box!.height / 2 - 852 / 2)).toBeLessThan(3);
+  await other.screenshot({ path: "test-results/emoji-burst.png" });
+  await expect.poll(() => burst.evaluate((el) => Number(getComputedStyle(el).opacity))).toBeLessThan(0.8);
+  expect(await burst.evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).a)).toBeLessThan(1);
+  const first = await burst.elementHandle();
+  await other.getByRole("button", { name: "Send 🔥", exact: true }).click();
+  await expect(page.locator(".big-emoji")).toHaveText("🔥");
+  expect(await first!.evaluate((el) => el.isConnected)).toBe(false);
+  await expect(page.locator(".big-emoji")).toHaveCount(0);
+  await expect(burst).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator("#recent-emojis button").first()).toHaveAttribute("aria-label", "Send 🚀");
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.getByRole("button", { name: "More emoji" }).click();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+  await page.screenshot({ path: "test-results/emoji-picker-small.png" });
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Choose an emoji" })).not.toBeVisible();
+  expect(errors).toEqual([]);
+  await otherContext.close();
+});
+
+test("failed sends do not enter recents or animate, and reduced motion skips scaling", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Play a friend" }).click();
+  await expect(page.locator("#turn")).toHaveText(/^(Your turn|Their turn)$/);
+  await page.route("**/api/games/*/react", (route) => route.fulfill({ json: { ok: false, error: "Test rejection" } }));
+  await page.getByRole("button", { name: "Send 🔥", exact: true }).click();
+  await expect(page.locator("#status")).toHaveText("Test rejection");
+  await expect(page.locator(".big-emoji")).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem("tinychess:recentEmojis:v1"))).toBeNull();
+  await page.unroute("**/api/games/*/react");
+  await page.getByRole("button", { name: "Send 🔥", exact: true }).click();
+  await expect(page.locator(".big-emoji")).toHaveText("🔥");
+  await expect(page.locator(".big-emoji")).toHaveCSS("animation-name", "none");
+  await expect(page.locator(".big-emoji")).toHaveCount(0);
+});

@@ -1,0 +1,40 @@
+# Publish a release first. Replace the example tag with that release tag.
+# For an immutable deployment, replace tag with digest: sha256:<published digest>.
+name: tinychess
+region: nyc
+domains:
+  - domain: yourmove.fun
+    type: PRIMARY
+alerts:
+  - rule: DEPLOYMENT_FAILED
+  - rule: DOMAIN_FAILED
+ingress:
+  rules:
+    - component:
+        name: app
+      match:
+        path:
+          prefix: /
+services:
+  - name: app
+    image:
+      registry_type: GHCR
+      registry: dustywusty
+      repository: tinychess
+      tag: "0.1.0"
+      # Enter credentials for private images in the DO control panel, not Git.
+    http_port: 8080
+    # SSE delivery is process-local, even with Postgres. Do not enable autoscaling.
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-1gb
+    envs:
+      - key: PORT
+        value: "8080"
+        scope: RUN_TIME
+    health_check:
+      http_path: /healthz
+      initial_delay_seconds: 10
+      period_seconds: 10
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 3

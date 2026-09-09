@@ -14,6 +14,7 @@ func newTestGame() *Game {
 		g:         chess.NewGame(),
 		Watchers:  make(map[chan []byte]struct{}),
 		LastReact: make(map[string]time.Time),
+		Clients:   make(map[string]chess.Color),
 	}
 }
 
@@ -35,6 +36,40 @@ func TestMakeMoveInvalidUCI(t *testing.T) {
 	g := newTestGame()
 	if err := g.MakeMove("invalid"); err == nil {
 		t.Fatalf("expected error for invalid UCI, got nil")
+	}
+}
+
+func TestMakeMoveForValidatesSeatAndTurn(t *testing.T) {
+	g := newTestGame()
+	g.Clients["white"] = chess.White
+	g.Clients["black"] = chess.Black
+
+	if _, err := g.MakeMoveFor("missing", "e2e4"); err == nil {
+		t.Fatal("unknown client move should fail")
+	}
+	if _, err := g.MakeMoveFor("black", "e7e5"); err == nil {
+		t.Fatal("out-of-turn move should fail")
+	}
+	if accepted, err := g.MakeMoveFor("white", "e2e4"); err != nil || accepted != "e2e4" {
+		t.Fatalf("white move = %q, %v", accepted, err)
+	}
+}
+
+func TestMakeMoveForDefaultsPromotionToQueen(t *testing.T) {
+	option, err := chess.FEN("7k/P7/8/8/8/8/8/7K w - - 0 1")
+	if err != nil {
+		t.Fatalf("fen: %v", err)
+	}
+	g := newTestGame()
+	g.g = chess.NewGame(option)
+	g.Clients["white"] = chess.White
+
+	accepted, err := g.MakeMoveFor("white", "a7a8")
+	if err != nil {
+		t.Fatalf("promotion: %v", err)
+	}
+	if accepted != "a7a8q" {
+		t.Fatalf("accepted = %q, want a7a8q", accepted)
 	}
 }
 
