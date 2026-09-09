@@ -23,6 +23,8 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
+      - name: Build Arasan assets
+        uses: ./.github/actions/build-engine
       - name: Build web
         run: pnpm --filter @yourmove/web build
       - uses: actions/setup-go@v5

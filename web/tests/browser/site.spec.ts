@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("responsive home matches the mobile palette, accepts invites and persists themes", async ({ page }) => {
   await page.goto("/");
+  await expect(page.getByText("CHESS, TOGETHER", { exact: true })).toHaveCount(0);
   await expect(page.locator(".join-card").getByRole("heading", { name: "A little chess with your favorite people.", level: 1 })).toBeVisible();
   await expect(page.locator(".join-card").getByText("Send a link. Make your move.", { exact: true })).toBeVisible();
   await expect(page.locator(".play-card").getByRole("heading")).toHaveCount(0);
@@ -123,6 +124,10 @@ test("two seats, correct black orientation, live emoji, checkmate, spectators an
   await expect(white.locator("#pgn")).toContainText("Qh4#");
   await white.getByRole("link", { name: "Your Move home" }).click();
   await expect(white.getByText("PICK UP WHERE YOU LEFT OFF")).toBeVisible();
+  await expect(white.locator(".recent-games").getByText("PvP", { exact: true })).toBeVisible();
+  await expect(white.getByTestId("recent-result")).toContainText("Loss");
+  await black.goto(new URL("/", gameURL).href);
+  await expect(black.getByTestId("recent-result")).toContainText("Win");
   expect(errors).toEqual([]);
   await spectatorContext.close();
   await otherContext.close();

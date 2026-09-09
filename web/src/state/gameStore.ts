@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { Color } from "../types/chess";
 import { START_FEN } from "../types/chess";
-import type { StateEvent } from "@yourmove/protocol";
+import type { StateEvent, BotOpponent } from "@yourmove/protocol";
 import { normalizeColor, turnFromFEN } from "../lib/board";
 
 export interface GameStore {
@@ -13,6 +13,7 @@ export interface GameStore {
   uci: string[];
   watchers: number;
   lastSeen: number;
+  bot?: BotOpponent;
   // Per-client identity
   clientId: string;
   playerColor: Color | null;
@@ -37,6 +38,7 @@ const initial: Omit<
   uci: [],
   watchers: 0,
   lastSeen: 0,
+  bot: undefined,
   clientId: "",
   playerColor: null,
   isSpectator: true,
@@ -54,6 +56,7 @@ export const useGameStore = create<GameStore>((set) => ({
       uci: event.uci ?? [],
       watchers: event.watchers,
       lastSeen: event.lastSeen,
+      bot: event.bot,
       clientId: event.clientId ?? prev.clientId,
       playerColor:
         event.color !== undefined

@@ -25,3 +25,7 @@ e2e-artifacts
 *.tar.gz
 *.apk
 *.aab
+engine/arasan/vendor
+engine/arasan/generated
+apps/mobile/android
+apps/mobile/ios

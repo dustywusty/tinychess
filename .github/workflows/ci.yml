@@ -30,8 +30,12 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
+      - name: Build Arasan assets
+        uses: ./.github/actions/build-engine
       - name: Build web and shared packages
         run: pnpm build
+      - name: Test real Arasan runtime
+        run: pnpm engine:test
       - name: Typecheck web, mobile, and shared packages
         run: pnpm typecheck
       - name: Test shared chess logic and mobile utilities
@@ -43,3 +47,28 @@ jobs:
       - run: go test -race ./...
         env:
           TEST_DATABASE_URL: postgres://tinychess_test:test_only@localhost:5432/tinychess_test?sslmode=disable
+      - uses: browser-actions/setup-chrome@v1
+      - name: Browser regressions with real computer opponents
+        env:
+          PORT: '18091'
+          VITE_API_PROXY: http://localhost:18091
+          EXPO_PUBLIC_API_URL: http://localhost:18091
+        run: |
+          go run . > "$RUNNER_TEMP/bot-api.log" 2>&1 &
+          pnpm --filter @yourmove/web exec vite --host 127.0.0.1 --port 5181 > "$RUNNER_TEMP/bot-web.log" 2>&1 &
+          pnpm --filter @yourmove/mobile exec expo start --web --port 8082 > "$RUNNER_TEMP/bot-mobile.log" 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://localhost:18091/healthz && curl -fsS http://localhost:5181/ > /dev/null && curl -fsS http://localhost:8082/ > /dev/null; then break; fi
+            sleep 1
+          done
+          PW_BASE_URL=http://localhost:5181 pnpm --filter @yourmove/web exec playwright test
+          PW_BASE_URL=http://localhost:8082 pnpm --filter @yourmove/mobile exec playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-failures
+          path: |
+            web/test-results
+            apps/mobile/test-results
+            ${{ runner.temp }}/bot-*.log
+          retention-days: 7

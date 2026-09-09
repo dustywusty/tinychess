@@ -1,4 +1,9 @@
 # syntax=docker/dockerfile:1
+FROM --platform=linux/amd64 emscripten/emsdk:4.0.14@sha256:11d144844086982d68260867ce1fc665667f4139b73326625033ed8d16533406 AS engine
+WORKDIR /src
+COPY engine/arasan/ engine/arasan/
+RUN node engine/arasan/prepare.mjs
+
 FROM --platform=$BUILDPLATFORM node:24-bookworm-slim AS web
 WORKDIR /src
 RUN corepack enable
@@ -12,6 +17,9 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
 COPY web/ web/
 COPY packages/protocol/ packages/protocol/
 COPY packages/chess/ packages/chess/
+COPY engine/arasan/ engine/arasan/
+COPY --from=engine /src/web/public/arasan/ web/public/arasan/
+COPY --from=engine /src/apps/mobile/assets/engine/ apps/mobile/assets/engine/
 RUN corepack pnpm@9.15.0 --filter @yourmove/web build
 
 FROM --platform=$BUILDPLATFORM golang:1.26-bookworm AS build

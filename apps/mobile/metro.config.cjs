@@ -1,10 +1,21 @@
 const { getDefaultConfig } = require("expo/metro-config");
 const http = require("node:http");
 const https = require("node:https");
+const { createReadStream } = require("node:fs");
+const { resolve } = require("node:path");
 
 const config = getDefaultConfig(__dirname);
+// The engine HTML includes its WASM bytes and network for offline execution.
+if (!config.resolver.assetExts.includes("html")) config.resolver.assetExts.push("html");
 // The optional web preview uses the same API paths as the native app.
 config.server.enhanceMiddleware = (middleware) => (req, res, next) => {
+  const engine = req.url?.match(/^\/arasan\/(worker\.js|arasan\.js|arasan\.wasm|NOTICES\.txt|version\.json)(?:\?.*)?$/);
+  if (engine) {
+    res.setHeader("Content-Type", engine[1].endsWith(".wasm") ? "application/wasm" : engine[1].endsWith(".js") ? "application/javascript" : "text/plain");
+    const stream = createReadStream(resolve(__dirname, "../../web/public/arasan", engine[1]));
+    stream.on("error", () => { res.statusCode = 404; res.end("Run pnpm engine:build."); });
+    return stream.pipe(res);
+  }
   if (!req.url?.startsWith("/api/")) return middleware(req, res, next);
   const target = new URL(req.url, process.env.EXPO_PUBLIC_API_URL || "http://localhost:8080");
   const upstream = (target.protocol === "https:" ? https : http).request(target, {

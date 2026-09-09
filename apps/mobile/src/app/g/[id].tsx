@@ -14,6 +14,8 @@ import { makeMove, reactToGame } from "@/lib/api";
 import { color, initialFEN, legalMoves, moveLabels } from "@/lib/chess";
 import { useBoardTheme, useThemedStyles, type AppColors } from "@/lib/theme";
 import { useLiveGame } from "@/lib/useLiveGame";
+import { BotTurn } from "@/components/BotTurn";
+import { botDefinition } from "@yourmove/chess/bots";
 
 export default function GameScreen() {
   const { colors } = useBoardTheme();
@@ -29,6 +31,7 @@ export default function GameScreen() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [moving, setMoving] = useState(false);
+  const [botThinking, setBotThinking] = useState(false);
   const moveLock = useRef(false);
   const reactionLock = useRef(false);
   const [flipped, setFlipped] = useState(false);
@@ -97,12 +100,12 @@ export default function GameScreen() {
       if (!(cause instanceof Error && cause.name === "AbortError")) setError("Couldn’t share the link. Please try again.");
     }
   };
-  const heading = !state ? "Finding your board…" : !connected ? "Reconnecting…" : state.status || (state.role === "spectator" ? (turn === "white" ? "White to move" : "Black to move") : canMove ? (check ? "You’re in check." : "Your move.") : "Over to them.");
+  const heading = !state ? "Finding your board…" : !connected ? "Reconnecting…" : state.status || (botThinking && state.bot ? `${botDefinition(state.bot.id).name} is thinking…` : state.role === "spectator" ? (turn === "white" ? "White to move" : "Black to move") : canMove ? (check ? "You’re in check." : "Your move.") : "Over to them.");
   const bottomColor = perspective;
   const topColor = bottomColor === "white" ? "black" : "white";
   const player = (side: "white" | "black") => <View style={styles.player}>
     <View style={[styles.avatar, { backgroundColor: side === "white" ? "#EDF0E5" : "#DFE4D9" }]}><Piece piece={side === "white" ? "K" : "k"} size={29} /></View>
-    <View style={{ flex: 1, minWidth: 0 }}><Text style={styles.playerName}>{state?.role === "player" ? side === playerColor ? "You" : "Your friend" : side === "white" ? "White" : "Black"}</Text><Text style={styles.playerMeta}>{side === "white" ? "White pieces" : "Black pieces"}</Text>
+    <View style={{ flex: 1, minWidth: 0 }}><Text style={styles.playerName}>{state?.bot?.color === (side === "white" ? "w" : "b") ? `${botDefinition(state.bot.id).emoji} ${botDefinition(state.bot.id).name}` : state?.role === "player" ? side === playerColor ? "You" : "Your friend" : side === "white" ? "White" : "Black"}</Text><Text style={styles.playerMeta}>{side === "white" ? "White pieces" : "Black pieces"}</Text>
       {captured[side].length > 0 && <View accessible accessibilityRole="image" accessibilityLabel={capturedLabel(side, captured[side])} testID={"captured-" + side} style={styles.captured}>
         {captured[side].map((piece, index) => <View key={index} style={styles.capturedPiece}><Piece piece={piece} size={20} /></View>)}
       </View>}
@@ -131,6 +134,7 @@ export default function GameScreen() {
         {!!game.error && <Button title="Try reconnecting" onPress={game.retry} />}
       </View>}
       {!!notice && <Text accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text>}
+      {state?.bot && state.role === "player" && <BotTurn key={gameID} gameID={gameID} state={state} cid={cid} connected={connected} accept={game.accept} onThinkingChange={setBotThinking} />}
       <View style={styles.tools}>
         <Pressable accessibilityRole="button" accessibilityLabel="Flip board" onPress={() => setFlipped((value) => !value)} style={styles.toolButton}><Text style={styles.toolText}>↻  Flip</Text></Pressable>
         <Pressable accessibilityRole="button" aria-expanded={showMoves} accessibilityState={{ expanded: showMoves }} onPress={() => setShowMoves((value) => !value)} style={styles.toolButton}><Text style={styles.toolText}>≡  Moves{notation.length ? " · " + notation.length : ""}</Text></Pressable>

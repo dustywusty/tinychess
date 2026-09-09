@@ -9,7 +9,7 @@ interface UseEngineState {
 }
 
 /**
- * Lazy-loads the Stockfish-WASM worker on first call to evalPosition. Resolves
+ * Lazy-loads the Arasan-WASM worker on first call to evalPosition. Resolves
  * `ready` once the engine has handshook and is responsive. Disposes the worker
  * on unmount.
  */

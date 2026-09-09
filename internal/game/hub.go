@@ -62,7 +62,7 @@ func (g *Game) AssignClient(clientId string) *chess.Color {
 			g.Clients[clientId] = g.OwnerColor
 			c := g.OwnerColor
 			assigned = &c
-		} else if len(g.Clients) < 2 {
+		} else if g.Bot == nil && len(g.Clients) < 2 {
 			var color chess.Color
 			if g.OwnerColor == chess.White {
 				color = chess.Black

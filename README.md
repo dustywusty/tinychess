@@ -21,16 +21,22 @@ The authoritative server validates every move with
 SSE. Mobile uses the same commands and SSE stream, including emoji reactions,
 with reconnect and app foreground recovery.
 
+Computer games offer Pip, Max, Ada, Viktor, and The Machine.
+Arasan runs locally on the client. The backend still validates and saves every move.
+See [computer opponents](docs/computer-opponents.md) for the engine build, architecture, tests, and licensing notes.
+
 ## Start locally
 
 Requirements: Go 1.24+, Node 22.13+ (Node 24 recommended), Corepack, Make, and optionally Postgres.
 
 ```sh
 make bootstrap
+pnpm engine:build
 make dev
 ```
 
 `make dev` starts the Go API, Vite web client, and Expo development server.
+The engine build requires Emscripten 4.0.14. Docker builds include this toolchain automatically.
 Open `http://localhost:5173` for web. The API listens on `:8080`.
 
 For a device, set `EXPO_PUBLIC_API_URL` to a host it can reach. Android emulators

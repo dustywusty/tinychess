@@ -5,7 +5,7 @@ export default defineConfig({
   timeout: 60000,
   workers: 1,
   use: {
-    baseURL: "http://localhost:5173",
+    baseURL: process.env.PW_BASE_URL || "http://localhost:5173",
     viewport: { width: 393, height: 852 },
     browserName: "chromium",
     channel: "chrome",

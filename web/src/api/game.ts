@@ -2,10 +2,11 @@ import type {
   CommandResponse,
   CreateGameResponse,
   MoveResponse,
+  CreateGameInput, BotMoveInput,
 } from "@yourmove/protocol";
 
-export async function createGame(): Promise<CreateGameResponse> {
-  const res = await fetch("/api/games", { method: "POST" });
+export async function createGame(input?: CreateGameInput): Promise<CreateGameResponse> {
+  const res = await fetch("/api/games", { method: "POST", headers: { "Content-Type": "application/json" }, body: input ? JSON.stringify(input) : undefined });
   if (!res.ok) throw new Error(`createGame failed (${res.status})`);
   return (await res.json()) as CreateGameResponse;
 }
@@ -14,11 +15,12 @@ export async function postMove(
   gameId: string,
   uci: string,
   clientId: string,
+  bot?: BotMoveInput,
 ): Promise<MoveResponse> {
   const res = await fetch(`/api/games/${gameId}/move`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ uci, clientId }),
+    body: JSON.stringify({ uci, clientId, ...bot }),
   });
   return (await res.json()) as MoveResponse;
 }

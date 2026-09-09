@@ -1,7 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import type { StateEvent } from "@yourmove/protocol";
+import type { BotId, StateEvent } from "@yourmove/protocol";
+import { gameResult } from "@yourmove/chess";
 
-export type RecentGame = { id: string; fen: string; status: string; moves: number; updatedAt: number };
+export type RecentGame = { id: string; fen: string; status: string; moves: number; updatedAt: number; opponentType?: "human" | "bot"; botId?: BotId; result?: string; playerColor?: StateEvent["color"]; role?: StateEvent["role"] };
 const key = "yourmove.recent-games";
 let writing = Promise.resolve();
 export async function recentGames(): Promise<RecentGame[]> {
@@ -16,7 +17,8 @@ export function rememberGame(id: string, state: StateEvent) {
   writing = writing.then(async () => {
     const games = await recentGames();
     await AsyncStorage.setItem(key, JSON.stringify([
-      { id, fen: state.fen, status: state.status, moves: state.uci?.length ?? 0, updatedAt: Date.now() },
+      { id, fen: state.fen, status: state.status, moves: state.uci?.length ?? 0, updatedAt: Date.now(), opponentType: state.bot ? "bot" : "human", botId: state.bot?.id,
+        result: gameResult(state.status, state.pgn), playerColor: state.color, role: state.role },
       ...games.filter((game) => game.id !== id),
     ].slice(0, 8)));
   }).catch(() => {});

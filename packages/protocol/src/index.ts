@@ -2,6 +2,10 @@ export const protocolVersion = 1 as const;
 
 export type WireColor = "w" | "b" | "white" | "black";
 export type PlayerRole = "player" | "spectator";
+export type BotId = "pip" | "max" | "ada" | "viktor" | "machine";
+export interface BotOpponent { id: BotId; color: "w" | "b"; policyVersion: number }
+export interface CreateGameInput { botId: BotId; clientId: string; color: "w" | "b" }
+export interface BotMoveInput { botMove: true; expectedPly: number }
 
 export interface StateEvent {
   kind: "state";
@@ -15,6 +19,7 @@ export interface StateEvent {
   color?: WireColor | null;
   role?: PlayerRole;
   clientId?: string;
+  bot?: BotOpponent;
 }
 
 export interface EmojiEvent {

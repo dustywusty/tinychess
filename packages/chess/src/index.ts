@@ -1,4 +1,5 @@
 import { Chess } from "chess.js";
+export { gameResult, resultBanner, type GameResult, type ResultTone } from "./results.ts";
 
 type Side = "white" | "black";
 const order = "qrbnp";
