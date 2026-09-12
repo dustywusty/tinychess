@@ -2,10 +2,8 @@ package main
 
 import (
 	"context"
-	"embed"
 	"errors"
 	"flag"
-	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -20,11 +18,9 @@ import (
 	"tinychess/internal/storage"
 )
 
-//go:embed all:web/dist
-var spaFS embed.FS
-
 func main() {
 	debug := flag.Bool("debug", false, "enable debug logging")
+	staticDir := flag.String("static-dir", "", "serve a local static web build for development")
 	healthcheck := flag.Bool("healthcheck", false, "check the local HTTP health endpoint")
 	flag.Parse()
 	logging.Debug = *debug
@@ -59,11 +55,6 @@ func main() {
 		log.Printf("persistence: disabled (games are lost on restart; set DATABASE_URL for recovery)")
 	}
 
-	dist, err := fs.Sub(spaFS, "web/dist")
-	if err != nil {
-		log.Fatalf("embed: %v", err)
-	}
-
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", healthHandler)
 
@@ -83,7 +74,9 @@ func main() {
 	mux.HandleFunc("GET /new", h.HandleNewRedirect)
 
 	// SPA + assets fallback (must be last)
-	mux.HandleFunc("GET /", handlers.SpaHandler(dist))
+	if *staticDir != "" {
+		mux.HandleFunc("GET /", handlers.SpaHandler(os.DirFS(*staticDir)))
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

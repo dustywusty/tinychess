@@ -30,6 +30,7 @@ test("full picker searches bundled emoji, saves recents and restarts centered bu
   const first = await burst.elementHandle();
   await other.getByRole("button", { name: "Send 🔥", exact: true }).click();
   await expect(page.locator(".big-emoji")).toHaveText("🔥");
+  await expect(burst).toHaveText("🔥");
   expect(await first!.evaluate((el) => el.isConnected)).toBe(false);
   await expect(page.locator(".big-emoji")).toHaveCount(0);
   await expect(burst).toHaveCount(0);

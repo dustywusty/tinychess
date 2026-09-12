@@ -28,7 +28,7 @@ make test            # web production build and all Go tests
 E2E_RECORD=0 make test-e2e
 ```
 
-The production Go binary embeds `web/dist`, so `make build` builds web first.
+The Go binary serves only the API by default. `make run` serves the local `web/dist` build with `-static-dir web/dist`.
 
 ## Mobile environment
 

@@ -44,5 +44,5 @@ all four promotion choices. SSE supplies live positions and emoji reactions.
 
 The coach card is marked “Coming soon.” It does not call a coach API.
 
-`make build` embeds the website bundle in the Go binary. Restart the binary
+`make build` builds the website and Go binary separately. Run `make run`
 after rebuilding to serve the updated website outside Vite.

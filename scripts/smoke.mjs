@@ -16,13 +16,8 @@ for (let attempt = 0; attempt < 30; attempt++) {
 }
 assert.ok(ready, "server must become healthy");
 assert.equal(typeof (await json("/api/version")).commit, "string");
-const html = await (await fetch(origin + "/g/smoke-spa", { signal: AbortSignal.timeout(5000) })).text();
-const asset = html.match(/src="([^"]+\.js)"/)?.[1];
-assert.ok(asset, "embedded SPA must include its JavaScript bundle");
-const bundle = await fetch(origin + asset, { signal: AbortSignal.timeout(5000) });
-assert.equal(bundle.status, 200);
-assert.match(bundle.headers.get("content-type"), /javascript/);
-await bundle.arrayBuffer();
+const page = await fetch(origin + "/g/smoke-spa", { signal: AbortSignal.timeout(5000) });
+assert.equal(page.status, 404, "backend image must not serve frontend pages");
 
 const { id } = await json("/api/games", {});
 const path = `/api/games/${id}`;
@@ -74,4 +69,4 @@ try {
   clearTimeout(timeout);
   controller.abort();
 }
-console.log("Smoke test passed: health, version, embedded web, seats, captures, SSE, and reactions.");
+console.log("Smoke test passed: health, version, API-only serving, seats, captures, SSE, and reactions.");

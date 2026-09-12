@@ -129,6 +129,7 @@ func (h *Handler) HandleSSE(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("X-Accel-Buffering", "no")
 	w.Header().Set("Cache-Control", "private, no-store")
 	w.Header().Set("Connection", "keep-alive")
 
