@@ -1,7 +1,6 @@
 package game
 
 import (
-	"math/rand"
 	"time"
 
 	"github.com/corentings/chess/v2"
@@ -17,7 +16,7 @@ func NewHub() *Hub {
 			h.Mu.Lock()
 			for id, g := range h.Games {
 				g.Mu.Lock()
-				idle := time.Since(g.LastSeen) > 24*time.Hour
+				idle := time.Since(g.LastSeen) > 24*time.Hour && len(g.Watchers) == 0
 				g.Mu.Unlock()
 				if idle {
 					delete(h.Games, id)
@@ -37,32 +36,18 @@ func NewHub() *Hub {
 func (h *Hub) Get(id, clientId string) (*Game, *chess.Color) {
 	h.Mu.Lock()
 	g, ok := h.Games[id]
-	var assigned *chess.Color
 	if !ok {
-		color := chess.White
-		if rand.Intn(2) == 0 {
-			color = chess.Black
-		}
-		g = &Game{
-			g:          chess.NewGame(),
-			Watchers:   make(map[chan []byte]struct{}),
-			LastReact:  make(map[string]time.Time),
-			Clients:    make(map[string]chess.Color),
-			LastSeen:   time.Now(),
-			OwnerColor: color,
-		}
-		if clientId != "" {
-			g.OwnerID = clientId
-			g.Clients[clientId] = g.OwnerColor
-			c := g.OwnerColor
-			assigned = &c
-		}
+		g = NewGame()
 		h.Games[id] = g
-		h.Mu.Unlock()
-		return g, assigned
 	}
+	g.Touch()
 	h.Mu.Unlock()
+	return g, g.AssignClient(clientId)
+}
 
+// AssignClient restores an existing seat or claims an available seat.
+func (g *Game) AssignClient(clientId string) *chess.Color {
+	var assigned *chess.Color
 	if clientId != "" {
 		g.Mu.Lock()
 		if col, exists := g.Clients[clientId]; exists {
@@ -77,7 +62,7 @@ func (h *Hub) Get(id, clientId string) (*Game, *chess.Color) {
 			g.Clients[clientId] = g.OwnerColor
 			c := g.OwnerColor
 			assigned = &c
-		} else if len(g.Clients) < 2 {
+		} else if g.Bot == nil && len(g.Clients) < 2 {
 			var color chess.Color
 			if g.OwnerColor == chess.White {
 				color = chess.Black
@@ -91,5 +76,5 @@ func (h *Hub) Get(id, clientId string) (*Game, *chess.Color) {
 		g.Mu.Unlock()
 	}
 
-	return g, assigned
+	return assigned
 }
