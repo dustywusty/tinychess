@@ -32,11 +32,11 @@ static_sites:
       repo: dustywusty/tinychess
       branch: main
       deploy_on_push: false
-    source_dir: /frontend
-    environment_slug: html
-    output_dir: .
+    source_dir: /
+    dockerfile_path: Dockerfile.frontend
+    output_dir: /site
     index_document: index.html
-    catchall_document: game.html
+    catchall_document: index.html
 
 ingress:
   rules:

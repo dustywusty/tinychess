@@ -1,0 +1,14 @@
+{
+  "name": "@yourmove/chess",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts", "./bots": "./src/bots/index.ts" },
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/*.test.ts"
+  },
+  "dependencies": { "chess.js": "^1.4.0" },
+  "devDependencies": { "typescript": "^5.7.2" }
+}
