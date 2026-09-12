@@ -17,7 +17,8 @@ func TestHandleRelease(t *testing.T) {
 	g, _ := hub.Get("g1", "owner")
 	g.Clients["other"] = chess.Black
 
-	req := httptest.NewRequest("POST", "/release/g1", strings.NewReader(`{"clientId":"owner","targetId":"other"}`))
+	req := httptest.NewRequest("POST", "/api/games/g1/release", strings.NewReader(`{"clientId":"owner","targetId":"other"}`))
+	req.SetPathValue("gameId", "g1")
 	w := httptest.NewRecorder()
 	h.HandleRelease(w, req)
 
@@ -39,7 +40,8 @@ func TestHandleReleaseNotOwner(t *testing.T) {
 	g, _ := hub.Get("g2", "owner")
 	g.Clients["other"] = chess.Black
 
-	req := httptest.NewRequest("POST", "/release/g2", strings.NewReader(`{"clientId":"notowner","targetId":"other"}`))
+	req := httptest.NewRequest("POST", "/api/games/g2/release", strings.NewReader(`{"clientId":"notowner","targetId":"other"}`))
+	req.SetPathValue("gameId", "g2")
 	w := httptest.NewRecorder()
 	h.HandleRelease(w, req)
 

@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,12 +20,11 @@ import (
 
 	"tinychess/internal/game"
 	"tinychess/internal/handlers"
-	"tinychess/internal/templates"
 
-	"github.com/chromedp/chromedp"
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/cdproto/runtime"
+	"github.com/chromedp/chromedp"
 	"github.com/google/uuid"
 )
 
@@ -65,11 +66,11 @@ type move struct {
 func runGame(t *testing.T, label string, moves []move, expectMate bool) {
 	t.Helper()
 
-	server := newTestServer()
+	server := newTestServer(t)
 	defer server.Close()
 
 	gameID := uuid.NewString()
-	gameURL := fmt.Sprintf("%s/%s", server.URL, gameID)
+	gameURL := fmt.Sprintf("%s/g/%s", server.URL, gameID)
 
 	whiteCtx, whiteCancel := newBrowserCtx(t)
 	defer whiteCancel()
@@ -180,24 +181,33 @@ func runGame(t *testing.T, label string, moves []move, expectMate bool) {
 	rec.Capture(t)
 }
 
-func newTestServer() *httptest.Server {
+func newTestServer(t *testing.T) *httptest.Server {
 	if err := chdirToRepoRoot(); err != nil {
 		panic(fmt.Sprintf("e2e: %v", err))
 	}
-	templates.SetVersion("e2e")
 	hub := game.NewHub()
 	h := handlers.NewHandler(hub)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/new", h.HandleNew)
-	mux.HandleFunc("/sse/", h.HandleSSE)
-	mux.HandleFunc("/move/", h.HandleMove)
-	mux.HandleFunc("/react/", h.HandleReact)
-	mux.HandleFunc("/release/", h.HandleRelease)
-	mux.HandleFunc("/coach", h.HandleCoach)
-	mux.HandleFunc("/", h.HandlePage)
+	mux.HandleFunc("POST /api/games", h.HandleCreateGame)
+	mux.HandleFunc("GET /api/games/{gameId}/snapshot", h.HandleSnapshot)
+	mux.HandleFunc("GET /api/games/{gameId}", h.HandleGetGame)
+	mux.HandleFunc("GET /api/sse/{gameId}", h.HandleSSE)
+	mux.HandleFunc("POST /api/games/{gameId}/move", h.HandleMove)
+	mux.HandleFunc("POST /api/games/{gameId}/react", h.HandleReact)
+	mux.HandleFunc("POST /api/games/{gameId}/release", h.HandleRelease)
+	mux.HandleFunc("GET /new", h.HandleNewRedirect)
+	backend := httptest.NewServer(mux)
+	t.Cleanup(backend.Close)
+	backendURL, err := url.Parse(backend.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	public := http.NewServeMux()
+	public.Handle("/api/", httputil.NewSingleHostReverseProxy(backendURL))
+	public.HandleFunc("/", handlers.SpaHandler(os.DirFS("web/dist")))
 
-	return httptest.NewServer(mux)
+	return httptest.NewServer(public)
 }
 
 func newBrowserCtx(t *testing.T) (context.Context, context.CancelFunc) {
@@ -263,7 +273,7 @@ func attachDebug(t *testing.T, ctx context.Context, label string) {
 			if url == "" {
 				url = e.Response.URL
 			}
-			if strings.Contains(url, "/sse/") || strings.Contains(url, "/move/") {
+			if strings.Contains(url, "/api/sse/") || strings.Contains(url, "/move") {
 				t.Logf("[%s] response: %s %d %s", label, url, int(e.Response.Status), e.Response.StatusText)
 			}
 		case *network.EventLoadingFailed:
@@ -383,9 +393,9 @@ func submitMoveViaFetch(t *testing.T, ctx context.Context, gameID, uci string) e
 	t.Helper()
 
 	script := fmt.Sprintf(`(async () => {
-		const clientId = sessionStorage.getItem("tinychess:clientId") || "";
+		const clientId = localStorage.getItem("tinychess:clientId") || "";
 		if (!clientId) return { ok: false, error: "missing clientId" };
-		const res = await fetch("/move/%s", {
+		const res = await fetch("/api/games/%s/move", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ uci: %q, clientId })
@@ -719,7 +729,7 @@ func chdirToRepoRoot() error {
 	}
 	dir := wd
 	for i := 0; i < 6; i++ {
-		if exists(filepath.Join(dir, "internal", "templates", "game.html")) {
+		if exists(filepath.Join(dir, "go.mod")) && exists(filepath.Join(dir, "web", "dist", "index.html")) {
 			return os.Chdir(dir)
 		}
 		parent := filepath.Dir(dir)
@@ -728,7 +738,7 @@ func chdirToRepoRoot() error {
 		}
 		dir = parent
 	}
-	return fmt.Errorf("repo root not found from %s", wd)
+	return fmt.Errorf("repo root not found from %s (need go.mod + web/dist/index.html — run pnpm --dir web build first)", wd)
 }
 
 func exists(path string) bool {
