@@ -1,3 +1,4 @@
+# Source-build fallback. CI renders an image-based spec from this configuration.
 name: hammerhead-app
 region: nyc
 features:

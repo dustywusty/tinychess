@@ -41,10 +41,12 @@ The test removes only its own container.
 
 ## Build and release through GitHub
 
-The `Container` workflow tests pull requests and builds an AMD64 image without publishing to a registry.
-Each successful run includes a `tinychess-linux-amd64` download artifact, retained for seven days.
+The `CI` workflow runs once per pull request and after each push to `main`.
+It builds the frontend, tests the backend image, and runs the web and mobile browser suites concurrently.
+The web browser suite uses the compiled frontend that the workflow later publishes.
+Each run retains the `frontend-linux-amd64` and `tinychess-linux-amd64` artifacts for seven days.
 
-To test that artifact on an AMD64 Docker host, download and extract the artifact ZIP.
+To test the backend artifact on an AMD64 Docker host, download and extract the artifact ZIP.
 Then load the image:
 
 ```sh
@@ -52,12 +54,25 @@ docker load --input tinychess-linux-amd64.tar.gz
 ```
 
 The imported image name is `tinychess:ci`.
-This artifact is for local Docker testing. App Platform builds the backend from the repository Dockerfile.
+CI also packages the compiled frontend with `Dockerfile.static` and checks the extraction Dockerfile against the original files.
+This Dockerfile copies files into `/site`. It contains no compiler or dependency installation step.
+After all checks pass on `main`, a separate job loads and publishes both tested images without another build.
 
-After successful tests, pushes to `main`, version tags, and manual runs publish AMD64 and ARM64 images to GHCR.
-Pull requests never publish registry images.
-The workflow uses the repository `GITHUB_TOKEN` with `packages: write` permission.
-It does not require a separate registry token.
+Both images use the existing public `ghcr.io/dustywusty/tinychess` package:
+
+| Tag | Content |
+| --- | --- |
+| `deploy-<full-commit>` | Tested AMD64 backend |
+| `frontend-<full-commit>` | Compiled frontend and Arasan assets |
+
+The workflow records both immutable digests in its summary.
+Deployment uses these digests, so a later tag update cannot change the selected files.
+Pull requests never publish images or deploy the app.
+The publication job uses `GITHUB_TOKEN` with `packages: write` permission.
+DigitalOcean pulls this public package without registry credentials.
+
+The separate `Container` workflow handles version tags and manual runs.
+It retains the AMD64/ARM64 release process, but no longer repeats the normal PR and `main` checks.
 Docker documents the [multi-platform build process](https://docs.docker.com/build/ci/github-actions/multi-platform/).
 
 For a release, select an unused semantic version on the tested commit.
@@ -77,20 +92,28 @@ Deploy the digest from the successful workflow summary.
 Retain the previous digest for rollback.
 If a GHCR package is private, configure registry credentials on the deployment host.
 Do not change package visibility without reviewing the intended audience.
-Publishing an image does not deploy it to DigitalOcean App Platform.
+The `Container` release workflow does not deploy to DigitalOcean. The `CI` workflow publishes and deploys after successful checks on `main`.
 
 ## DigitalOcean App Platform
 
 The spec updates the existing `hammerhead-app` in `nyc`, with app ID `e80ec2bc-7a78-4b44-b856-d2c26a1a1ca5`.
 The primary domain is `yourmove.fun`. The previous domain, `pawnd.dusty.wtf`, remains an alias.
-Both components use the `main` branch of `dustywusty/tinychess`.
+CI renders the production spec from `.do/app.yaml` with `scripts/render-app-spec.py`.
+The renderer preserves the database binding, domains, ingress, instance count, and health probe.
+The checked-in spec remains available for a source build.
 
 | Component | Source | Public routes |
 | --- | --- | --- |
-| `tinychess` | `Dockerfile`, Go API only | `/api/*` |
-| `frontend` | `Dockerfile.frontend`, static output in `/site` | `/` and game links |
+| `tinychess` | Tested GHCR image, pinned by digest | `/api/*` |
+| `frontend` | `Dockerfile.frontend-prebuilt`, extracts the pinned frontend image into `/site` | `/` and game links |
 
-The frontend build compiles Arasan with Emscripten and builds the Vite client from `web/`.
+GitHub builds the Vite client and restores the Arasan assets from cache when available.
+DigitalOcean does not compile the backend or frontend during normal deployment.
+The current API rejects an `image` source on `AppStaticSiteSpec`, despite the documentation describing static sites from container images.
+Thus the static site retains a GitHub source with a small extraction Dockerfile.
+Its `FRONTEND_IMAGE` build variable contains the immutable image reference.
+DigitalOcean passes this variable as a [Docker build argument](https://docs.digitalocean.com/products/app-platform/reference/dockerfile/#environment-variables).
+This removes compilation and the Emscripten image from DO builds, but it does not remove the DO static-site build queue.
 The static site serves `index.html` as the fallback for `/g/<game-id>` and legacy game links.
 The API ingress preserves the `/api` prefix. Web and mobile clients use the same public HTTPS origin.
 The backend retains one 512 MB instance and a direct `/healthz` probe on port 8080.
@@ -99,9 +122,9 @@ The public version endpoint is `/api/version`.
 ### Automatic deployment
 
 The `CI` workflow deploys after a push to `main`, including a pull request merge.
-It requires the application checks, backend image check, and static frontend build to pass.
+It requires the application checks, backend image tests, frontend build, and both browser suites to pass.
 The application checks include Postgres recovery tests and web/mobile browser regressions.
-Pull requests and other branches run checks without deployment.
+Pull requests run checks without deployment. Branch pushes do not start duplicate CI runs.
 A manual workflow run on `main` also permits deployment.
 
 GitHub Actions needs these repository settings:
@@ -111,21 +134,41 @@ GitHub Actions needs these repository settings:
 | Secret | `DIGITALOCEAN_ACCESS_TOKEN` | A token with permission to read and update the app. |
 | Variable | `DIGITALOCEAN_APP_ID` | `e80ec2bc-7a78-4b44-b856-d2c26a1a1ca5` |
 
-The workflow validates the spec, updates both components, waits for deployment, and checks `/api/version` through the starter domain.
+The workflow renders and validates the spec, updates both components, and waits for deployment.
+It checks that `/api/version` reports the expected commit and that the website responds.
+The `deployed-app-spec` artifact retains the exact spec for 30 days.
 Deployments run one at a time. An older queued run skips deployment if `main` already has a newer commit.
 DigitalOcean's direct GitHub deployment trigger is disabled so it cannot bypass these checks.
-The separate `Container` workflow can publish backend images to GHCR. App Platform does not require those published images.
+The backend deployment consumes the tested image directly. The frontend deployment only extracts the files from its image.
 
 ### Manual deployment
 
-Push the code to the branch named in both components of `.do/app.yaml`.
-Then validate and update the existing app:
+Use the rendered spec from a successful CI run to deploy the same image pair again:
 
 ```sh
-doctl auth init
+gh run download <successful-main-run-id> --name deployed-app-spec --dir /tmp/yourmove-deploy
+doctl apps propose --app e80ec2bc-7a78-4b44-b856-d2c26a1a1ca5 --spec /tmp/yourmove-deploy/app-images.yaml
+doctl apps update e80ec2bc-7a78-4b44-b856-d2c26a1a1ca5 --spec /tmp/yourmove-deploy/app-images.yaml --wait
+```
+
+To select another tested image pair, render a spec from its full digest references:
+
+```sh
+python3 -m pip install PyYAML==6.0.3
+python3 scripts/render-app-spec.py --backend <backend-image-with-digest> --frontend <frontend-image-with-digest> --output /tmp/app-images.yaml
+```
+
+The renderer rejects mutable tags and missing or duplicate components.
+It retains other frontend build variables and replaces only `FRONTEND_IMAGE`.
+
+If the registry is unavailable, the checked-in spec provides the original source-build path:
+
+```sh
 doctl apps propose --app e80ec2bc-7a78-4b44-b856-d2c26a1a1ca5 --spec .do/app.yaml
 doctl apps update e80ec2bc-7a78-4b44-b856-d2c26a1a1ca5 --spec .do/app.yaml --update-sources --wait
 ```
+
+This fallback compiles both components on DigitalOcean and can take longer.
 
 The update starts a deployment. It does not create another app.
 See the [App Platform spec reference](https://docs.digitalocean.com/products/app-platform/reference/app-spec/).
@@ -193,7 +236,7 @@ Without Postgres, finish active games before replacement because restarts erase 
 Back up Postgres before updates if persistence is enabled.
 
 For rollback, revert the release commit through a pull request and merge it into `main`.
-The deployment workflow rebuilds both components from that revision.
+CI builds and tests the reverted revision, then deploys its image pair.
 Check database schema compatibility before rollback because startup migrations can change the schema.
 Do not roll back active games to a version without recovery support.
 After deployment, check the website, `/api/version`, and a two-player game.

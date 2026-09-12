@@ -2,11 +2,21 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
+
+defaults:
+  run:
+    shell: bash
+
+# Cancel superseded PR checks, but let an active production deployment finish.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   go:
@@ -53,21 +63,30 @@ jobs:
           TEST_DATABASE_URL: postgres://tinychess_test:test_only@localhost:5432/tinychess_test?sslmode=disable
       - uses: browser-actions/setup-chrome@v1
       - name: Browser regressions with real computer opponents
-        env:
-          PORT: '18091'
-          VITE_API_PROXY: http://localhost:18091
-          EXPO_PUBLIC_API_URL: http://localhost:18091
+        run: bash scripts/browser-regressions.sh
+      - name: Check the frontend export
         run: |
-          go run . > "$RUNNER_TEMP/bot-api.log" 2>&1 &
-          pnpm --filter @yourmove/web exec vite --host 127.0.0.1 --port 5181 > "$RUNNER_TEMP/bot-web.log" 2>&1 &
-          pnpm --filter @yourmove/mobile exec expo start --web --port 8082 > "$RUNNER_TEMP/bot-mobile.log" 2>&1 &
-          for attempt in $(seq 1 60); do
-            echo "Waiting for browser servers ($attempt/60)"
-            if curl -fsS http://localhost:18091/healthz && curl -fsS http://localhost:5181/ > /dev/null && curl -fsS http://localhost:8082/ > /dev/null; then break; fi
-            sleep 1
-          done
-          PW_BASE_URL=http://localhost:5181 pnpm --filter @yourmove/web exec playwright test
-          PW_BASE_URL=http://localhost:8082 pnpm --filter @yourmove/mobile exec playwright test
+          test -s web/dist/index.html
+          test -s web/dist/arasan/arasan.wasm
+          test -s web/dist/arasan/worker.js
+      - name: Package and test the frontend image
+        run: |
+          docker build --platform linux/amd64 --file Dockerfile.static \
+            --build-arg COMMIT="$GITHUB_SHA" --tag tinychess-frontend:ci web/dist
+          docker build --platform linux/amd64 --file Dockerfile.frontend-prebuilt \
+            --build-arg FRONTEND_IMAGE=tinychess-frontend:ci --tag tinychess-frontend:extracted .
+          container_id=$(docker create tinychess-frontend:extracted /unused)
+          trap 'docker rm "$container_id"' EXIT
+          docker cp "$container_id:/site" "$RUNNER_TEMP/frontend-extracted"
+          diff --recursive web/dist "$RUNNER_TEMP/frontend-extracted"
+          docker save tinychess-frontend:ci | gzip > "$RUNNER_TEMP/frontend-linux-amd64.tar.gz"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-linux-amd64
+          path: ${{ runner.temp }}/frontend-linux-amd64.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -81,40 +100,104 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build backend image
-        run: docker build --build-arg COMMIT="$GITHUB_SHA" -t tinychess-backend:ci .
-      - name: Check backend health
-        run: |
-          docker run -d --name backend --read-only --cap-drop ALL \
-            --security-opt no-new-privileges -p 127.0.0.1:8080:8080 tinychess-backend:ci
-          trap 'docker logs backend; docker rm -f backend' EXIT
-          curl --fail --retry 10 --retry-connrefused --retry-delay 1 http://localhost:8080/healthz
-          curl --fail http://localhost:8080/api/version
-  frontend:
-    name: Build static frontend
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
       - uses: docker/setup-buildx-action@v4
-      - uses: docker/build-push-action@v7
+      - name: Build backend image once
+        uses: docker/build-push-action@v7
         with:
           context: .
-          file: Dockerfile.frontend
           load: true
-          tags: tinychess-frontend:ci
-          cache-from: type=gha,scope=frontend
-          cache-to: type=gha,scope=frontend,mode=max
-      - name: Check static export
+          tags: tinychess:ci
+          build-args: COMMIT=${{ github.sha }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+      - name: Test backend image
+        run: bash scripts/smoke-image.sh tinychess:ci
+      - name: Check deployment configuration
+        env:
+          TINYCHESS_IMAGE: tinychess:ci
+          DOMAIN: chess.example.com
         run: |
-          container_id=$(docker create tinychess-frontend:ci /unused)
-          trap 'docker rm "$container_id"' EXIT
-          docker cp "$container_id:/site" "$RUNNER_TEMP/frontend"
-          test -s "$RUNNER_TEMP/frontend/index.html"
-          test -s "$RUNNER_TEMP/frontend/arasan/arasan.wasm"
-          test -s "$RUNNER_TEMP/frontend/arasan/worker.js"
+          docker compose -f deploy/compose.yml config --quiet
+          docker run --rm --env DOMAIN --mount type=bind,source="$PWD/deploy/Caddyfile",target=/etc/caddy/Caddyfile,readonly caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+      - name: Test deployment scripts
+        run: |
+          python3 -m pip install --disable-pip-version-check PyYAML==6.0.3
+          python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+      - uses: digitalocean/action-doctl@3cb3953159719656269e044e0e24ca16dd2a690f # v2
+        with:
+          no_auth: true
+          version: 1.168.0
+      - name: Check App Platform spec schemas
+        run: |
+          doctl apps spec validate .do/app.yaml --schema-only
+          python3 scripts/render-app-spec.py \
+            --backend "ghcr.io/dustywusty/tinychess@sha256:$(printf '%064d' 1)" \
+            --frontend "ghcr.io/dustywusty/tinychess@sha256:$(printf '%064d' 2)" \
+            --output "$RUNNER_TEMP/app-images.yaml"
+          doctl apps spec validate "$RUNNER_TEMP/app-images.yaml" --schema-only
+      - name: Export the tested backend image
+        run: docker save tinychess:ci | gzip > "$RUNNER_TEMP/tinychess-linux-amd64.tar.gz"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tinychess-linux-amd64
+          path: ${{ runner.temp }}/tinychess-linux-amd64.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+  publish:
+    name: Publish tested images
+    needs: [go, docker]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      backend: ${{ steps.images.outputs.backend }}
+      frontend: ${{ steps.images.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: tinychess-linux-amd64
+          path: ${{ runner.temp }}/backend
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-linux-amd64
+          path: ${{ runner.temp }}/frontend
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish the tested backend and frontend
+        id: images
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          image="ghcr.io/${REPOSITORY,,}"
+          backend_tag="$image:deploy-$GITHUB_SHA"
+          frontend_tag="$image:frontend-$GITHUB_SHA"
+          docker load --input "$RUNNER_TEMP/backend/tinychess-linux-amd64.tar.gz"
+          docker tag tinychess:ci "$backend_tag"
+          docker load --input "$RUNNER_TEMP/frontend/frontend-linux-amd64.tar.gz"
+          docker tag tinychess-frontend:ci "$frontend_tag"
+          docker push "$backend_tag"
+          docker push "$frontend_tag"
+          backend_ref=$(docker inspect --format '{{index .RepoDigests 0}}' "$backend_tag")
+          frontend_ref=$(docker inspect --format '{{index .RepoDigests 0}}' "$frontend_tag")
+          echo "backend=$backend_ref" >> "$GITHUB_OUTPUT"
+          echo "frontend=$frontend_ref" >> "$GITHUB_OUTPUT"
+          echo "Backend: $backend_ref" >> "$GITHUB_STEP_SUMMARY"
+          echo "Frontend: $frontend_ref" >> "$GITHUB_STEP_SUMMARY"
+
   deploy:
     name: Deploy to DigitalOcean
-    needs: [go, docker, frontend]
+    needs: [publish]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -123,6 +206,8 @@ jobs:
       cancel-in-progress: false
     env:
       DIGITALOCEAN_APP_ID: ${{ vars.DIGITALOCEAN_APP_ID }}
+      BACKEND_IMAGE: ${{ needs.publish.outputs.backend }}
+      FRONTEND_IMAGE: ${{ needs.publish.outputs.frontend }}
     steps:
       - uses: actions/checkout@v4
       - name: Check whether this commit is still current
@@ -143,19 +228,33 @@ jobs:
         with:
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
           version: 1.168.0
+      - name: Render the app spec with tested image digests
+        if: steps.current.outputs.deploy == 'true'
+        run: |
+          python3 -m pip install --disable-pip-version-check PyYAML==6.0.3
+          python3 scripts/render-app-spec.py --backend "$BACKEND_IMAGE" \
+            --frontend "$FRONTEND_IMAGE" --output "$RUNNER_TEMP/app-images.yaml"
+      - uses: actions/upload-artifact@v4
+        if: steps.current.outputs.deploy == 'true'
+        with:
+          name: deployed-app-spec
+          path: ${{ runner.temp }}/app-images.yaml
+          retention-days: 30
       - name: Validate the app update
         if: steps.current.outputs.deploy == 'true'
         run: |
           test -n "$DIGITALOCEAN_APP_ID"
-          doctl apps propose --app "$DIGITALOCEAN_APP_ID" --spec .do/app.yaml
+          doctl apps propose --app "$DIGITALOCEAN_APP_ID" --spec "$RUNNER_TEMP/app-images.yaml"
       - name: Deploy and wait for completion
         if: steps.current.outputs.deploy == 'true'
         run: |
           doctl apps update "$DIGITALOCEAN_APP_ID" \
-            --spec .do/app.yaml --update-sources --wait
+            --spec "$RUNNER_TEMP/app-images.yaml" --wait
       - name: Check the deployed API
         if: steps.current.outputs.deploy == 'true'
         run: |
           app_url=$(doctl apps get "$DIGITALOCEAN_APP_ID" --format DefaultIngress --no-header)
-          curl --fail --retry 5 --retry-delay 5 "$app_url/api/version"
+          curl --fail --retry 5 --retry-delay 5 "$app_url/api/version" > "$RUNNER_TEMP/deployed-version.json"
+          jq --exit-status --arg commit "$GITHUB_SHA" '.commit == $commit' "$RUNNER_TEMP/deployed-version.json"
+          curl --fail --retry 5 --retry-delay 5 "$app_url/" > /dev/null
           echo "Deployment completed: $app_url" >> "$GITHUB_STEP_SUMMARY"
