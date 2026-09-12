@@ -29,6 +29,7 @@
     "expo-crypto": "~57.0.2",
     "expo-file-system": "~57.0.6",
     "expo-linking": "~57.0.9",
+    "expo-navigation-bar": "~57.0.2",
     "expo-router": "~57.0.19",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
