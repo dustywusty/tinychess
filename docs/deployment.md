@@ -148,10 +148,11 @@ Build `web/dist` before starting Compose. For App Platform, the Static Site comp
 
 ### Postgres recovery
 
-Use a dedicated Tinychess database and database user on your existing PostgreSQL cluster.
-Add its `DATABASE_URL` as an encrypted runtime variable on the service.
-Use the database provider's TLS configuration and restrict database access to the app.
-The spec omits this variable so credentials cannot enter Git accidentally.
+Production uses the `yourmove` database and user on the existing PostgreSQL 18 cluster, `db-postgresql-nyc3-59719`.
+The app spec binds `DATABASE_URL` to `${yourmove-db.DATABASE_URL}` at runtime.
+DigitalOcean supplies the connection credentials; the repository contains only the variable reference.
+The cluster's trusted sources must include this App Platform app.
+Keep this database binding in the app spec so automated deployments retain persistence.
 Startup adds a nullable `games.live_state` JSONB column through GORM auto-migration.
 The database user requires permission to migrate the Tinychess tables.
 Connection or migration failure prevents startup.
