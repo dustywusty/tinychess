@@ -25,6 +25,18 @@ services:
       - key: PORT
         scope: RUN_TIME
         value: "8080"
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: ${yourmove-db.DATABASE_URL}
+
+databases:
+  - name: yourmove-db
+    engine: PG
+    version: "18"
+    production: true
+    cluster_name: db-postgresql-nyc3-59719
+    db_name: yourmove
+    db_user: yourmove
 
 static_sites:
   - name: frontend
