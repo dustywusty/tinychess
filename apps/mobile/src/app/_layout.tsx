@@ -1,4 +1,5 @@
 import { Stack } from "expo-router";
+import { NavigationBar } from "expo-navigation-bar";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ThemeProvider, useBoardTheme } from "@/lib/theme";
@@ -9,6 +10,7 @@ export default function RootLayout() {
 function ThemedStack() {
   const { colors, mode } = useBoardTheme();
   return <>
+    <NavigationBar hidden />
     <StatusBar style={mode === "dark" ? "light" : "dark"} />
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
       <Stack.Screen name="index" options={{ title: "Your Move" }} />
