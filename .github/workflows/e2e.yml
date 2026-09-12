@@ -13,6 +13,20 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build Arasan assets
+        uses: ./.github/actions/build-engine
+      - name: Build web
+        run: pnpm --filter @yourmove/web build
       - uses: actions/setup-go@v5
         with:
           go-version: stable
@@ -48,17 +62,19 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          publish_dir="$RUNNER_TEMP/e2e-publish"
+          git worktree add --detach "$publish_dir" HEAD
           if git show-ref --quiet refs/remotes/origin/e2e-artifacts; then
-            git checkout -B e2e-artifacts origin/e2e-artifacts
+            git -C "$publish_dir" checkout -B e2e-artifacts origin/e2e-artifacts
           else
-            git checkout --orphan e2e-artifacts
-            git rm -rf . >/dev/null 2>&1 || true
+            git -C "$publish_dir" checkout --orphan e2e-artifacts
+            git -C "$publish_dir" rm -rf . >/dev/null
           fi
-          mkdir -p "e2e/${RUN_ID}"
-          cp e2e-artifacts/*.gif "e2e/${RUN_ID}/"
-          git add "e2e/${RUN_ID}"
-          git commit -m "e2e gifs for run ${RUN_ID}"
-          git push origin e2e-artifacts
+          mkdir -p "$publish_dir/e2e/${RUN_ID}"
+          cp e2e-artifacts/*.gif "$publish_dir/e2e/${RUN_ID}/"
+          git -C "$publish_dir" add "e2e/${RUN_ID}"
+          git -C "$publish_dir" commit -m "e2e gifs for run ${RUN_ID}"
+          git -C "$publish_dir" push origin e2e-artifacts
       - name: Comment with e2e gifs
         if: always() && github.event.pull_request.head.repo.fork == false
         uses: actions/github-script@v7

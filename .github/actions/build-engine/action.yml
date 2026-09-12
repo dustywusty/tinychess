@@ -1,0 +1,22 @@
+name: Build local Arasan engine
+description: Compile the pinned source and network with Emscripten 4.0.14.
+runs:
+  using: composite
+  steps:
+    - uses: actions/cache@v4
+      id: assets
+      with:
+        path: |
+          web/public/arasan/arasan.js
+          web/public/arasan/arasan.wasm
+          web/public/arasan/LICENSE.arasan
+          web/public/arasan/NOTICES.txt
+          web/public/arasan/version.json
+          apps/mobile/assets/engine/arasan.html
+        key: arasan-4.0.14-${{ runner.os }}-${{ hashFiles('engine/arasan/build.mjs', 'engine/arasan/input.cpp', 'engine/arasan/no-tablebases.patch') }}
+    - if: steps.assets.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        docker run --rm --platform linux/amd64 --user "$(id -u):$(id -g)" -v "$PWD:/src" emscripten/emsdk:4.0.14@sha256:11d144844086982d68260867ce1fc665667f4139b73326625033ed8d16533406 node engine/arasan/prepare.mjs
+    - shell: bash
+      run: node engine/arasan/check.mjs
