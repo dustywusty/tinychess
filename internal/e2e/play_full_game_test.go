@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,14 +18,14 @@ import (
 	"testing"
 	"time"
 
+	"tinychess/internal/frontend"
 	"tinychess/internal/game"
 	"tinychess/internal/handlers"
-	"tinychess/internal/templates"
 
-	"github.com/chromedp/chromedp"
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/cdproto/runtime"
+	"github.com/chromedp/chromedp"
 	"github.com/google/uuid"
 )
 
@@ -56,6 +58,34 @@ func TestPlayScholarsMate(t *testing.T) {
 	}, true)
 }
 
+func TestCreateGameFromStaticHome(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "")
+	server := newTestServer(t)
+	defer server.Close()
+	ctx, cancel := newBrowserCtx(t)
+	defer cancel()
+	ctx, timeout := context.WithTimeout(ctx, 45*time.Second)
+	defer timeout()
+	var path string
+	if err := chromedp.Run(ctx,
+		chromedp.Navigate(server.URL),
+		chromedp.Click("#newgame", chromedp.ByQuery),
+		chromedp.WaitVisible("#board", chromedp.ByQuery),
+		chromedp.Evaluate("location.pathname", &path),
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := uuid.Parse(strings.TrimPrefix(path, "/")); err != nil {
+		t.Fatalf("new game did not create a UUID URL: %s", path)
+	}
+	if err := chromedp.Run(ctx,
+		chromedp.Reload(),
+		chromedp.WaitVisible("#board", chromedp.ByQuery),
+	); err != nil {
+		t.Fatalf("shared game URL failed after refresh: %v", err)
+	}
+}
+
 type move struct {
 	color string
 	from  string
@@ -65,7 +95,7 @@ type move struct {
 func runGame(t *testing.T, label string, moves []move, expectMate bool) {
 	t.Helper()
 
-	server := newTestServer()
+	server := newTestServer(t)
 	defer server.Close()
 
 	gameID := uuid.NewString()
@@ -180,22 +210,21 @@ func runGame(t *testing.T, label string, moves []move, expectMate bool) {
 	rec.Capture(t)
 }
 
-func newTestServer() *httptest.Server {
+func newTestServer(t *testing.T) *httptest.Server {
 	if err := chdirToRepoRoot(); err != nil {
 		panic(fmt.Sprintf("e2e: %v", err))
 	}
-	templates.SetVersion("e2e")
-	hub := game.NewHub()
-	h := handlers.NewHandler(hub)
-
+	backend := httptest.NewServer(handlers.NewRouter(game.NewHub(), "e2e"))
+	t.Cleanup(backend.Close)
+	backendURL, err := url.Parse(backend.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Match App Platform: one public origin, separate static and API services,
+	// with the /api prefix preserved by the ingress proxy.
 	mux := http.NewServeMux()
-	mux.HandleFunc("/new", h.HandleNew)
-	mux.HandleFunc("/sse/", h.HandleSSE)
-	mux.HandleFunc("/move/", h.HandleMove)
-	mux.HandleFunc("/react/", h.HandleReact)
-	mux.HandleFunc("/release/", h.HandleRelease)
-	mux.HandleFunc("/coach", h.HandleCoach)
-	mux.HandleFunc("/", h.HandlePage)
+	mux.Handle("/api/", httputil.NewSingleHostReverseProxy(backendURL))
+	mux.Handle("/", frontend.Handler("frontend"))
 
 	return httptest.NewServer(mux)
 }
@@ -385,7 +414,7 @@ func submitMoveViaFetch(t *testing.T, ctx context.Context, gameID, uci string) e
 	script := fmt.Sprintf(`(async () => {
 		const clientId = sessionStorage.getItem("tinychess:clientId") || "";
 		if (!clientId) return { ok: false, error: "missing clientId" };
-		const res = await fetch("/move/%s", {
+		const res = await fetch("/api/move/%s", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ uci: %q, clientId })
@@ -719,7 +748,7 @@ func chdirToRepoRoot() error {
 	}
 	dir := wd
 	for i := 0; i < 6; i++ {
-		if exists(filepath.Join(dir, "internal", "templates", "game.html")) {
+		if exists(filepath.Join(dir, "frontend", "game.html")) {
 			return os.Chdir(dir)
 		}
 		parent := filepath.Dir(dir)

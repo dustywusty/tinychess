@@ -1,0 +1,15 @@
+.git
+.github
+.do
+frontend
+.env
+.env.*
+**/*.pem
+**/*.key
+bin
+tmp
+e2e-artifacts
+coverage.*
+*.out
+*.test
+.DS_Store

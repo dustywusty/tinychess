@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <script src="/site.js" defer></script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Tiny Chess</title>
@@ -718,8 +719,9 @@
       } from "https://esm.sh/@hashbrownai/react@0.4.1?external=react";
 
       const h = React.createElement;
-      const COACH_ENABLED = {{COACH_ENABLED}};
-      const COACH_URL = "{{COACH_URL}}";
+      const config = await window.tinychessConfig;
+      const COACH_ENABLED = config.coachEnabled;
+      const COACH_URL = "/api/coach";
 
       const START_FEN =
         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -1057,7 +1059,7 @@
         useEffect(() => {
           if (!gameId) return;
 
-          let url = `/sse/${gameId}`;
+          let url = `/api/sse/${gameId}`;
           if (clientId) url += `?clientId=${encodeURIComponent(clientId)}`;
 
           const es = new EventSource(url);
@@ -1322,12 +1324,7 @@
       }
 
       function App() {
-        // gameId fallback logic (same as your vanilla)
-        const idFromServerRaw = "{{GAME_ID}}";
-        const gameId =
-          idFromServerRaw && idFromServerRaw !== "{{GAME_ID}}"
-            ? idFromServerRaw
-            : location.pathname.replace(/^\/+/, "");
+        const gameId = location.pathname.replace(/^\/+|\/+$/g, "");
 
         const { theme, setTheme, accent, setAccent } = useTheme();
         const game = useGame(gameId);
@@ -1379,7 +1376,7 @@
         async function makeMove(uci) {
           if (!gameId) return setStatus("No game id", true);
           try {
-            const res = await fetch(`/move/${gameId}`, {
+            const res = await fetch(`/api/move/${gameId}`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ uci, clientId: game.clientId }),
@@ -1406,7 +1403,7 @@
           window.setTimeout(() => setReactDisabled(false), COOLDOWN_MS);
 
           try {
-            const res = await fetch(`/react/${gameId}`, {
+            const res = await fetch(`/api/react/${gameId}`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ emoji, sender: game.clientId }),
@@ -1426,7 +1423,7 @@
         async function releaseSeat() {
           if (!gameId || !game.clientId) return;
           try {
-            const resp = await fetch(`/release/${gameId}`, {
+            const resp = await fetch(`/api/release/${gameId}`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -1782,9 +1779,9 @@
             h(
               "a",
               {
-                href: "https://github.com/dustywusty/tinychess/tree/{{COMMIT}}",
+                href: `https://github.com/dustywusty/tinychess/tree/${encodeURIComponent(config.version)}`,
               },
-              "{{COMMIT}}"
+              config.version
             )
           )
         );

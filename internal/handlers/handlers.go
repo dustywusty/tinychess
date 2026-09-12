@@ -10,7 +10,6 @@ import (
 
 	"tinychess/internal/game"
 	"tinychess/internal/logging"
-	"tinychess/internal/templates"
 
 	"github.com/corentings/chess/v2"
 	"github.com/google/uuid"
@@ -24,23 +23,6 @@ type Handler struct {
 // NewHandler creates a new handler instance
 func NewHandler(hub *game.Hub) *Handler {
 	return &Handler{Hub: hub}
-}
-
-// HandleNew creates a new game and redirects to it
-func (h *Handler) HandleNew(w http.ResponseWriter, r *http.Request) {
-	id := uuid.NewString()
-	http.Redirect(w, r, "/"+id, http.StatusFound)
-}
-
-// HandlePage serves the home page or game page
-func (h *Handler) HandlePage(w http.ResponseWriter, r *http.Request) {
-	path := strings.TrimPrefix(r.URL.Path, "/")
-	if path == "" || path == "index.html" {
-		templates.WriteHomeHTML(w)
-		return
-	}
-	_, _ = h.Hub.Get(path, "")
-	templates.WriteGameHTML(w, path)
 }
 
 // HandleSSE handles Server-Sent Events for real-time game updates
@@ -59,6 +41,7 @@ func (h *Handler) HandleSSE(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("X-Accel-Buffering", "no")
 	w.Header().Set("Connection", "keep-alive")
 
 	ch := make(chan []byte, 16)

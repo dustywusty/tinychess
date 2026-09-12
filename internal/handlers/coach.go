@@ -176,6 +176,7 @@ Provide helpful, concise chess advice. Suggest the best move and explain why. Us
 
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("X-Accel-Buffering", "no")
 	w.Header().Set("Connection", "keep-alive")
 
 	// Convert OpenAI SSE stream to hashbrown frames

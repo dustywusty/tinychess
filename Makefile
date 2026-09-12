@@ -26,12 +26,12 @@ build:
 	go build -trimpath -ldflags="$(LDFLAGS)" -o $(BIN) $(PKG)
 
 run: build
-	./$(BIN)
+	./$(BIN) -static-dir frontend
 
 race:
 	@mkdir -p bin
 	go build -race -o $(BIN) $(PKG)
-	./$(BIN)
+	./$(BIN) -static-dir frontend
 
 lint:
 	@command -v golangci-lint >/dev/null || { echo "Install golangci-lint: https://golangci-lint.run/"; exit 1; }
@@ -57,7 +57,7 @@ test-e2e:
 	E2E_START_DELAY_MS=$(E2E_START_DELAY_MS) \
 	E2E_CAPTURE_DELAY_MS=$(E2E_CAPTURE_DELAY_MS) \
 	E2E_SEND_EMOJI=$(E2E_SEND_EMOJI) \
-	go test -tags e2e ./internal/e2e -run TestPlay -v
+	go test -tags e2e ./internal/e2e -v
 	@echo "e2e artifacts: e2e-artifacts/"
 
 dev:
