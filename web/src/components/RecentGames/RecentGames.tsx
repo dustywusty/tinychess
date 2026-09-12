@@ -19,8 +19,8 @@ export function RecentGames() {
       return <li key={game.id} className={result ? `recent-finished result-${result.tone}` : undefined}>
       <div className="recent-game-row">
       <a href={"/g/" + game.id} className="recent-link"><span className="recent-icon"><Piece piece="n" size={28} /></span><span>
-        <span className="recent-mode">{game.opponentType === "bot" ? "PvBot" : game.opponentType === "human" ? "PvP" : "Saved game"}</span>
-        <strong>{game.opponentType === "bot" ? `A match with ${bot?.name ?? "the computer"}` : game.opponentType === "human" ? "Your friendly match" : "Your saved match"}</strong>
+        <span className="recent-mode">{game.playerBotId ? "Bot vs. bot" : game.opponentType === "bot" ? "PvBot" : game.opponentType === "human" ? "PvP" : "Saved game"}</span>
+        <strong>{game.playerBotId ? `${bots.find(bot => bot.id === game.playerBotId)?.name ?? "Bot"} vs. ${bot?.name ?? "Bot"}` : game.opponentType === "bot" ? `A match with ${bot?.name ?? "the computer"}` : game.opponentType === "human" ? "Your friendly match" : "Your saved match"}</strong>
         <small>{result ? "Completed" : "In progress"} · {game.id.slice(0, 8)}</small>
       </span></a>
       <button type="button" className="text-button" aria-label={"Copy link for game " + game.id.slice(0, 8)} onClick={() => {

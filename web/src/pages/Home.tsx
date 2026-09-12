@@ -9,6 +9,7 @@ import { START_FEN } from "../types/chess";
 import { BotPicker } from "../components/BotPicker";
 import { getOrCreateClientId } from "../lib/session";
 import type { BotId } from "@yourmove/chess/bots";
+import type { BotSettings } from "@yourmove/protocol";
 
 export function Home() {
   const [busy, setBusy] = useState(false);
@@ -17,10 +18,10 @@ export function Home() {
   const [error, setError] = useState("");
   const [input, setInput] = useState("");
   const id = gameIDFromInput(input);
-  const handleNew = async (botId?: BotId, color: "w" | "b" = "w") => {
+  const handleNew = async (botId?: BotId, color: "w" | "b" = "w", settings: BotSettings = {}) => {
     if (creating.current) return;
     creating.current = true; setBusy(true); setError("");
-    try { window.location.assign("/g/" + (await createGame(botId ? { botId, color, clientId: getOrCreateClientId() } : undefined)).id); }
+    try { window.location.assign("/g/" + (await createGame(botId ? { botId, color, ...settings, clientId: getOrCreateClientId() } : undefined)).id); }
     catch { setError("Couldn’t start your game. Check your connection and try again."); setComputer(false); creating.current = false; setBusy(false); }
   };
   return <main className="site-shell home-page">
@@ -52,6 +53,6 @@ export function Home() {
       <div className="home-coach"><CoachCard /></div>
     </div>
     <footer className="site-footer"><span>64 squares. Endless possibilities.</span><a href="/arasan/NOTICES.txt">Engine credits</a></footer>
-    <BotPicker open={computer} busy={busy} onClose={() => setComputer(false)} onStart={(id, color) => void handleNew(id, color)} />
+    <BotPicker open={computer} busy={busy} onClose={() => setComputer(false)} onStart={(id, color, settings) => void handleNew(id, color, settings)} />
   </main>;
 }

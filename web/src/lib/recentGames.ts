@@ -12,6 +12,7 @@ export interface RecentGameEntry {
   result: string;
   opponentType?: "human" | "bot";
   botId?: BotId;
+  playerBotId?: BotId;
   playerColor?: StateEvent["color"];
   role?: StateEvent["role"];
 }
@@ -56,8 +57,9 @@ export function recordGameSeen(id: string, snap: SnapshotInput): RecentGames {
     result: result || existing?.result || "",
     opponentType: snap.bot ? "bot" : "human",
     botId: snap.bot?.id,
+    playerBotId: snap.bot?.playerBotId,
     playerColor: snap.color !== undefined ? snap.color : existing?.playerColor,
-    role: snap.role ?? existing?.role,
+    role: snap.bot?.playerBotId ? "spectator" : snap.role ?? existing?.role,
   };
   saveRecentGames(games);
   return games;

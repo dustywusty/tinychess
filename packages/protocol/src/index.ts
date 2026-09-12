@@ -3,8 +3,14 @@ export const protocolVersion = 1 as const;
 export type WireColor = "w" | "b" | "white" | "black";
 export type PlayerRole = "player" | "spectator";
 export type BotId = "pip" | "max" | "ada" | "viktor" | "machine";
-export interface BotOpponent { id: BotId; color: "w" | "b"; policyVersion: number }
-export interface CreateGameInput { botId: BotId; clientId: string; color: "w" | "b" }
+export interface BotSettings {
+  // When set, this bot controls the creator's color; botId controls the other side.
+  playerBotId?: BotId;
+  // Minimum time per bot turn, including analysis. Omit for the bot's natural pace.
+  moveDelayMs?: number;
+}
+export interface BotOpponent extends BotSettings { id: BotId; color: "w" | "b"; policyVersion: number }
+export interface CreateGameInput extends BotSettings { botId: BotId; clientId: string; color: "w" | "b" }
 export interface BotMoveInput { botMove: true; expectedPly: number }
 
 export interface StateEvent {

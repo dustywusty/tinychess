@@ -10,6 +10,7 @@ import { ChessBoard } from "@/components/ChessBoard";
 import { Piece } from "@/components/Piece";
 import { Button, CoachCard, ErrorMessage, useUI } from "@/components/UI";
 import { AppearanceMenu } from "@/components/AppearanceMenu";
+import type { BotSettings } from "@yourmove/protocol";
 import { BotPicker } from "@/components/BotPicker";
 import { clientID } from "@/lib/session";
 import { bots, type BotId } from "@yourmove/chess/bots";
@@ -31,10 +32,10 @@ export default function HomeScreen() {
     return () => { active = false; };
   }, []));
   const openGame = (id: string) => router.push({ pathname: "/g/[id]", params: { id } });
-  const handleCreate = async (botId?: BotId, color: "w" | "b" = "w") => {
+  const handleCreate = async (botId?: BotId, color: "w" | "b" = "w", settings: BotSettings = {}) => {
     setBusy(true);
     setError("");
-    try { openGame((await createGame(botId ? { botId, color, clientId: await clientID() } : undefined)).id); setComputer(false); }
+    try { openGame((await createGame(botId ? { botId, color, ...settings, clientId: await clientID() } : undefined)).id); setComputer(false); }
     catch { setComputer(false); setError("Couldn’t start your game. Check your connection and try again."); }
     finally { setBusy(false); }
   };
@@ -86,8 +87,8 @@ export default function HomeScreen() {
             <View style={styles.recentRow}>
             <View style={styles.recentIcon}><Piece piece="n" size={28} /></View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.recentMode}>{game.opponentType === "bot" ? "PvBot" : game.opponentType === "human" ? "PvP" : "Saved game"}</Text>
-              <Text style={styles.recentTitle}>{game.opponentType === "bot" ? `A match with ${bot?.name ?? "the computer"}` : game.opponentType === "human" ? "Your friendly match" : "Your saved match"}</Text>
+              <Text style={styles.recentMode}>{game.playerBotId ? "Bot vs. bot" : game.opponentType === "bot" ? "PvBot" : game.opponentType === "human" ? "PvP" : "Saved game"}</Text>
+              <Text style={styles.recentTitle}>{game.playerBotId ? `${bots.find(bot => bot.id === game.playerBotId)?.name ?? "Bot"} vs. ${bot?.name ?? "Bot"}` : game.opponentType === "bot" ? `A match with ${bot?.name ?? "the computer"}` : game.opponentType === "human" ? "Your friendly match" : "Your saved match"}</Text>
               <Text style={styles.recentDetail}>{result ? "Completed" : game.status || "In progress"} · {game.id.slice(0, 8)}</Text>
             </View>
             <Text style={{ fontSize: 20, color: colors.muted }}>↗</Text>
@@ -102,7 +103,7 @@ export default function HomeScreen() {
         <Text style={styles.footer}>64 squares. Endless possibilities.</Text>
       </ScrollView>
     </KeyboardAvoidingView>
-    <BotPicker open={computer} busy={busy} onClose={() => setComputer(false)} onStart={(id, color) => void handleCreate(id, color)} />
+    <BotPicker open={computer} busy={busy} onClose={() => setComputer(false)} onStart={(id, color, settings) => void handleCreate(id, color, settings)} />
   </SafeAreaView>;
 }
 const resultColors = {

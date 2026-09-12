@@ -42,6 +42,40 @@ func TestBotHTTPPipeline(t *testing.T) {
 	}
 }
 
+func TestBotBattleHTTPSettings(t *testing.T) {
+	h := NewHandler(game.NewHub())
+	for _, input := range []string{
+		`{"botId":"pip","clientId":"owner","color":"w","playerBotId":"unknown"}`,
+		`{"botId":"pip","clientId":"owner","color":"w","moveDelayMs":-1}`,
+		`{"botId":"pip","clientId":"owner","color":"w","moveDelayMs":5001}`,
+		`{"botId":"pip","clientId":"owner","color":"w","moveDelayMs":1.5}`,
+		`{"playerBotId":"pip"}`, `{"moveDelayMs":0}`,
+	} {
+		if response := recoveryRequest(h.HandleCreateGame, "", "POST", "/api/games", input); response.Code != 400 {
+			t.Fatalf("accepted invalid settings: %s", input)
+		}
+	}
+	response := recoveryRequest(h.HandleCreateGame, "", "POST", "/api/games", `{"botId":"ada","clientId":"owner","color":"w","playerBotId":"max","moveDelayMs":0}`)
+	if response.Code != 200 {
+		t.Fatal(response.Body.String())
+	}
+	var created struct{ ID string }
+	_ = json.Unmarshal(response.Body.Bytes(), &created)
+	state := recoverySnapshot(t, h, created.ID, "visitor")
+	if state.Role != "spectator" || state.Bot.PlayerBotID != "max" || state.Bot.MoveDelayMs == nil || *state.Bot.MoveDelayMs != 0 {
+		t.Fatal("battle settings missing from snapshot")
+	}
+	for _, input := range []string{
+		`{"clientId":"owner","uci":"e2e4","botMove":true,"expectedPly":0}`,
+		`{"clientId":"owner","uci":"e7e5","botMove":true,"expectedPly":1}`,
+	} {
+		response = recoveryRequest(h.HandleMove, created.ID, "POST", "/move", input)
+		if response.Code != 200 || !strings.Contains(response.Body.String(), `"ok":true`) {
+			t.Fatal(response.Body.String())
+		}
+	}
+}
+
 func TestPostgresBotRestart(t *testing.T) {
 	db := recoveryDB(t)
 	first := NewHandlerWithStore(game.NewHub(), db)

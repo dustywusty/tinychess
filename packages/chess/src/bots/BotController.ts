@@ -3,9 +3,9 @@ import { random, selectMove } from "./policy.ts";
 import { abortError } from "./ArasanEngine.ts";
 import { Chess } from "chess.js";
 
-export async function chooseBotMove(engine: ChessEngine, bot: BotDefinition, position: Pick<AnalyzePositionInput, "fen" | "moves">, signal: AbortSignal, rng: RandomSource = random) {
+export async function chooseBotMove(engine: ChessEngine, bot: BotDefinition, position: Pick<AnalyzePositionInput, "fen" | "moves">, signal: AbortSignal, rng: RandomSource = random, moveDelayMs?: number) {
  const start = Date.now();
- const delay = bot.thinkTime.minMs + rng.next() * (bot.thinkTime.maxMs - bot.thinkTime.minMs);
+ const delay = moveDelayMs ?? bot.thinkTime.minMs + rng.next() * (bot.thinkTime.maxMs - bot.thinkTime.minMs);
  let analysis = await engine.analyzePosition({ ...position, ...bot.engine, signal });
  // Top-N lines often contain no beginner mistakes. Re-score a small legal
  // sample beside the best lines in one search, with a common evaluation depth.
