@@ -87,6 +87,25 @@ test("controller cancellation also cancels presentation delay", async () => {
  const promise = chooseBotMove({ initialize:async () => {}, dispose:async () => {}, analyzePosition:async () => ({candidates, bestMove:"e2e4"}) }, botDefinition("ada"), {fen, moves:[]}, abort.signal);
  const rejected = assert.rejects(promise, {name:"AbortError"}); await tick(); abort.abort(); await rejected;
 });
+test("configured pacing includes engine time and supports zero delay", async (t) => {
+ t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+ for (const delay of [0, 1500, 5000]) {
+  let finished = false;
+  const work = chooseBotMove({ initialize: async () => {}, dispose: async () => {}, analyzePosition: async () => {
+   t.mock.timers.tick(100);
+   return { candidates, bestMove: "e2e4" };
+  } }, botDefinition("ada"), { fen, moves: [] }, new AbortController().signal, seededRandom(1), delay).then(() => { finished = true; });
+  await Promise.resolve();
+  if (delay > 100) {
+   t.mock.timers.tick(delay - 101);
+   await Promise.resolve();
+   assert.equal(finished, false);
+   t.mock.timers.tick(1);
+  } else t.mock.timers.tick(0);
+  await work;
+  assert.equal(finished, true);
+ }
+});
 test("search timeout rejects the result and destroys the stalled runtime", async () => {
  const fake = new Fake(); const engine = new ArasanEngine(() => fake, 30);
  await engine.initialize();

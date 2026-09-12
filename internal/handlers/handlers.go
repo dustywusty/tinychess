@@ -41,6 +41,7 @@ func (h *Handler) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
 		BotID    string `json:"botId"`
 		ClientID string `json:"clientId"`
 		Color    string `json:"color"`
+		game.BotSettings
 	}
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096))
 	if err := decoder.Decode(&request); err != nil && err != io.EOF {
@@ -48,6 +49,10 @@ func (h *Handler) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	request.ClientID = strings.TrimSpace(request.ClientID)
+	if !request.BotSettings.Valid() || (request.BotID == "" && (request.PlayerBotID != "" || request.MoveDelayMs != nil)) {
+		WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid computer settings"})
+		return
+	}
 	if request.BotID != "" && (!game.ValidBotID(request.BotID) || request.ClientID == "" || (request.Color != "w" && request.Color != "b")) {
 		WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid computer opponent or color"})
 		return
@@ -55,7 +60,7 @@ func (h *Handler) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
 	id := uuid.NewString()
 	if _, err := h.operate(r.Context(), id, true, func(g *game.Game) bool {
 		if request.BotID != "" {
-			_ = g.ConfigureBot(request.BotID, request.ClientID, request.Color)
+			_ = g.ConfigureBotWithSettings(request.BotID, request.ClientID, request.Color, request.BotSettings)
 		}
 		return false
 	}); err != nil {

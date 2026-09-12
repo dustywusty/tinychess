@@ -41,3 +41,28 @@ test("mobile opponent picker and controller play both sides and recover on reloa
  await expect(page.getByTestId("recent-games").getByText("A match with Pip")).toBeVisible();
  expect(errors).toEqual([]);
 });
+
+test("mobile bot battle uses both selections and resumes with its saved delay", async ({ page, request }) => {
+ const errors: string[] = [];
+ page.on("pageerror", error => errors.push(error.message));
+ await page.goto("/");
+ await page.getByRole("button", { name: "Play the computer" }).click();
+ await page.getByRole("button", { name: /Advanced settings/ }).click();
+ await page.getByRole("checkbox", { name: /Bot vs. bot/ }).click();
+ await page.getByRole("radio", { name: "White bot: Max", exact: true }).click();
+ await page.getByRole("radio", { name: "Black bot: Ada", exact: true }).click();
+ await page.getByRole("slider", { name: "Time between moves" }).fill("1000");
+ await page.getByRole("button", { name: "Start bot battle" }).click();
+ await expect(page).toHaveURL(/\/g\//);
+ await expect(page.getByText("😎 Max", { exact: true })).toBeVisible();
+ await expect(page.getByText("🧠 Ada", { exact: true })).toBeVisible();
+ await expect(page.getByText("Watching", { exact: true })).toBeVisible();
+ const id = new URL(page.url()).pathname.split("/").at(-1)!;
+ const snapshot = async () => (await (await request.get(`/api/games/${id}/snapshot?clientId=mobile-battle-spectator`)).json());
+ await expect.poll(async () => (await snapshot()).uci.length, { timeout: 30000 }).toBeGreaterThanOrEqual(4);
+ const before = await snapshot();
+ expect(before.bot).toMatchObject({ id: "ada", playerBotId: "max", moveDelayMs: 1000 });
+ await page.reload();
+ await expect.poll(async () => (await snapshot()).uci.length, { timeout: 20000 }).toBeGreaterThan(before.uci.length);
+ expect(errors).toEqual([]);
+});

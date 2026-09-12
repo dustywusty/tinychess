@@ -11,6 +11,17 @@ type BotOpponent struct {
 	ID            string `json:"id"`
 	Color         string `json:"color"`
 	PolicyVersion int    `json:"policyVersion"`
+	PlayerBotID   string `json:"playerBotId,omitempty"`
+	MoveDelayMs   *int   `json:"moveDelayMs,omitempty"`
+}
+
+type BotSettings struct {
+	PlayerBotID string `json:"playerBotId,omitempty"`
+	MoveDelayMs *int   `json:"moveDelayMs,omitempty"`
+}
+
+func (s BotSettings) Valid() bool {
+	return (s.PlayerBotID == "" || ValidBotID(s.PlayerBotID)) && (s.MoveDelayMs == nil || (*s.MoveDelayMs >= 0 && *s.MoveDelayMs <= 5000))
 }
 
 func ValidBotID(id string) bool {
@@ -23,9 +34,13 @@ func ValidBotID(id string) bool {
 
 // ConfigureBot reserves the other side without creating a public bot credential.
 func (g *Game) ConfigureBot(id, owner, color string) error {
+	return g.ConfigureBotWithSettings(id, owner, color, BotSettings{})
+}
+
+func (g *Game) ConfigureBotWithSettings(id, owner, color string, settings BotSettings) error {
 	g.Mu.Lock()
 	defer g.Mu.Unlock()
-	if !ValidBotID(id) || owner == "" || (color != "w" && color != "b") || len(g.Clients) != 0 || len(g.g.Moves()) != 0 {
+	if !ValidBotID(id) || !settings.Valid() || owner == "" || (color != "w" && color != "b") || len(g.Clients) != 0 || len(g.g.Moves()) != 0 {
 		return fmt.Errorf("invalid computer game")
 	}
 	g.OwnerID = owner
@@ -36,7 +51,12 @@ func (g *Game) ConfigureBot(id, owner, color string) error {
 		botColor = "w"
 	}
 	g.Clients[owner] = g.OwnerColor
-	g.Bot = &BotOpponent{ID: id, Color: botColor, PolicyVersion: BotPolicyVersion}
+	delay := settings.MoveDelayMs
+	if delay == nil && settings.PlayerBotID != "" {
+		value := 1500
+		delay = &value
+	}
+	g.Bot = &BotOpponent{ID: id, Color: botColor, PolicyVersion: BotPolicyVersion, PlayerBotID: settings.PlayerBotID, MoveDelayMs: delay}
 	return nil
 }
 
@@ -56,7 +76,13 @@ func (g *Game) SubmitMove(request MoveRequest) (string, error) {
 		if g.Bot.Color == "b" {
 			side = chess.Black
 		}
+		if g.Bot.PlayerBotID != "" {
+			side = g.g.Position().Turn()
+		}
 		return g.makeMoveForColorLocked(side, request.UCI)
+	}
+	if g.Bot != nil && g.Bot.PlayerBotID != "" {
+		return "", fmt.Errorf("both sides are controlled by computers")
 	}
 	side, ok := g.Clients[request.ClientID]
 	if !ok {

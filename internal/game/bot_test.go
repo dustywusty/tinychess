@@ -108,3 +108,78 @@ func TestBotRecoveryRejectsInvalidMetadata(t *testing.T) {
 		}
 	}
 }
+
+func TestBotBattleAuthorizationAndRecovery(t *testing.T) {
+	for _, color := range []string{"w", "b"} {
+		t.Run(color, func(t *testing.T) {
+			g := NewGame()
+			delay := 2500
+			if err := g.ConfigureBotWithSettings("ada", "owner", color, BotSettings{PlayerBotID: "pip", MoveDelayMs: &delay}); err != nil {
+				t.Fatal(err)
+			}
+			if g.AssignClient("visitor") != nil {
+				t.Fatal("visitor claimed a battle seat")
+			}
+			for ply, uci := range []string{"f2f3", "e7e5", "g2g4", "d8h4"} {
+				for _, request := range []MoveRequest{
+					{ClientID: "visitor", UCI: uci, BotMove: true, ExpectedPly: &ply},
+					{ClientID: "owner", UCI: uci, ExpectedPly: &ply},
+					{ClientID: "owner", UCI: uci, BotMove: true},
+				} {
+					if _, err := g.SubmitMove(request); err == nil {
+						t.Fatalf("accepted forbidden battle move: %+v", request)
+					}
+				}
+				request := MoveRequest{ClientID: "owner", UCI: uci, BotMove: true, ExpectedPly: &ply}
+				if _, err := g.SubmitMove(request); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := g.SubmitMove(request); err == nil {
+					t.Fatal("accepted stale battle move")
+				}
+				var err error
+				g, err = Restore(g.PersistentState())
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			if g.Bot.PlayerBotID != "pip" || g.Bot.ID != "ada" || g.Bot.MoveDelayMs == nil || *g.Bot.MoveDelayMs != delay || g.StateLocked().Status == "" {
+				t.Fatal("battle settings or outcome not recovered")
+			}
+			four := 4
+			if _, err := g.SubmitMove(MoveRequest{ClientID: "owner", UCI: "a2a3", BotMove: true, ExpectedPly: &four}); err == nil {
+				t.Fatal("battle continued after checkmate")
+			}
+		})
+	}
+}
+
+func TestBotSettingsValidation(t *testing.T) {
+	for _, delay := range []int{-1, 5001} {
+		g := NewGame()
+		if err := g.ConfigureBotWithSettings("pip", "owner", "w", BotSettings{MoveDelayMs: &delay}); err == nil {
+			t.Fatal("accepted invalid delay")
+		}
+		_ = g.ConfigureBot("pip", "owner", "w")
+		state := g.PersistentState()
+		state.Bot.MoveDelayMs = &delay
+		if _, err := Restore(state); err == nil {
+			t.Fatal("restored invalid delay")
+		}
+	}
+	g := NewGame()
+	if err := g.ConfigureBotWithSettings("pip", "owner", "w", BotSettings{PlayerBotID: "unknown"}); err == nil {
+		t.Fatal("accepted unknown player bot")
+	}
+	if err := g.ConfigureBotWithSettings("pip", "owner", "w", BotSettings{PlayerBotID: "pip"}); err != nil {
+		t.Fatal(err)
+	}
+	if g.Bot.MoveDelayMs == nil || *g.Bot.MoveDelayMs != 1500 {
+		t.Fatal("battle has no default delay")
+	}
+	state := g.PersistentState()
+	state.Bot.PlayerBotID = "unknown"
+	if _, err := Restore(state); err == nil {
+		t.Fatal("restored unknown player bot")
+	}
+}

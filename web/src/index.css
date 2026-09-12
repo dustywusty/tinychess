@@ -264,3 +264,11 @@ dialog::backdrop { background: #252b2877; backdrop-filter: blur(3px); }
 .bot-color { display: flex; gap: 20px; border: 0; margin-bottom: 20px; padding: 0; }
 .bot-color legend { padding-bottom: 8px; font-size: 13px; }
 .bot-color input { margin-right: 8px; }
+.bot-advanced { border-top: 1px solid var(--line); padding-top: 16px; margin-bottom: 20px; }
+.bot-advanced summary { cursor: pointer; font-weight: 600; }
+.bot-advanced p { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 8px 0 16px; }
+.bot-battle-toggle { display: flex; gap: 10px; align-items: center; margin-top: 16px; }
+.bot-select, .bot-delay { display: block; font-size: 14px; }
+.bot-select select { display: block; width: 100%; margin: 8px 0 16px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; color: var(--text); background: var(--bg); }
+.bot-delay output { float: right; color: var(--muted); }
+.bot-delay input { display: block; width: 100%; min-height: 36px; accent-color: var(--text); }

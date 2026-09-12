@@ -13,9 +13,10 @@ export function useBotGame(gameId: string, connected: boolean) {
  useEffect(() => { const change = () => setVisible(!document.hidden); document.addEventListener("visibilitychange", change); return () => document.removeEventListener("visibilitychange", change); }, []);
  useEffect(() => () => { void engine.current?.dispose(); engine.current = null; }, [gameId]);
  const historyKey = uci.join(" ");
+ const activeBotId = bot?.color === fen.split(" ")[1] ? bot.id : bot?.playerBotId;
  useEffect(() => {
   setThinking(false); setError("");
-  if (!bot || !connected || !visible || isSpectator || !playerColor || !clientId || status || fen.split(" ")[1] !== bot.color) return;
+  if (!bot || !activeBotId || !connected || !visible || isSpectator || !playerColor || !clientId || status) return;
   if (bot.policyVersion !== BOT_POLICY_VERSION) { setError("Update the app to play this computer opponent."); return; }
   const abort = new AbortController();
   const run = async () => {
@@ -24,7 +25,7 @@ export function useBotGame(gameId: string, connected: boolean) {
     engine.current ??= new ArasanEngine(() => workerTransport());
     let selected;
     for (let tries = 0; tries < 2; tries++) {
-     try { selected = await chooseBotMove(engine.current, botDefinition(bot.id), { fen, moves: historyKey ? historyKey.split(" ") : [] }, abort.signal); break; }
+     try { selected = await chooseBotMove(engine.current, botDefinition(activeBotId), { fen, moves: historyKey ? historyKey.split(" ") : [] }, abort.signal, undefined, bot.moveDelayMs); break; }
      catch (error) { if (abort.signal.aborted || tries) throw error; await engine.current.dispose(); engine.current = new ArasanEngine(() => workerTransport()); }
     }
     const current = useGameStore.getState();
@@ -38,6 +39,6 @@ export function useBotGame(gameId: string, connected: boolean) {
   };
   void run();
   return () => { abort.abort(); };
- }, [gameId, bot?.id, bot?.color, bot?.policyVersion, connected, visible, isSpectator, playerColor, clientId, fen, historyKey, status, attempt]);
- return { thinking, error, retry: () => setAttempt(value => value + 1) };
+ }, [gameId, activeBotId, bot?.color, bot?.policyVersion, bot?.moveDelayMs, connected, visible, isSpectator, playerColor, clientId, fen, historyKey, status, attempt]);
+ return { thinking, activeBotId, error, retry: () => setAttempt(value => value + 1) };
 }

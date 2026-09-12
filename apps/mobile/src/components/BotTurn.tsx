@@ -22,7 +22,8 @@ export function BotTurn({ gameID, state, cid, connected, accept, onThinkingChang
  const onReady = useCallback((value: EngineTransport) => setTransport(value), []);
  const historyKey = state.uci.join(" ");
  useEffect(() => { retries.current = 0; }, [historyKey, gameID]);
- const eligible = focused && active && connected && state.role === "player" && !!cid && !state.status && state.bot?.color === state.fen.split(" ")[1];
+ const activeBotId = state.bot?.color === state.fen.split(" ")[1] ? state.bot.id : state.bot?.playerBotId;
+ const eligible = focused && active && connected && state.role === "player" && !!cid && !state.status && !!activeBotId;
  useEffect(() => { const listener = AppState.addEventListener("change", value => setActive(value === "active")); return () => listener.remove(); }, []);
  useEffect(() => {
   if (!transport) return;
@@ -32,13 +33,13 @@ export function BotTurn({ gameID, state, cid, connected, accept, onThinkingChang
  }, [transport]);
  useEffect(() => {
   setThinking(false);
-  if (!eligible || !transport || !engine.current || !state.bot) return;
+  if (!eligible || !transport || !engine.current || !state.bot || !activeBotId) return;
   if (state.bot.policyVersion !== BOT_POLICY_VERSION) { setError("Update the app to play this computer opponent."); return; }
   const abort = new AbortController();
   const run = async () => {
    setThinking(true); setError("");
    try {
-    const selected = await chooseBotMove(engine.current!, botDefinition(state.bot!.id), { fen: state.fen, moves: state.uci }, abort.signal);
+    const selected = await chooseBotMove(engine.current!, botDefinition(activeBotId), { fen: state.fen, moves: state.uci }, abort.signal, undefined, state.bot?.moveDelayMs);
     if (abort.signal.aborted || current.current.fen !== state.fen || current.current.uci.length !== state.uci.length) return;
     const response = await makeMove(gameID, selected.uci, cid, { botMove: true, expectedPly: state.uci.length });
     if (abort.signal.aborted) return;
@@ -54,7 +55,7 @@ export function BotTurn({ gameID, state, cid, connected, accept, onThinkingChang
   };
   void run();
   return () => abort.abort();
- }, [eligible, transport, gameID, cid, state.fen, historyKey, state.bot?.id, accept]);
+ }, [eligible, transport, gameID, cid, state.fen, historyKey, activeBotId, state.bot?.policyVersion, state.bot?.moveDelayMs, accept]);
  // Remount the isolated runtime after backgrounding or cancellation.
  useEffect(() => { if (!active || !focused || !connected) { setTransport(null); setGeneration(value => value + 1); } }, [active, focused, connected]);
  return <View style={{ gap: 8 }}>
