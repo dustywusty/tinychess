@@ -135,6 +135,8 @@ GitHub Actions needs these repository settings:
 | Variable | `DIGITALOCEAN_APP_ID` | `e80ec2bc-7a78-4b44-b856-d2c26a1a1ca5` |
 
 The workflow renders and validates the spec, updates both components, and waits for deployment.
+The `--update-sources` flag refreshes the frontend checkout so it includes `Dockerfile.frontend-prebuilt` and subsequent changes to that file.
+Both image references remain pinned by digest.
 It checks that `/api/version` reports the expected commit and that the website responds.
 The `deployed-app-spec` artifact retains the exact spec for 30 days.
 Deployments run one at a time. An older queued run skips deployment if `main` already has a newer commit.
@@ -148,7 +150,7 @@ Use the rendered spec from a successful CI run to deploy the same image pair aga
 ```sh
 gh run download <successful-main-run-id> --name deployed-app-spec --dir /tmp/yourmove-deploy
 doctl apps propose --app e80ec2bc-7a78-4b44-b856-d2c26a1a1ca5 --spec /tmp/yourmove-deploy/app-images.yaml
-doctl apps update e80ec2bc-7a78-4b44-b856-d2c26a1a1ca5 --spec /tmp/yourmove-deploy/app-images.yaml --wait
+doctl apps update e80ec2bc-7a78-4b44-b856-d2c26a1a1ca5 --spec /tmp/yourmove-deploy/app-images.yaml --update-sources --wait
 ```
 
 To select another tested image pair, render a spec from its full digest references:

@@ -248,8 +248,9 @@ jobs:
       - name: Deploy and wait for completion
         if: steps.current.outputs.deploy == 'true'
         run: |
+          # The frontend still needs the latest checkout for its extraction Dockerfile.
           doctl apps update "$DIGITALOCEAN_APP_ID" \
-            --spec "$RUNNER_TEMP/app-images.yaml" --wait
+            --spec "$RUNNER_TEMP/app-images.yaml" --update-sources --wait
       - name: Check the deployed API
         if: steps.current.outputs.deploy == 'true'
         run: |
