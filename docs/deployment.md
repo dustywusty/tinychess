@@ -1,9 +1,10 @@
 # Deploy Tinychess and build an Android APK
 
-The container serves the Go API and the compiled website on port 8080.
+The backend container serves the Go API on port 8080.
+A separate App Platform Static Site serves the compiled React website and Arasan engine assets.
 The Android app connects to the same API through HTTPS.
 The runtime uses a non-root user and includes no shell or package manager.
-DigitalOcean App Platform is the primary deployment target. The `.do/app.yaml` file defines its service.
+DigitalOcean App Platform is the primary deployment target. The `.do/app.yaml` file defines both components.
 
 ## Current limits
 
@@ -34,7 +35,7 @@ make image-test
 ```
 
 The image test uses a temporary container and a random loopback port.
-It checks health, the embedded website, player seats, legal captures, SSE updates, and emoji reactions.
+It checks health, API-only routing, player seats, legal captures, SSE updates, and emoji reactions.
 It also checks the non-root user, a read-only filesystem, and a custom `PORT` value.
 The test removes only its own container.
 
@@ -51,7 +52,7 @@ docker load --input tinychess-linux-amd64.tar.gz
 ```
 
 The imported image name is `tinychess:ci`.
-This artifact is for local Docker testing. Hosted services use the published registry image.
+This artifact is for local Docker testing. App Platform builds the backend from the repository Dockerfile.
 
 After successful tests, pushes to `main`, version tags, and manual runs publish AMD64 and ARM64 images to GHCR.
 Pull requests never publish registry images.
@@ -76,77 +77,74 @@ Deploy the digest from the successful workflow summary.
 Retain the previous digest for rollback.
 If a GHCR package is private, configure registry credentials on the deployment host.
 Do not change package visibility without reviewing the intended audience.
-Publishing an image does not deploy it to DigitalOcean App Platform or Railway.
+Publishing an image does not deploy it to DigitalOcean App Platform.
 
 ## DigitalOcean App Platform
 
-App Platform runs the container and provides its public HTTPS endpoint.
-The website and API use one Web Service component, not a separate Static Site.
-The provided spec uses one instance, port 8080, and `/healthz` for health checks.
-It does not create a database or enable automatic deployments.
-The region defaults to `nyc`. The instance size defaults to `apps-s-1vcpu-1gb`.
+The spec updates the existing `hammerhead-app` in `nyc`, with app ID `e80ec2bc-7a78-4b44-b856-d2c26a1a1ca5`.
+The primary domain is `yourmove.fun`. The previous domain, `pawnd.dusty.wtf`, remains an alias.
+Both components use the `main` branch of `dustywusty/tinychess`.
 
-The published image includes Linux AMD64, which App Platform requires.
-GHCR images support manual deployments through a tag or digest.
-See DigitalOcean's [container deployment instructions](https://docs.digitalocean.com/products/app-platform/how-to/deploy-from-container-images/).
+| Component | Source | Public routes |
+| --- | --- | --- |
+| `tinychess` | `Dockerfile`, Go API only | `/api/*` |
+| `frontend` | `Dockerfile.frontend`, static output in `/site` | `/` and game links |
 
-### First deployment
+The frontend build compiles Arasan with Emscripten and builds the Vite client from `web/`.
+The static site serves `index.html` as the fallback for `/g/<game-id>` and legacy game links.
+The API ingress preserves the `/api` prefix. Web and mobile clients use the same public HTTPS origin.
+The backend retains one 512 MB instance and a direct `/healthz` probe on port 8080.
+The public version endpoint is `/api/version`.
 
-1. Publish a tested image with the GitHub release process described in this guide.
-2. In DigitalOcean, select **Create → App Platform → Container image**.
-3. Select **GitHub Container Registry**.
-4. Enter `ghcr.io/dustywusty/tinychess` as the image repository.
-5. Select the digest from the successful publishing workflow.
-6. For a private image, enter a read-only GHCR credential in the format `username:token`.
-7. Select **Web Service**, port `8080`, and one instance.
-8. Set the health check path to `/healthz`.
-9. Leave build and run commands empty. The image includes its executable and website.
-10. Review the region, instance size, and estimated cost before you create the app.
+### Automatic deployment
 
-Keep registry credentials out of Git and chat.
-The control panel stores the credentials needed to pull private images.
-App Platform does not automatically redeploy GHCR images when a tag changes.
+The `CI` workflow deploys after a push to `main`, including a pull request merge.
+It requires the application checks, backend image check, and static frontend build to pass.
+The application checks include Postgres recovery tests and web/mobile browser regressions.
+Pull requests and other branches run checks without deployment.
+A manual workflow run on `main` also permits deployment.
 
-Alternatively, copy `.do/app.yaml` and replace its example `tag` with your published `digest`.
-Do not specify both fields.
-After you authenticate `doctl`, create the app from that spec:
+GitHub Actions needs these repository settings:
+
+| Kind | Name | Value |
+| --- | --- | --- |
+| Secret | `DIGITALOCEAN_ACCESS_TOKEN` | A token with permission to read and update the app. |
+| Variable | `DIGITALOCEAN_APP_ID` | `e80ec2bc-7a78-4b44-b856-d2c26a1a1ca5` |
+
+The workflow validates the spec, updates both components, waits for deployment, and checks `/api/version` through the starter domain.
+Deployments run one at a time. An older queued run skips deployment if `main` already has a newer commit.
+DigitalOcean's direct GitHub deployment trigger is disabled so it cannot bypass these checks.
+The separate `Container` workflow can publish backend images to GHCR. App Platform does not require those published images.
+
+### Manual deployment
+
+Push the code to the branch named in both components of `.do/app.yaml`.
+Then validate and update the existing app:
 
 ```sh
-doctl apps spec validate .do/app.yaml --schema-only
-doctl apps create --spec .do/app.yaml --wait
+doctl auth init
+doctl apps propose --app e80ec2bc-7a78-4b44-b856-d2c26a1a1ca5 --spec .do/app.yaml
+doctl apps update e80ec2bc-7a78-4b44-b856-d2c26a1a1ca5 --spec .do/app.yaml --update-sources --wait
 ```
 
-The first command checks structure only. It does not check registry access or create resources.
-The second command creates billable resources.
-For a private image, enter registry credentials through the control panel or a private spec outside Git.
+The update starts a deployment. It does not create another app.
 See the [App Platform spec reference](https://docs.digitalocean.com/products/app-platform/reference/app-spec/).
 
-After deployment, use the assigned `https://<app-name>.ondigitalocean.app` URL.
-A custom domain is optional for phone testing.
-Check the endpoints with your assigned hostname:
+Check the public site and API after deployment:
 
 ```sh
-curl --fail https://YOUR-APP.ondigitalocean.app/healthz
-curl --fail https://YOUR-APP.ondigitalocean.app/api/version
+curl --fail https://yourmove.fun/
+curl --fail https://yourmove.fun/api/version
 ```
 
-Set the APK's `EXPO_PUBLIC_API_URL` to this same HTTPS origin.
-Do not use the internal port, container address, or `/api` path in the APK origin.
-The expected health response is `{"ok":true}`.
-The version response identifies the server commit.
+Set `EXPO_PUBLIC_API_URL` to `https://yourmove.fun` when building the APK.
+Do not include `/api` or an internal port in this origin.
 
-### Domain: yourmove.fun
+### Other Docker hosts
 
-The app spec declares `yourmove.fun` as the primary domain without taking over its DNS zone.
-The website and API will share `https://yourmove.fun`.
-
-1. In App Platform, add `yourmove.fun` under the app's domain configuration if the spec did not add it.
-2. At your DNS provider, add the exact records that DigitalOcean supplies for this domain.
-3. Wait for domain verification and the HTTPS certificate.
-4. Check `https://yourmove.fun/healthz` and `https://yourmove.fun/api/version` before you build the APK.
-
-No DNS records or cloud resources change when you edit this repository.
-See DigitalOcean's [domain instructions](https://docs.digitalocean.com/products/app-platform/how-to/manage-domains/).
+The backend image contains no web assets. Build or export the matching static files separately.
+The Compose example mounts `web/dist` and starts the backend with `-static-dir /site` for hosts that need one public service.
+Build `web/dist` before starting Compose. For App Platform, the Static Site component serves these files instead.
 
 ### Postgres recovery
 
@@ -187,65 +185,17 @@ Missed emoji reactions do not replay.
 One instance still has temporary downtime during replacement.
 Keep scaling fixed at one instance until shared event delivery is implemented.
 
-For updates, change the image digest in the existing app's component source and deploy manually.
-Retain the previous digest for rollback.
-If you update through `doctl`, export the current app spec before you change its image digest.
-Preserve domains, encrypted credentials, and runtime variables from that exported spec.
-Do not replace an existing app with the initial template because that can remove its later configuration.
-
-## Alternative: Railway
-
-Railway can run the same published GHCR image without a separate proxy container.
-Keep the website and API together in one service.
-Private registry credentials require Railway's Pro plan. See the [private registry guide](https://docs.railway.com/guides/private-container-registry).
-Public images do not require registry credentials.
-
-To deploy the service:
-
-1. Create a Railway service from a Docker image.
-2. Enter the published image reference, such as `ghcr.io/dustywusty/tinychess:0.1.0`.
-3. For a private image, configure read-only registry credentials in Railway.
-4. Set the service variable `PORT=8080`.
-5. Set the health check path to `/healthz`.
-6. Keep exactly one replica in one region.
-7. Disable Serverless and image auto updates.
-8. Leave the start command empty so Railway uses the image entrypoint.
-9. Generate a public domain with target port `8080`.
-10. Review the estimated cost before deployment.
-
-Replace the example tag with your tested, uniquely versioned release tag.
-Keep registry credentials out of Git.
-See Railway's [image deployment guide](https://docs.railway.com/services).
-
-Railway checks the configured health endpoint before it activates a deployment.
-It does not continuously poll that endpoint after activation.
-See [Railway health checks](https://docs.railway.com/deployments/healthchecks).
-
-CAUTION: Keep Serverless disabled for live streams. Without Postgres, a sleeping service can also lose its games and player seats.
-
-After deployment, check `/healthz` and `/api/version` on the generated HTTPS domain.
-Set the APK's `EXPO_PUBLIC_API_URL` to that HTTPS origin without an `/api` suffix.
-Railway provides HTTPS through its [public networking](https://docs.railway.com/networking/public-networking).
-
-For Postgres recovery, set `DATABASE_URL` through Railway service variables.
-The same recovery rules and single-instance limit apply on both platforms.
-
 ## Update or roll back
 
-CAUTION: Without Postgres, finish active games before replacement. Restarts erase in-memory games.
+Merge tested changes into `main` to deploy both App Platform components.
+Without Postgres, finish active games before replacement because restarts erase in-memory games.
+Back up Postgres before updates if persistence is enabled.
 
-Before an update, back up Postgres if persistence is enabled.
-Record the current image reference.
-Select the new tested digest for App Platform or release tag for Railway.
-
-For App Platform, update the existing component's image digest and deploy from the control panel.
-For Railway, update the service's image reference to the tested release and deploy manually.
-Check `/healthz`, `/api/version`, and a two-phone game after deployment.
-
-For rollback, repeat the same process with the previous image reference.
+For rollback, revert the release commit through a pull request and merge it into `main`.
+The deployment workflow rebuilds both components from that revision.
 Check database schema compatibility before rollback because startup migrations can change the schema.
 Do not roll back active games to a version without recovery support.
-Older versions do not update the saved recovery state.
+After deployment, check the website, `/api/version`, and a two-player game.
 
 ## Build the shareable Android APK
 

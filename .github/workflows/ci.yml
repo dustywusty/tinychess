@@ -3,6 +3,10 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   go:
@@ -58,6 +62,7 @@ jobs:
           pnpm --filter @yourmove/web exec vite --host 127.0.0.1 --port 5181 > "$RUNNER_TEMP/bot-web.log" 2>&1 &
           pnpm --filter @yourmove/mobile exec expo start --web --port 8082 > "$RUNNER_TEMP/bot-mobile.log" 2>&1 &
           for attempt in $(seq 1 60); do
+            echo "Waiting for browser servers ($attempt/60)"
             if curl -fsS http://localhost:18091/healthz && curl -fsS http://localhost:5181/ > /dev/null && curl -fsS http://localhost:8082/ > /dev/null; then break; fi
             sleep 1
           done
@@ -72,3 +77,85 @@ jobs:
             apps/mobile/test-results
             ${{ runner.temp }}/bot-*.log
           retention-days: 7
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build backend image
+        run: docker build --build-arg COMMIT="$GITHUB_SHA" -t tinychess-backend:ci .
+      - name: Check backend health
+        run: |
+          docker run -d --name backend --read-only --cap-drop ALL \
+            --security-opt no-new-privileges -p 127.0.0.1:8080:8080 tinychess-backend:ci
+          trap 'docker logs backend; docker rm -f backend' EXIT
+          curl --fail --retry 10 --retry-connrefused --retry-delay 1 http://localhost:8080/healthz
+          curl --fail http://localhost:8080/api/version
+  frontend:
+    name: Build static frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.frontend
+          load: true
+          tags: tinychess-frontend:ci
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,scope=frontend,mode=max
+      - name: Check static export
+        run: |
+          container_id=$(docker create tinychess-frontend:ci /unused)
+          trap 'docker rm "$container_id"' EXIT
+          docker cp "$container_id:/site" "$RUNNER_TEMP/frontend"
+          test -s "$RUNNER_TEMP/frontend/index.html"
+          test -s "$RUNNER_TEMP/frontend/arasan/arasan.wasm"
+          test -s "$RUNNER_TEMP/frontend/arasan/worker.js"
+  deploy:
+    name: Deploy to DigitalOcean
+    needs: [go, docker, frontend]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: digitalocean-production
+      cancel-in-progress: false
+    env:
+      DIGITALOCEAN_APP_ID: ${{ vars.DIGITALOCEAN_APP_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check whether this commit is still current
+        id: current
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest_sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          if [ "$latest_sha" = "$GITHUB_SHA" ]; then
+            echo 'deploy=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'deploy=false' >> "$GITHUB_OUTPUT"
+            echo 'Skipping deployment because main has a newer commit.'
+          fi
+      - name: Install doctl
+        if: steps.current.outputs.deploy == 'true'
+        uses: digitalocean/action-doctl@3cb3953159719656269e044e0e24ca16dd2a690f # v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+          version: 1.168.0
+      - name: Validate the app update
+        if: steps.current.outputs.deploy == 'true'
+        run: |
+          test -n "$DIGITALOCEAN_APP_ID"
+          doctl apps propose --app "$DIGITALOCEAN_APP_ID" --spec .do/app.yaml
+      - name: Deploy and wait for completion
+        if: steps.current.outputs.deploy == 'true'
+        run: |
+          doctl apps update "$DIGITALOCEAN_APP_ID" \
+            --spec .do/app.yaml --update-sources --wait
+      - name: Check the deployed API
+        if: steps.current.outputs.deploy == 'true'
+        run: |
+          app_url=$(doctl apps get "$DIGITALOCEAN_APP_ID" --format DefaultIngress --no-header)
+          curl --fail --retry 5 --retry-delay 5 "$app_url/api/version"
+          echo "Deployment completed: $app_url" >> "$GITHUB_STEP_SUMMARY"

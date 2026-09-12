@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,10 +21,10 @@ import (
 	"tinychess/internal/game"
 	"tinychess/internal/handlers"
 
-	"github.com/chromedp/chromedp"
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/cdproto/runtime"
+	"github.com/chromedp/chromedp"
 	"github.com/google/uuid"
 )
 
@@ -64,7 +66,7 @@ type move struct {
 func runGame(t *testing.T, label string, moves []move, expectMate bool) {
 	t.Helper()
 
-	server := newTestServer()
+	server := newTestServer(t)
 	defer server.Close()
 
 	gameID := uuid.NewString()
@@ -179,7 +181,7 @@ func runGame(t *testing.T, label string, moves []move, expectMate bool) {
 	rec.Capture(t)
 }
 
-func newTestServer() *httptest.Server {
+func newTestServer(t *testing.T) *httptest.Server {
 	if err := chdirToRepoRoot(); err != nil {
 		panic(fmt.Sprintf("e2e: %v", err))
 	}
@@ -188,14 +190,24 @@ func newTestServer() *httptest.Server {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/games", h.HandleCreateGame)
+	mux.HandleFunc("GET /api/games/{gameId}/snapshot", h.HandleSnapshot)
+	mux.HandleFunc("GET /api/games/{gameId}", h.HandleGetGame)
 	mux.HandleFunc("GET /api/sse/{gameId}", h.HandleSSE)
 	mux.HandleFunc("POST /api/games/{gameId}/move", h.HandleMove)
 	mux.HandleFunc("POST /api/games/{gameId}/react", h.HandleReact)
 	mux.HandleFunc("POST /api/games/{gameId}/release", h.HandleRelease)
 	mux.HandleFunc("GET /new", h.HandleNewRedirect)
-	mux.HandleFunc("GET /", handlers.SpaHandler(os.DirFS("web/dist")))
+	backend := httptest.NewServer(mux)
+	t.Cleanup(backend.Close)
+	backendURL, err := url.Parse(backend.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	public := http.NewServeMux()
+	public.Handle("/api/", httputil.NewSingleHostReverseProxy(backendURL))
+	public.HandleFunc("/", handlers.SpaHandler(os.DirFS("web/dist")))
 
-	return httptest.NewServer(mux)
+	return httptest.NewServer(public)
 }
 
 func newBrowserCtx(t *testing.T) (context.Context, context.CancelFunc) {

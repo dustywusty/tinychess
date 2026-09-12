@@ -25,6 +25,12 @@ Computer games offer Pip, Max, Ada, Viktor, and The Machine.
 Arasan runs locally on the client. The backend still validates and saves every move.
 See [computer opponents](docs/computer-opponents.md) for the engine build, architecture, tests, and licensing notes.
 
+## Deployment
+
+GitHub Actions deploys merges to `main` to the existing DigitalOcean app at https://yourmove.fun.
+App Platform serves `web/dist` as a static site and runs the Go API in a separate Docker image.
+See [deployment instructions](docs/deployment.md) for the app spec, CI requirements, and mobile builds.
+
 ## Start locally
 
 Requirements: Go 1.24+, Node 22.13+ (Node 24 recommended), Corepack, Make, and optionally Postgres.
