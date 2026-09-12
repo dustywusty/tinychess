@@ -1,9 +1,9 @@
 name: Container
 
+# Optional multi-architecture releases. CI handles PR checks and main deployments.
+
 on:
-  pull_request:
   push:
-    branches: [main]
     tags: ['v*.*.*']
   workflow_dispatch:
 

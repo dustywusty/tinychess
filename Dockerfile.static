@@ -1,0 +1,8 @@
+# This image packages the frontend output that CI already built and tested.
+# Build with web/dist as the context. App Platform extracts /site for its CDN.
+FROM scratch
+ARG COMMIT=dev
+LABEL org.opencontainers.image.title="Tinychess frontend" \
+      org.opencontainers.image.source="https://github.com/dustywusty/tinychess" \
+      org.opencontainers.image.revision=$COMMIT
+COPY . /site/

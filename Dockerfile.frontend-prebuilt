@@ -1,0 +1,6 @@
+# App Platform does not accept image sources on static-site components.
+# Extract CI's immutable frontend image without installing or compiling anything.
+ARG FRONTEND_IMAGE
+FROM ${FRONTEND_IMAGE} AS assets
+FROM scratch
+COPY --from=assets /site /site

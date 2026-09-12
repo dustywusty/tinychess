@@ -59,3 +59,6 @@ e2e-artifacts/
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Python deployment-script tests
+__pycache__/
