@@ -61,6 +61,7 @@ func main() {
 	// API
 	mux.HandleFunc("POST /api/games", h.HandleCreateGame)
 	mux.HandleFunc("GET /api/games/{gameId}/snapshot", h.HandleSnapshot)
+	mux.HandleFunc("GET /api/stats/games", h.HandleGameCounts)
 	mux.HandleFunc("GET /api/sse/{gameId}", h.HandleSSE)
 	mux.HandleFunc("POST /api/games/{gameId}/move", h.HandleMove)
 	mux.HandleFunc("POST /api/games/{gameId}/react", h.HandleReact)
