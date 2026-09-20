@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { ServiceGames } from "../components/ServiceGames";
 import { createGame } from "../api/game";
 import { Header } from "../components/Header/Header";
 import { RecentGames } from "../components/RecentGames/RecentGames";
@@ -52,6 +53,7 @@ export function Home() {
       </div>
       <div className="home-coach"><CoachCard /></div>
     </div>
+    <ServiceGames />
     <footer className="site-footer"><span>64 squares. Endless possibilities.</span><a href="/arasan/NOTICES.txt">Engine credits</a></footer>
     <BotPicker open={computer} busy={busy} onClose={() => setComputer(false)} onStart={(id, color, settings) => void handleNew(id, color, settings)} />
   </main>;

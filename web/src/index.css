@@ -272,3 +272,16 @@ dialog::backdrop { background: #252b2877; backdrop-filter: blur(3px); }
 .bot-select select { display: block; width: 100%; margin: 8px 0 16px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; color: var(--text); background: var(--bg); }
 .bot-delay output { float: right; color: var(--muted); }
 .bot-delay input { display: block; width: 100%; min-height: 36px; accent-color: var(--text); }
+
+.service-games { padding: 28px 0; border-top: 1px solid var(--line); }
+.service-games h2 { margin: 0; font-size: 22px; }
+.service-games > p { font-size: 13px; line-height: 1.6; }
+.service-games-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; }
+.service-game-list h3 { font-size: 14px; }
+.service-game-list ul { list-style: none; margin: 0; padding: 0; }
+.service-game-list li { border-bottom: 1px solid var(--line); }
+.service-game-list a { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0; font-size: 13px; }
+.service-game-list small { display: block; margin-top: 5px; color: var(--muted); font-size: 11px; }
+.service-game-status { color: var(--muted); font-size: 12px; text-align: right; }
+.service-pagination { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; font-size: 12px; }
+@media (max-width: 600px) { .service-games-grid { grid-template-columns: 1fr; gap: 16px; } }
