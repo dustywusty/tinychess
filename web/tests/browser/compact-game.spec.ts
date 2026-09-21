@@ -14,9 +14,10 @@ test("mobile keeps essential status and reactions while desktop retains its copy
   await expect(spectator.locator("#turn")).toHaveText("White to move");
   await expect(spectator.getByText("Watching", { exact: true })).toBeVisible();
   await expect(spectator.getByText("LIVE", { exact: true })).toBeVisible();
-  for (const copy of ["A FRIENDLY MATCH", "The seats are full. You can watch and react.", "A LITTLE BACK & FORTH", "Say it with an emoji.", "A few favorites"]) {
+  for (const copy of ["A FRIENDLY MATCH", "The seats are full. You can watch and react.", "Say it with an emoji.", "A few favorites"]) {
     await expect(spectator.getByText(copy, { exact: true })).not.toBeVisible();
   }
+  await expect(spectator.getByText("A LITTLE BACK & FORTH", { exact: true })).toBeVisible();
   const heading = await spectator.locator(".game-heading").boundingBox();
   expect(heading!.height).toBeLessThan(40);
   await expect(spectator.getByRole("button", { name: "More emoji" })).toBeVisible();

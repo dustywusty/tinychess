@@ -1,0 +1,88 @@
+[
+  {
+    "text": "Can we replay the move I made?",
+    "expected": "played"
+  },
+  {
+    "text": "Put both options on the starting board.",
+    "expected": "compare"
+  },
+  {
+    "text": "I want to see the engine recommendation instead.",
+    "expected": "alternative"
+  },
+  {
+    "text": "Advance this variation by one ply.",
+    "expected": "next"
+  },
+  {
+    "text": "Take this variation one step backward.",
+    "expected": "back"
+  },
+  {
+    "text": "I would like to solve this position on the board.",
+    "expected": "exercise"
+  },
+  {
+    "text": "Close the analysis and resume my game.",
+    "expected": "return"
+  },
+  {
+    "text": "Explain the evaluation of my move.",
+    "expected": "explain"
+  },
+  {
+    "text": "I only want a small hint, no answer.",
+    "expected": "hint"
+  },
+  {
+    "text": "Explore Nxe5 with the f3 knight.",
+    "expected": "candidate-0"
+  },
+  {
+    "text": "Explore Nxd5 with the c3 knight.",
+    "expected": "candidate-1"
+  },
+  {
+    "text": "Explore a capture with one of my knights.",
+    "expected": "clarify"
+  },
+  {
+    "text": "Move a knight to capture a pawn, whichever you think I meant.",
+    "expected": "clarify"
+  },
+  {
+    "text": "Send a move to the real game on my behalf.",
+    "expected": "unsupported"
+  },
+  {
+    "text": "Erase the saved move history.",
+    "expected": "unsupported"
+  },
+  {
+    "text": "Can you book me a flight?",
+    "expected": "unsupported"
+  },
+  {
+    "text": "Now advance the line.",
+    "expected": "next",
+    "recentRequest": "Show the move I played.",
+    "recentAction": "played"
+  },
+  {
+    "text": "Now return to the real board.",
+    "expected": "return",
+    "recentRequest": "Show a hint.",
+    "recentAction": "hint"
+  },
+  {
+    "text": "Please analyze the selected move.",
+    "expected": "review",
+    "initial": true
+  },
+  {
+    "text": "What is the next move in the variation?",
+    "expected": "unsupported",
+    "initial": true
+  }
+]

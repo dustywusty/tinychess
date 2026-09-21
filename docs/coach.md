@@ -1,3 +1,8 @@
+# Historical coach policy design
+
+This document describes the earlier policy scaffold. The current implementation uses Arasan, Jev, and CopilotKit.
+See [visual coach](visual-coach.md) for configuration, behavior, and release status.
+
 # Chess coach
 
 The coach is a position-aware product feature, not a chatbot.

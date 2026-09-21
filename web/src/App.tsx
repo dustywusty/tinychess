@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Game } from "./pages/Game";
+import { CoachProvider } from "./coach/CoachProvider";
 import { Home } from "./pages/Home";
 
 function currentGameId(): string {
@@ -22,6 +23,6 @@ export default function App() {
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
-  if (gameId) return <Game gameId={gameId} />;
+  if (gameId) return <CoachProvider key={gameId} gameId={gameId}><Game gameId={gameId} /></CoachProvider>;
   return <Home />;
 }

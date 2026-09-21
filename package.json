@@ -6,6 +6,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
+    "engine:native": "node engine/arasan/native.mjs",
     "engine:build": "node engine/arasan/prepare.mjs",
     "engine:check": "node engine/arasan/check.mjs",
     "engine:test": "node --experimental-strip-types engine/arasan/smoke.ts",

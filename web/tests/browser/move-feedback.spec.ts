@@ -1,0 +1,56 @@
+import { test, expect } from '@playwright/test';
+
+test('move feedback stays in the collapsible sidebar and follows the player’s moves', async ({ page, request }) => {
+ const owner = `feedback-${Date.now()}`;
+ const { id } = await (await request.post('/api/games', { data: { botId: 'machine', clientId: owner, color: 'w' } })).json();
+ await page.addInitScript(cid => localStorage.setItem('tinychess:clientId', cid), owner);
+ await page.setViewportSize({ width: 1440, height: 1100 });
+ await page.goto(`/g/${id}`);
+ await page.locator('[data-square="e2"]').click(); await page.locator('[data-square="e4"]').click();
+ await expect(page.locator('.move-option-value').first()).toContainText('e4', { timeout: 15000 });
+ await expect(page.locator('.coach-panel')).not.toContainText('Reviewing move');
+ await expect(page.locator('.coach-arrows')).toHaveCount(0);
+ await page.getByRole('button', { name: 'Your move', exact: true }).click();
+ await expect(page.locator('[data-square="e2"]')).toHaveAttribute('data-coach-square', 'origin');
+ await expect(page.locator('[data-square="e4"]')).toHaveAttribute('data-coach-square', 'destination');
+ await expect(page.locator('.coach-arrows')).toHaveCount(0);
+ await page.getByRole('button', { name: 'Compare', exact: true }).click();
+ const values = await page.locator('.move-option-value').allTextContents();
+ if (values[0].startsWith('e4') && values[1].startsWith('e4')) {
+  await expect(page.locator('.coach-arrows line')).toHaveCount(1);
+  await expect(page.getByText('Also the best move')).toBeVisible();
+ }
+ await page.getByRole('button', { name: 'Your move', exact: true }).click();
+ await page.getByRole('button', { name: 'Before', exact: true }).click();
+ await expect(page.locator('[data-square="e2"]')).toHaveAttribute('aria-label', /white pawn/);
+ await expect(page.locator('[data-square="e4"]')).toHaveAttribute('aria-label', /empty/);
+ await page.getByRole('button', { name: 'Continue', exact: true }).click();
+ await expect(page.locator('[data-square="e4"]')).toHaveAttribute('aria-label', /white pawn/);
+ await page.screenshot({ path: '/tmp/yourmove-review-after.png', fullPage: true });
+ await page.getByRole('button', { name: 'Return to game', exact: true }).click();
+ const board = await page.locator('.chess-board').boundingBox();
+ const panel = await page.locator('.coach-panel').boundingBox();
+ expect(panel!.x).toBeGreaterThan(board!.x + board!.width);
+ const reactions = await page.locator('.reaction-card').boundingBox();
+ expect(reactions!.y).toBeGreaterThan(panel!.y + panel!.height);
+ await page.getByRole('button', { name: 'Chess coach', exact: true }).click();
+ await expect(page.locator('#coach-widget-body')).toBeHidden();
+ await page.getByRole('button', { name: 'Chess coach', exact: true }).click();
+ await expect(page.locator('#coach-widget-body')).toBeVisible();
+ await page.locator('.reaction-card > summary').click();
+ await expect(page.locator('.reaction-card .emoji-controls')).toBeHidden();
+ await page.locator('.reaction-card > summary').click();
+ await expect(page.getByText('Take your time. Make it a good one.')).toHaveCount(0);
+ await expect.poll(async () => (await (await request.get(`/api/games/${id}/snapshot?clientId=${owner}`)).json()).uci.length).toBe(2);
+ await page.locator('[data-square="g1"]').click(); await page.locator('[data-square="f3"]').click();
+ await expect(page.locator('.move-option-value').first()).toContainText('Nf3', { timeout: 15000 });
+ await expect(page.locator('.coach-panel')).not.toContainText('Reviewing move');
+ await page.screenshot({ path: '/tmp/yourmove-feedback-desktop.png', fullPage: true });
+ await page.setViewportSize({ width: 393, height: 852 });
+ await page.screenshot({ path: '/tmp/yourmove-feedback-mobile.png', fullPage: true });
+ expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+ await page.getByRole('button', { name: 'Alternative', exact: true }).click();
+ await expect(page.getByText('Reviewing move 2 — White')).toBeVisible();
+ await page.getByRole('button', { name: 'Return to game', exact: true }).click();
+ await expect(page.getByText('Reviewing move 2 — White')).toHaveCount(0);
+});

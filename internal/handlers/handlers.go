@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"tinychess/internal/coach"
 	"tinychess/internal/game"
 	"tinychess/internal/logging"
 
@@ -20,8 +21,10 @@ import (
 // Handler contains dependencies for HTTP handlers. A nil DB selects volatile
 // in-memory games. With a DB, storage errors must never fall back to memory.
 type Handler struct {
-	Hub *game.Hub
-	DB  *gorm.DB
+	Narrator *coach.Narrator
+	Coach    *coach.Service
+	Hub      *game.Hub
+	DB       *gorm.DB
 }
 
 // NewHandler creates a new handler instance with no persistence layer.

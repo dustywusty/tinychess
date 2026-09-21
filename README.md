@@ -21,7 +21,8 @@ Available features include:
 Arasan runs on your device through WebAssembly. The Go server validates and saves moves, so computer games still require an API connection.
 The [computer opponents guide](docs/computer-opponents.md) explains the engine, opponent behavior, and build requirements.
 
-The chess coach is a **Coming soon** preview on the home screen. It does not provide advice or call a coach API.
+The home screen keeps its **Coming soon** preview. An opt-in web coach now supports visual move review, hints, and sandbox exercises.
+See the [coach setup and release status](docs/visual-coach.md).
 
 ## At the board
 
