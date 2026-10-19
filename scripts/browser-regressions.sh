@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 : "${RUNNER_TEMP:?Set RUNNER_TEMP to a temporary directory}"
+export COACH_ENABLED=1
+export COACH_ENGINE_PATH="${COACH_ENGINE_PATH:-$PWD/engine/arasan/generated/native/arasan}"
 export PORT="${PORT:-18091}"
 export EXPO_PUBLIC_API_URL="http://127.0.0.1:$PORT"
 web_url="$EXPO_PUBLIC_API_URL"
@@ -14,8 +16,9 @@ trap 'cleanup' EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
+VITE_COACH_ENABLED=1 pnpm --filter @yourmove/web exec vite build --outDir "$RUNNER_TEMP/coach-web"
 go build -o "$RUNNER_TEMP/bot-api" .
-"$RUNNER_TEMP/bot-api" -static-dir web/dist > "$RUNNER_TEMP/bot-api.log" 2>&1 &
+"$RUNNER_TEMP/bot-api" -static-dir "$RUNNER_TEMP/coach-web" > "$RUNNER_TEMP/bot-api.log" 2>&1 &
 pids+=("$!")
 pnpm --filter @yourmove/mobile exec expo start --web --port 8082 > "$RUNNER_TEMP/bot-mobile.log" 2>&1 &
 pids+=("$!")

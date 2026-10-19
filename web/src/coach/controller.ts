@@ -1,6 +1,7 @@
 export interface Arrow { from: string; to: string; label: string }
 export interface MoveAssessment { grade: string; tone: string; played: string; best: string; playedScore: { kind: 'cp' | 'mate'; value: number }; bestScore: { kind: 'cp' | 'mate'; value: number }; summary: string; difference?: number }
 export interface Lesson {
+ teaching?: { view: string; title: string; focus: string[]; prompt?: { label: string; question: string } };
  currentPosition?: boolean;
  recommendation?: { move: string; summary: string; score: { kind: 'cp' | 'mate'; value: number } };
  assessment?: MoveAssessment;
@@ -30,7 +31,7 @@ export function navigate(lesson: Lesson, action: string): Lesson | null {
  const frames = lesson.views[branch]; if (!frames) return null;
  const step = action === 'before' ? 0 : action === 'next' ? Math.min(lesson.step + 1, frames.length - 1) : action === 'back' ? Math.max(lesson.step - 1, 0) : branch === 'compare' ? 0 : Math.min(1, frames.length - 1);
  const frame = frames[step];
- return { ...lesson, ...frame, caption: lesson.recommendation && step < 2 ? lesson.recommendation.summary : frame.caption, branch, step, steps: frames.length - 1, mode: 'reviewing' };
+ return { ...lesson, ...frame, teaching: undefined, caption: lesson.recommendation && step < 2 ? lesson.recommendation.summary : frame.caption, branch, step, steps: frames.length - 1, mode: 'reviewing' };
 }
 
 export function formatScore(score: { kind: 'cp' | 'mate'; value: number }): string {

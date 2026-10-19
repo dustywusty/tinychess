@@ -1,3 +1,4 @@
+import { randomUUID } from "../lib/uuid.ts";
 import { useEffect, useState } from 'react';
 import type { Lesson } from './controller';
 
@@ -13,7 +14,7 @@ export function useMoveFeedback(gameId: string, clientId: string, moves: string[
   setState({ lesson: null, pending: true, error: '' });
   const timer = window.setTimeout(async () => {
    try {
-    const response = await fetch(`/api/games/${gameId}/coach`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: abort.signal, body: JSON.stringify({ clientId, action: 'review', ply, requestId: crypto.randomUUID() }) });
+    const response = await fetch(`/api/games/${gameId}/coach`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: abort.signal, body: JSON.stringify({ clientId, action: 'review', ply, requestId: randomUUID() }) });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Couldn’t review this move.');
     if (!abort.signal.aborted) setState({ lesson: data, pending: false, error: '' });

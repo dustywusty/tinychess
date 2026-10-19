@@ -71,13 +71,13 @@ Reload starts a clean review session; lessons expire after 30 minutes.
 
 A projection contains only permitted information. Revealed lines include validated local navigation frames.
 Comparison, continuation, back, and return buttons make no inference calls. Revealed navigation also makes no network calls.
-Line arrows use solid amber for the played move and dashed blue for the alternative, with accessible text descriptions.
+Line arrows use solid green for the played move and dashed purple for the alternative, with accessible text descriptions.
 All arrows follow board orientation. The coach adds no motion.
 
 The engine allows two concurrent processes, 16 MB hash tables, and a 1.5-second search budget.
 A process has a five-second total deadline. Analysis runs until an explicit stop at 1.5 seconds to avoid the engine’s early depth-2 exit on a single restricted candidate. The analysis cache holds 256 entries for one fixed engine configuration.
 The cache key includes the full move history and restricted candidate. It does not reuse another budget or engine instance.
-The service retains at most 1,000 lessons and permits 12 expensive actions per seat/game per minute.
+The service retains at most 1,000 lessons and permits 60 requests per seat/game per minute. Routing and analysis within one request share one slot.
 Repeated reviews can reuse cached analysis immediately. Providers have ten-second deadlines.
 
 Exercise attempts never use the live move endpoint.
@@ -154,3 +154,21 @@ analysis of the latest live position. Requests to explain a past move still open
 Completed games have no next move; review a played move instead. Existing seat and game eligibility rules apply.
 
 The sidebar is 400 pixels wide on large screens. Its status, coach, reactions, and move-history cards collapse independently.
+
+
+## Jev teaching decisions
+
+A language request asks Jev four Choice questions in one API call: the application action,
+the teaching view, the line to focus on, and one suggested follow-up. The backend validates
+all choices. It derives highlighted squares from legal engine lines; the model supplies no coordinates or code.
+
+The available teaching views keep the current position, demonstrate a move, compare alternatives,
+show a possible reply, or start an exercise. Explicit hidden-answer requests override presentation choices.
+A request for a best move cannot silently become an exercise unless answers are hidden.
+Unsupported requests and ambiguous move references do not change the board.
+
+The sidebar shows the chosen view, focused square, conversation, and follow-up question.
+CopilotKit continues to transport state and narration through its headless integration.
+The custom conversation retains up to 12 messages while a lesson is open; the server retains the last six
+question/action/view summaries to resolve follow-ups. Return clears the client conversation.
+Exercise mode hides earlier chat answers. Browser-only navigation clears the model-selected focus.

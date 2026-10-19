@@ -5,13 +5,14 @@ import type { Color, Square } from "../../types/chess";
 import { Piece } from "../Piece";
 
 export interface BoardProps {
+  focusSquares?: string[];
   showRoutes?: boolean;
   arrows?: { from: string; to: string; label: string }[];
   fen: string; uci: string[]; perspective: Color; selected: Square | null; disabled?: boolean;
   onSquareClick: (square: Square) => void; onMove?: (from: Square, to: Square) => void; preview?: boolean;
 }
 const names: Record<string, string> = { p: "pawn", n: "knight", b: "bishop", r: "rook", q: "queen", k: "king" };
-export function Board({ fen, uci, perspective, selected, disabled = false, onSquareClick, onMove, preview = false, arrows: inputArrows = [], showRoutes = true }: BoardProps) {
+export function Board({ fen, uci, perspective, selected, disabled = false, onSquareClick, onMove, preview = false, arrows: inputArrows = [], showRoutes = true, focusSquares = [] }: BoardProps) {
   const markerId = useId().replace(/:/g, '');
   const arrows = inputArrows.filter((arrow, index, all) => all.findIndex(other => other.from === arrow.from && other.to === arrow.to) === index);
   const chess = useMemo(() => new Chess(fen), [fen]);
@@ -38,7 +39,7 @@ export function Board({ fen, uci, perspective, selected, disabled = false, onSqu
       const arrival = arrows.find(arrow => arrow.to === square);
       const highlight = arrival ?? departure;
       const target = targets.includes(square as ChessSquare);
-      return <button key={square} type="button" data-square={preview ? undefined : square} data-coach-square={highlight ? arrival ? "destination" : "origin" : undefined} data-coach-color={highlight?.label === "Alternative" ? "alternative" : highlight ? "played" : undefined} disabled={disabled} tabIndex={preview ? -1 : 0}
+      return <button key={square} type="button" data-square={preview ? undefined : square} data-coach-focus={focusSquares.includes(square) || undefined} data-coach-square={highlight ? arrival ? "destination" : "origin" : undefined} data-coach-color={highlight?.label === "Alternative" ? "alternative" : highlight ? "played" : undefined} disabled={disabled} tabIndex={preview ? -1 : 0}
         aria-label={square + (piece ? ", " + (piece.color === "w" ? "white" : "black") + " " + names[piece.type] : ", empty") + (target ? ", legal move" : "")}
         aria-pressed={selected === square}
         className={["board-square", (row + column) % 2 === 0 ? "light-square" : "dark-square", isLast ? "last-move" : "", selected === square ? "selected-square" : "", inCheck ? "in-check" : ""].join(" ")}

@@ -1,3 +1,4 @@
+import { randomUUID } from "./uuid.ts";
 const KEY = "tinychess:clientId";
 let memoryID: string | undefined;
 
@@ -11,7 +12,7 @@ export function getOrCreateClientId(): string {
   if (memoryID) return memoryID;
   let previous: string | null = null;
   try { previous = sessionStorage.getItem(KEY); } catch { /* Legacy storage unavailable. */ }
-  const id = previous || crypto.randomUUID();
+  const id = previous || randomUUID();
   setClientId(id);
   return id;
 }

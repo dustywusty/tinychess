@@ -7,7 +7,7 @@ type budget struct {
 	Count int
 }
 
-// Every paid or engine-backed action consumes the same per-seat minute budget.
+// A user request consumes one slot, including routing and any ensuing search.
 func (s *Service) allow(key string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -18,7 +18,7 @@ func (s *Service) allow(key string) bool {
 		}
 	}
 	b := s.budgets[key]
-	if b.Count >= 12 || len(s.budgets) >= 2000 {
+	if b.Count >= 60 || len(s.budgets) >= 2000 {
 		return false
 	}
 	if b.Start.IsZero() {
@@ -26,5 +26,16 @@ func (s *Service) allow(key string) bool {
 	}
 	b.Count++
 	s.budgets[key] = b
+	return true
+}
+
+func (s *Service) consume(gameID string, r *Request) bool {
+	if r.accounted {
+		return true
+	}
+	if !s.allow(gameID + ":" + r.ClientID) {
+		return false
+	}
+	r.accounted = true
 	return true
 }

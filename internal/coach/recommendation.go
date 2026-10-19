@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"math"
 	"strings"
-
-	"github.com/corentings/chess/v2"
 )
 
 type Recommendation struct {
@@ -16,15 +14,9 @@ type Recommendation struct {
 
 func recommend(line Line) *Recommendation {
 	move := line.Moves[0]
-	root, _ := chess.FEN(line.FENs[0])
-	position := chess.NewGame(root)
-	piece := "piece"
-	if position != nil {
-		for square, p := range position.Position().Board().SquareMap() {
-			if square.String() == move[:2] {
-				piece = map[string]string{"p": "pawn", "n": "knight", "b": "bishop", "r": "rook", "q": "queen", "k": "king"}[strings.ToLower(p.Type().String())]
-			}
-		}
+	piece := "pawn"
+	if named, ok := map[byte]string{'N': "knight", 'B': "bishop", 'R': "rook", 'Q': "queen", 'K': "king", 'O': "king"}[line.SAN[0][0]]; ok {
+		piece = named
 	}
 	summary := fmt.Sprintf("Try %s: move the %s from %s to %s.", line.SAN[0], piece, move[:2], move[2:4])
 	if strings.HasSuffix(line.SAN[0], "#") {

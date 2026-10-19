@@ -15,17 +15,20 @@ import (
 )
 
 type Request struct {
-	RequestID  string `json:"requestId"`
-	ClientID   string `json:"clientId"`
-	Action     string `json:"action"`
-	Text       string `json:"text"`
-	Ply        int    `json:"ply"`
-	LessonID   string `json:"lessonId"`
-	Revision   int    `json:"revision"`
-	Branch     string `json:"branch"`
-	Step       int    `json:"step"`
-	Candidate  string `json:"candidate"`
-	NoSpoilers bool   `json:"noSpoilers"`
+	teachingPlan *TeachingPlan
+	conversation []TeachingTurn
+	accounted    bool
+	RequestID    string `json:"requestId"`
+	ClientID     string `json:"clientId"`
+	Action       string `json:"action"`
+	Text         string `json:"text"`
+	Ply          int    `json:"ply"`
+	LessonID     string `json:"lessonId"`
+	Revision     int    `json:"revision"`
+	Branch       string `json:"branch"`
+	Step         int    `json:"step"`
+	Candidate    string `json:"candidate"`
+	NoSpoilers   bool   `json:"noSpoilers"`
 }
 type Choice struct {
 	Move  string `json:"move"`
@@ -42,6 +45,8 @@ type Frame struct {
 	Score    Score            `json:"score"`
 }
 type Projection struct {
+	Teaching        *Teaching          `json:"teaching,omitempty"`
+	Conversation    []TeachingTurn     `json:"conversation,omitempty"`
 	CurrentPosition bool               `json:"currentPosition,omitempty"`
 	Recommendation  *Recommendation    `json:"recommendation,omitempty"`
 	Assessment      *MoveAssessment    `json:"assessment,omitempty"`
@@ -71,6 +76,8 @@ type Arrow struct {
 	Label string `json:"label"`
 }
 type Lesson struct {
+	Teaching                                                               *Teaching
+	Conversation                                                           []TeachingTurn
 	CurrentPosition                                                        bool
 	CreationRequestID, CreationFingerprint, LastRequestID, LastFingerprint string
 	LastChoices                                                            []Choice
@@ -132,7 +139,7 @@ func (s *Service) Review(ctx context.Context, gameID string, history []string, r
 		}
 		s.mu.Unlock()
 	}
-	if !s.allow(gameID + ":" + r.ClientID) {
+	if !s.consume(gameID, &r) {
 		return Projection{}, errors.New("coach request limit reached; try again in a minute")
 	}
 	s.mu.Lock()
@@ -185,6 +192,8 @@ func (s *Service) Review(ctx context.Context, gameID string, history []string, r
 		l.Step = 0
 		l.Mode = "exercising"
 	}
+	l.Conversation = r.conversation
+	applyTeaching(l, r.teachingPlan, r.Text)
 	s.mu.Lock()
 	if r.RequestID != "" {
 		for _, existing := range s.lessons {
@@ -262,7 +271,7 @@ func (s *Service) Action(ctx context.Context, gameID string, history []string, r
 		l.Caption = ""
 	}
 	if action == "language" || action == "candidate" || action == "attempt" || action == "explain" {
-		if !s.allow(gameID + ":" + r.ClientID) {
+		if !s.consume(gameID, &r) {
 			return Projection{}, errors.New("coach request limit reached; try again in a minute")
 		}
 	}
@@ -299,10 +308,16 @@ func (s *Service) Action(ctx context.Context, gameID string, history []string, r
 			options[id] = "Explore legal move " + san + " (" + u + ")"
 			choices = append(choices, Choice{ID: id, Label: san + " (" + u + ")", Move: u})
 		}
-		selected, err := s.Router.Select(ctx, r.Text, options, map[string]any{"branch": l.Branch, "step": l.Step, "sideToMove": g.Position().Turn().String(), "fen": g.Position().String(), "reviewedMove": l.Played.Moves[0], "noSpoilers": r.NoSpoilers || l.Reveal < 3, "candidatePositionId": Identity(displayedHistory(&l)), "recentRequest": l.LastRequest, "recentAction": l.LastAction})
+		recommendedMove := ""
+		if l.Reveal == 3 && !r.NoSpoilers {
+			recommendedMove = l.Alternative.SAN[0]
+		}
+		plan, err := planTeaching(ctx, s.Router, r.Text, options, map[string]any{"branch": l.Branch, "step": l.Step, "sideToMove": g.Position().Turn().String(), "fen": g.Position().String(), "reviewedMove": l.Played.Moves[0], "noSpoilers": r.NoSpoilers || l.Reveal < 3, "candidatePositionId": Identity(displayedHistory(&l)), "recentRequest": l.LastRequest, "recentAction": l.LastAction, "conversation": l.Conversation, "currentPosition": l.CurrentPosition, "recommendedMove": recommendedMove})
 		if err != nil {
 			return Projection{}, err
 		}
+		r.teachingPlan = plan
+		selected := plan.Action
 		if _, ok := options[selected]; !ok {
 			return Projection{}, errors.New("unsupported action")
 		}
@@ -315,6 +330,7 @@ func (s *Service) Action(ctx context.Context, gameID string, history []string, r
 	}
 	if action == "best_now" {
 		r.Action = "best_now"
+		r.conversation = l.Conversation
 		return s.Review(ctx, gameID, history, r)
 	}
 	if l.CurrentPosition && (action == "played" || action == "compare") {
@@ -414,6 +430,7 @@ func (s *Service) Action(ctx context.Context, gameID string, history []string, r
 	default:
 		return Projection{}, errors.New("unsupported action")
 	}
+	applyTeaching(&l, r.teachingPlan, r.Text)
 	line := activeLine(&l, l.Branch)
 	if l.Step < 0 {
 		l.Step = 0
@@ -447,7 +464,7 @@ func (s *Service) Action(ctx context.Context, gameID string, history []string, r
 	}
 	s.lessons[l.ID] = &l
 	p := project(&l)
-	p.Explain = action == "explain"
+	p.Explain = action == "explain" || (r.teachingPlan != nil && (r.teachingPlan.View == "compare" || r.teachingPlan.View == "reply" || r.teachingPlan.View == "move"))
 	if action == "clarify" {
 		p.Choices = choices
 	}
@@ -466,7 +483,7 @@ func acceptance(best, answer Line) string {
 	return "This legal answer needs deeper comparable analysis before I can judge it."
 }
 func project(l *Lesson) Projection {
-	p := Projection{CurrentPosition: l.CurrentPosition, ID: l.ID, Revision: l.Revision, PositionID: l.PositionID, Ply: l.Ply, Mode: l.Mode, Branch: l.Branch, Step: l.Step, Reveal: l.Reveal, Arrows: []Arrow{}, Quality: "Arasan · bounded 1.5 s searches · shallow results are provisional"}
+	p := Projection{Teaching: l.Teaching, Conversation: l.Conversation, CurrentPosition: l.CurrentPosition, ID: l.ID, Revision: l.Revision, PositionID: l.PositionID, Ply: l.Ply, Mode: l.Mode, Branch: l.Branch, Step: l.Step, Reveal: l.Reveal, Arrows: []Arrow{}, Quality: "Arasan · bounded 1.5 s searches · shallow results are provisional"}
 	line := activeLine(l, l.Branch)
 	if l.Reveal < 3 {
 		line = l.Played
@@ -535,6 +552,15 @@ func project(l *Lesson) Projection {
 	}
 	if l.Step > 1 || l.Branch == "explored" {
 		p.Caption += " " + frameCaption(l.Branch, line, l.Step)
+	}
+	if l.Teaching != nil {
+		if l.Teaching.View == "move" {
+			p.Caption = recommend(line).Summary
+			p.Arrows = []Arrow{arrow(line.Moves[0], "Alternative")}
+			p.Evidence = lineEvidence(line, 1)
+		} else if l.Teaching.View == "compare" {
+			p.Evidence = append(lineEvidence(l.Played, 1), lineEvidence(l.Alternative, 1)...)
+		}
 	}
 	if l.Caption != "" {
 		p.Caption = l.Caption

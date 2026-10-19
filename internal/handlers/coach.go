@@ -27,7 +27,7 @@ func (h *Handler) coachRequest(ctx context.Context, id string, request coach.Req
 		if h.Coach.Router == nil {
 			return coach.Projection{}, 503, "Language controls are unavailable; use Review move."
 		}
-		selected, routeErr := h.Coach.InitialIntent(ctx, id, request)
+		selected, routeErr := h.Coach.InitialTeaching(ctx, id, history, &request)
 		if routeErr != nil {
 			return coach.Projection{}, 422, routeErr.Error()
 		}

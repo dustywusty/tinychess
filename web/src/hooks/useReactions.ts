@@ -1,3 +1,4 @@
+import { randomUUID } from "../lib/uuid.ts";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface ActiveReaction {
@@ -13,7 +14,7 @@ export function useReactions() {
   const timer = useRef<ReturnType<typeof setTimeout>>();
 
   const show = useCallback((emoji: string, origin: "self" | "remote" = "self") => {
-    const id = crypto.randomUUID();
+    const id = randomUUID();
     clearTimeout(timer.current);
     setActive([{ id, emoji, origin }]);
     timer.current = setTimeout(() => setActive([]), REACTION_DURATION_MS);

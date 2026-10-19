@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { CoachMessage } from './useCoach';
 import { formatScore, type Lesson } from './controller';
 interface Props {
+ messages: CoachMessage[];
  lesson: Lesson | null; pending: boolean; error: string; moves: string[]; playerColor: string | null;
  feedback: { lesson: Lesson | null; pending: boolean; error: string };
  hidden: boolean; setHidden: (value: boolean) => void;
@@ -13,7 +15,10 @@ function positionLabel(score: { kind: 'cp' | 'mate'; value: number }, ply: numbe
  if (Math.abs(score.value) < 50) return 'Balanced position';
  return `${score.value > 0 ? side : opponent} is ahead`;
 }
-export function CoachPanel({ lesson, pending, error, moves, playerColor, feedback, hidden, setHidden, openLesson, command }: Props) {
+export function CoachPanel({ messages, lesson, pending, error, moves, playerColor, feedback, hidden, setHidden, openLesson, command }: Props) {
+ const messageList = useRef<HTMLDivElement>(null);
+ const visibleMessages = hidden ? [] : lesson && lesson.reveal < 3 ? messages.slice(-2) : messages;
+ useEffect(() => { if (messageList.current) messageList.current.scrollTop = messageList.current.scrollHeight; }, [messages]);
  const [collapsed, setCollapsed] = useState(false);
  const [text, setText] = useState(''); const [selectedPly, setSelectedPly] = useState(-1);
  const lastOwn = moves.length - 1 - ((moves.length - 1) % 2 === (playerColor === 'black' ? 1 : 0) ? 0 : 1);
@@ -56,29 +61,37 @@ export function CoachPanel({ lesson, pending, error, moves, playerColor, feedbac
   </>}
   {!assessment && !reviewing && <p className="move-coach-empty">{feedback.pending ? 'Taking a look at your last move…' : hidden ? 'Hints only. The answer stays hidden until you choose to reveal it.' : 'Make a move. I’ll show how it stacks up and what you could play instead.'}</p>}
   {reviewing && <>
-   <div className="coach-controls coach-playback">
+   {lesson.reveal === 3 && <div className="coach-controls coach-playback">
     {!lesson.currentPosition && <button aria-pressed={lesson.branch === 'compare'} disabled={pending || hidden || lesson.reveal < 3} onClick={() => run('compare')}>Compare</button>}
     {lesson.reveal === 3 && lesson.branch !== 'compare' && <button aria-pressed={lesson.step === 0} disabled={pending || hidden} onClick={() => run('before')}>Before</button>}
     <span className="coach-step">{lesson.branch === "compare" ? "Choose a move above to play it" : lesson.step === 0 ? "Starting position" : lesson.step === 1 ? lesson.currentPosition ? "Move preview" : "Move played" : `Reply ${lesson.step - 1}`}</span>
     {lesson.branch !== 'compare' && <><button disabled={pending || lesson.step === 0 || lesson.reveal < 2} aria-label="Back" onClick={() => run('back')}>← Back</button>
     <button disabled={pending || lesson.step >= lesson.steps || lesson.reveal < 3 || hidden} aria-label="Continue" onClick={() => run('next')}>Continue →</button></>}
-   </div>
+   </div>}
    {lesson.mode === 'exercising' && <p className="move-insight">Try a move on the board. It stays in this exercise.</p>}
    {((!assessment && !recommendation) || lesson.mode === 'exercising') && <p className="move-insight" aria-live="polite">{lesson.caption}</p>}
-   {lesson.reveal < 3 && <button className="coach-action" disabled={pending || hidden} onClick={() => run('reveal')}>Reveal next hint</button>}
+   {lesson.reveal < 3 && <button className="coach-action coach-reveal" disabled={pending || hidden} onClick={() => run('reveal')}>Reveal next hint</button>}
    {lesson.choices && <div className="coach-controls">{lesson.choices.map(choice => <button key={choice.id} disabled={pending} onClick={() => run('candidate', { candidate: choice.move })}>{choice.label}</button>)}</div>}
   </>}
+  {lesson?.teaching && <div className="coach-teaching" data-teaching-view={lesson.teaching.view}>
+   <span className="eyebrow">{lesson.teaching.title}</span>
+   {lesson.teaching.focus.length > 0 && <span className="coach-focus-label">Focus: {lesson.teaching.focus.join(', ')}</span>}
+   {lesson.teaching.prompt && <button className="coach-next-question" disabled={pending} onClick={() => run('language', { text: lesson.teaching!.prompt!.question, ply })}>{lesson.teaching.prompt.label} <span aria-hidden="true">↗</span></button>}
+  </div>}
+  <div className="coach-conversation">
+   {visibleMessages.length > 0 && <div ref={messageList} className="coach-messages" role="log" aria-label="Coach conversation">{visibleMessages.map(message => <p key={message.id} className={`coach-message ${message.role}`}><span className="sr-only">{message.role === 'user' ? 'You: ' : 'Coach: '}</span>{message.text}</p>)}</div>}
+     <form onSubmit={event => { event.preventDefault(); if (text.trim()) { run('language', { text, ply }); setText(''); } }}>
+      <label className="sr-only" htmlFor="coach-question">Ask about this lesson</label>
+      <div className="coach-input-row"><input id="coach-question" maxLength={240} value={text} onChange={event => setText(event.target.value)} placeholder={reviewing ? "Why this move? What if…?" : "What should I play next?"} /><button disabled={pending || !text.trim()} aria-label="Ask">↑</button></div>
+     </form>
+  </div>
   <div className="coach-footer">
    <button className="coach-action" disabled={pending} onClick={() => run('best_now')}>{lesson?.currentPosition ? 'Analyze latest' : 'Best move now'}</button>
    {!reviewing && <button className="coach-action" disabled={pending || !moves.length} onClick={review}>Review move <span aria-hidden="true">↗</span></button>}
    <details className="coach-more">
     <summary>{reviewing ? 'Ask & explore' : 'Ask the coach'} <span aria-hidden="true">+</span></summary>
     <div className="coach-expanded">
-     {reviewing && <>{(assessment || recommendation) && lesson.mode !== "exercising" && <p className="coach-answer" aria-live="polite">{lesson.caption}</p>}<div className="coach-controls"><button disabled={pending} onClick={() => run('explain')}>Why?</button><button disabled={pending} onClick={() => run('hint')}>Just a hint</button><button disabled={pending} onClick={() => run('exercise')}>Try it</button></div></>}
-     <form onSubmit={event => { event.preventDefault(); if (text.trim()) { run('language', { text, ply }); setText(''); } }}>
-      <label className="sr-only" htmlFor="coach-question">Ask about this lesson</label>
-      <div className="coach-input-row"><input id="coach-question" maxLength={240} value={text} onChange={event => setText(event.target.value)} placeholder={reviewing ? "Why this move? What if…?" : "What should I play next?"} /><button disabled={pending || !text.trim()} aria-label="Ask">↑</button></div>
-     </form>
+     {reviewing && <>{messages.length === 0 && (assessment || recommendation) && lesson.mode !== "exercising" && <p className="coach-answer" aria-live="polite">{lesson.caption}</p>}<div className="coach-controls"><button disabled={pending} onClick={() => run('explain')}>Why?</button><button disabled={pending} onClick={() => run('hint')}>Just a hint</button><button disabled={pending} onClick={() => run('exercise')}>Try it</button></div></>}
      <div className="coach-preferences"><label className="coach-hide"><input type="checkbox" checked={hidden} onChange={event => { setHidden(event.target.checked); if (event.target.checked && lesson) run('exercise', { noSpoilers: true }); }} />Hints only</label>
       {!reviewing && <label>Review <select aria-label="Move to review" value={ply} onChange={event => setSelectedPly(Number(event.target.value))}>{moves.map((move, index) => <option key={index} value={index}>{Math.floor(index / 2) + 1} · {index % 2 ? 'Black' : 'White'} · {move}</option>)}</select></label>}
      </div>

@@ -367,3 +367,16 @@ dialog::backdrop { background: #252b2877; backdrop-filter: blur(3px); }
 .coach-recommendation { padding: 0 14px; }
 .coach-recommendation .move-option { width: 100%; }
 .coach-position-notice { margin: 0 14px 12px; padding: 10px; background: #f8eed7; border-radius: 10px; font-size: 12px; line-height: 1.5; }
+
+.board-square[data-coach-focus="true"] { box-shadow: inset 0 0 0 4px #d7ee89; }
+.coach-teaching { margin: 0 14px 12px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--soft); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.coach-teaching .eyebrow { font-size: 9px; }
+.coach-focus-label { font-size: 11px; color: var(--muted); }
+.coach-next-question { width: 100%; display: flex; justify-content: space-between; align-items: center; min-height: 38px; padding: 5px 0; border: 0; background: transparent; color: var(--text); text-align: left; font-size: 12px; }
+.coach-conversation { padding: 0 14px 14px; }
+.coach-messages { max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-top: 4px; }
+.coach-message { font-size: 12px; line-height: 1.6; margin: 0; padding: 10px 12px; border-radius: 12px; }
+.coach-message.user { background: var(--lilac); align-self: flex-end; max-width: 90%; }
+.coach-message.assistant { padding-left: 0; padding-right: 0; }
+
+.coach-reveal { margin: 0 14px 10px; }
