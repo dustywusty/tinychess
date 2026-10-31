@@ -8,6 +8,8 @@ export interface BotSettings {
   playerBotId?: BotId;
   // Minimum time per bot turn, including analysis. Omit for the bot's natural pace.
   moveDelayMs?: number;
+  // Custom difficulty, 1000–3450. Replaces the personality's strength when set.
+  targetElo?: number;
 }
 export interface BotOpponent extends BotSettings { id: BotId; color: "w" | "b"; policyVersion: number }
 export interface CreateGameInput extends BotSettings { botId: BotId; clientId: string; color: "w" | "b" }

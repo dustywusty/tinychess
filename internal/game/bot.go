@@ -13,15 +13,24 @@ type BotOpponent struct {
 	PolicyVersion int    `json:"policyVersion"`
 	PlayerBotID   string `json:"playerBotId,omitempty"`
 	MoveDelayMs   *int   `json:"moveDelayMs,omitempty"`
+	TargetElo     *int   `json:"targetElo,omitempty"`
 }
+
+// Arasan's UCI_Elo range at the pinned engine commit.
+const (
+	MinBotElo = 1000
+	MaxBotElo = 3450
+)
 
 type BotSettings struct {
 	PlayerBotID string `json:"playerBotId,omitempty"`
 	MoveDelayMs *int   `json:"moveDelayMs,omitempty"`
+	TargetElo   *int   `json:"targetElo,omitempty"`
 }
 
 func (s BotSettings) Valid() bool {
-	return (s.PlayerBotID == "" || ValidBotID(s.PlayerBotID)) && (s.MoveDelayMs == nil || (*s.MoveDelayMs >= 0 && *s.MoveDelayMs <= 5000))
+	return (s.PlayerBotID == "" || ValidBotID(s.PlayerBotID)) && (s.MoveDelayMs == nil || (*s.MoveDelayMs >= 0 && *s.MoveDelayMs <= 5000)) &&
+		(s.TargetElo == nil || (*s.TargetElo >= MinBotElo && *s.TargetElo <= MaxBotElo))
 }
 
 func ValidBotID(id string) bool {
@@ -56,7 +65,7 @@ func (g *Game) ConfigureBotWithSettings(id, owner, color string, settings BotSet
 		value := 1500
 		delay = &value
 	}
-	g.Bot = &BotOpponent{ID: id, Color: botColor, PolicyVersion: BotPolicyVersion, PlayerBotID: settings.PlayerBotID, MoveDelayMs: delay}
+	g.Bot = &BotOpponent{ID: id, Color: botColor, PolicyVersion: BotPolicyVersion, PlayerBotID: settings.PlayerBotID, MoveDelayMs: delay, TargetElo: settings.TargetElo}
 	return nil
 }
 

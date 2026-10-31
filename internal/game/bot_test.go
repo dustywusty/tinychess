@@ -182,4 +182,25 @@ func TestBotSettingsValidation(t *testing.T) {
 	if _, err := Restore(state); err == nil {
 		t.Fatal("restored unknown player bot")
 	}
+	for _, elo := range []int{MinBotElo - 1, MaxBotElo + 1} {
+		g := NewGame()
+		if err := g.ConfigureBotWithSettings("pip", "owner", "w", BotSettings{TargetElo: &elo}); err == nil {
+			t.Fatalf("accepted Elo %d", elo)
+		}
+		_ = g.ConfigureBot("pip", "owner", "w")
+		state := g.PersistentState()
+		state.Bot.TargetElo = &elo
+		if _, err := Restore(state); err == nil {
+			t.Fatalf("restored Elo %d", elo)
+		}
+	}
+	elo := 1500
+	g = NewGame()
+	if err := g.ConfigureBotWithSettings("ada", "owner", "w", BotSettings{TargetElo: &elo}); err != nil {
+		t.Fatal(err)
+	}
+	restored, err := Restore(g.PersistentState())
+	if err != nil || restored.Bot.TargetElo == nil || *restored.Bot.TargetElo != elo {
+		t.Fatal("custom Elo did not survive recovery")
+	}
 }

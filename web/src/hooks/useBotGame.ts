@@ -25,7 +25,7 @@ export function useBotGame(gameId: string, connected: boolean) {
     engine.current ??= new ArasanEngine(() => workerTransport());
     let selected;
     for (let tries = 0; tries < 2; tries++) {
-     try { selected = await chooseBotMove(engine.current, botDefinition(activeBotId), { fen, moves: historyKey ? historyKey.split(" ") : [] }, abort.signal, undefined, bot.moveDelayMs); break; }
+     try { selected = await chooseBotMove(engine.current, botDefinition(activeBotId), { fen, moves: historyKey ? historyKey.split(" ") : [] }, abort.signal, undefined, bot.moveDelayMs, bot.targetElo); break; }
      catch (error) { if (abort.signal.aborted || tries) throw error; await engine.current.dispose(); engine.current = new ArasanEngine(() => workerTransport()); }
     }
     const current = useGameStore.getState();
@@ -39,6 +39,6 @@ export function useBotGame(gameId: string, connected: boolean) {
   };
   void run();
   return () => { abort.abort(); };
- }, [gameId, activeBotId, bot?.color, bot?.policyVersion, bot?.moveDelayMs, connected, visible, isSpectator, playerColor, clientId, fen, historyKey, status, attempt]);
+ }, [gameId, activeBotId, bot?.color, bot?.policyVersion, bot?.moveDelayMs, bot?.targetElo, connected, visible, isSpectator, playerColor, clientId, fen, historyKey, status, attempt]);
  return { thinking, activeBotId, error, retry: () => setAttempt(value => value + 1) };
 }
