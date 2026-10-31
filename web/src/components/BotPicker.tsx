@@ -24,7 +24,7 @@ export function BotPicker({ open, busy, onClose, onStart }: { open: boolean; bus
    <input type="radio" name="bot" value={bot.id} checked={selected === bot.id} onChange={() => setSelected(bot.id)} />
   </label>)}</div>}
   {!battle && <fieldset className="bot-color"><legend className="eyebrow">YOUR PIECES</legend>{(["w", "b"] as const).map(value => <label key={value} className={color === value ? "chosen" : ""}>
-   <input type="radio" name="color" checked={color === value} onChange={() => setColor(value)} /><span aria-hidden="true">{value === "w" ? "♔" : "♚"}</span>{value === "w" ? "White" : "Black"}
+   <input type="radio" name="color" aria-label={value === "w" ? "White" : "Black"} checked={color === value} onChange={() => setColor(value)} /><span aria-hidden="true">{value === "w" ? "♔" : "♚"}</span>{value === "w" ? "White" : "Black"}
   </label>)}</fieldset>}
   {!battle && <label className="bot-switch">Custom difficulty<input type="checkbox" role="switch" checked={custom} onChange={event => setCustom(event.target.checked)} /></label>}
   {!battle && custom && <div className="bot-range">

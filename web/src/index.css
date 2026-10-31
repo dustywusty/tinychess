@@ -264,10 +264,11 @@ dialog::backdrop { background: #252b2877; backdrop-filter: blur(3px); }
 .bot-intro { color: var(--muted); font-size: 14px; margin-top: 6px; }
 .bot-color { display: flex; gap: 12px; border: 0; margin: 0 0 20px; padding: 0; }
 .bot-color legend { padding-bottom: 10px; }
-.bot-color label { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 20px; border: 1px solid var(--line); border-radius: 12px; font-weight: 600; cursor: pointer; }
+.bot-color label { position: relative; display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 20px; border: 1px solid var(--line); border-radius: 12px; font-weight: 600; cursor: pointer; }
 .bot-color label.chosen { background: var(--lilac); border-color: var(--lilac); }
 .bot-color label:has(:focus-visible) { outline: 2px solid var(--text); outline-offset: 2px; }
-.bot-color input { position: absolute; opacity: 0; pointer-events: none; }
+/* The invisible radio covers its button so clicks and keyboard focus land on it. */
+.bot-color input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
 .bot-color span { font-size: 18px; }
 .bot-switch { display: flex; align-items: center; justify-content: space-between; min-height: 48px; font-size: 16px; cursor: pointer; }
 .bot-switch input { appearance: none; position: relative; width: 52px; height: 32px; margin: 0; border: 2px solid var(--muted); border-radius: 16px; background: var(--soft); cursor: pointer; transition: background .15s; }
