@@ -50,7 +50,7 @@ func TestBotBattleHTTPSettings(t *testing.T) {
 		`{"botId":"pip","clientId":"owner","color":"w","moveDelayMs":5001}`,
 		`{"botId":"pip","clientId":"owner","color":"w","moveDelayMs":1.5}`,
 		`{"botId":"pip","clientId":"owner","color":"w","targetElo":999}`,
-		`{"botId":"pip","clientId":"owner","color":"w","targetElo":3451}`,
+		`{"botId":"pip","clientId":"owner","color":"w","targetElo":2401}`,
 		`{"playerBotId":"pip"}`, `{"moveDelayMs":0}`, `{"targetElo":1500}`,
 	} {
 		if response := recoveryRequest(h.HandleCreateGame, "", "POST", "/api/games", input); response.Code != 400 {

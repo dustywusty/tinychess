@@ -23,7 +23,8 @@ Capture, check, and castling preferences only affect moves within the selected q
 The controller applies a short presentation delay without extra engine work.
 The strongest opponent selects the best evaluated move.
 
-Custom difficulty replaces the personality policy with Arasan's `UCI_Elo` limit (1000–3450).
+Custom difficulty replaces the personality policy with Arasan's `UCI_Elo` limit (1000–2400).
+Arasan accepts up to 3450, but targets above about 2200 play at nearly full strength.
 The bot searches one line and plays Arasan's reduced-strength `bestmove`.
 The target is approximate engine strength, not a measured player rating.
 The backend stores the target with the bot metadata, so a resumed game keeps it.
@@ -90,7 +91,10 @@ This release does not add offline game synchronization.
 ## Tuning and tests
 
 `packages/chess/src/bots/definitions.ts` contains all five opponents and their timing, loss limits, and preferences.
-`BOT_POLICY_VERSION` identifies the policy in saved games.
+`BOT_POLICY_VERSION` is the newest policy a client supports. Saved games record the version they need.
+Custom-difficulty games need version 2. Other games stay at version 1, so older apps can still play them.
+A client asks for an update only when a game needs a newer version than it supports.
+The backend restores every version from 1 to the current one.
 The displayed descriptions are not measured Elo ratings.
 
 Run `pnpm bot:lab pip` for an analysis of the starting position.

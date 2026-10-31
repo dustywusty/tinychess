@@ -34,7 +34,7 @@ export function BotTurn({ gameID, state, cid, connected, accept, onThinkingChang
  useEffect(() => {
   setThinking(false);
   if (!eligible || !transport || !engine.current || !state.bot || !activeBotId) return;
-  if (state.bot.policyVersion !== BOT_POLICY_VERSION) { setError("Update the app to play this computer opponent."); return; }
+  if (state.bot.policyVersion > BOT_POLICY_VERSION) { setError("Update the app to play this computer opponent."); return; }
   const abort = new AbortController();
   const run = async () => {
    setThinking(true); setError("");

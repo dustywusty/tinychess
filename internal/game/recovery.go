@@ -93,7 +93,7 @@ func Restore(p PersistentState) (*Game, error) {
 		if !(BotSettings{PlayerBotID: p.Bot.PlayerBotID, MoveDelayMs: p.Bot.MoveDelayMs, TargetElo: p.Bot.TargetElo}).Valid() {
 			return nil, fmt.Errorf("invalid recovery computer settings")
 		}
-		if !ValidBotID(p.Bot.ID) || p.Bot.PolicyVersion != BotPolicyVersion || p.OwnerID == "" || len(p.Clients) != 1 || (p.Bot.Color != "w" && p.Bot.Color != "b") || p.Bot.Color == p.OwnerColor {
+		if !ValidBotID(p.Bot.ID) || p.Bot.PolicyVersion < 1 || p.Bot.PolicyVersion > BotPolicyVersion || p.OwnerID == "" || len(p.Clients) != 1 || (p.Bot.Color != "w" && p.Bot.Color != "b") || p.Bot.Color == p.OwnerColor {
 			return nil, fmt.Errorf("invalid recovery computer opponent")
 		}
 		bot := *p.Bot
