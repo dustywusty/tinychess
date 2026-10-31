@@ -82,11 +82,14 @@ After all CI checks pass on `main`, GitHub deploys the tested backend and fronte
 Pull requests run checks without deploying.
 The workflow checks the public version, website, engine assets, and game API after deployment.
 
-Configure these GitHub repository values:
+The deploy job runs in the `production` GitHub environment, which only `main` can use.
+Store the deployment key there, not as a repository secret, so pull requests and other branches cannot read it.
+
+Configure these GitHub values:
 
 | Kind | Name | Value |
 | --- | --- | --- |
-| Secret | `OVH_DEPLOY_SSH_KEY` | Dedicated deployment private key |
+| `production` environment secret | `OVH_DEPLOY_SSH_KEY` | Dedicated deployment private key |
 | Variable | `OVH_SSH_HOST` | `vps-ea9f56f0.vps.ovh.us` |
 | Variable | `OVH_SSH_KNOWN_HOSTS` | Verified SSH host key line |
 

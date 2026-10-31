@@ -208,6 +208,10 @@ jobs:
     name: Deploy to OVH
     needs: [publish]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    # The deploy key lives in this environment, which only main can use.
+    environment:
+      name: production
+      url: https://yourmove.fun
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
