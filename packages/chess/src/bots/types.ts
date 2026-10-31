@@ -1,4 +1,8 @@
+// IDs are stored with saved games. Rename bots through their definitions only.
 export type BotId = "pip" | "max" | "ada" | "viktor" | "machine";
+// Arasan's UCI_Elo range at the pinned engine commit.
+export const MIN_BOT_ELO = 1000;
+export const MAX_BOT_ELO = 3450;
 export type Quality = "excellent" | "good" | "inaccurate" | "mistake" | "blunder";
 export interface RandomSource { next(): number }
 export interface BotDefinition {
@@ -14,6 +18,8 @@ export interface EngineAnalysis { candidates: EngineCandidate[]; bestMove: strin
 export interface AnalyzePositionInput {
  initialFen?: string;
  fen: string; moves: readonly string[]; multiPv: number; moveTimeMs: number; depth?: number;
+ /** Limits Arasan with UCI_Elo. Omit for full strength. */
+ elo?: number;
  searchMoves?: string[]; signal?: AbortSignal;
 }
 export interface ChessEngine {

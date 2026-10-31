@@ -49,20 +49,22 @@ func TestBotBattleHTTPSettings(t *testing.T) {
 		`{"botId":"pip","clientId":"owner","color":"w","moveDelayMs":-1}`,
 		`{"botId":"pip","clientId":"owner","color":"w","moveDelayMs":5001}`,
 		`{"botId":"pip","clientId":"owner","color":"w","moveDelayMs":1.5}`,
-		`{"playerBotId":"pip"}`, `{"moveDelayMs":0}`,
+		`{"botId":"pip","clientId":"owner","color":"w","targetElo":999}`,
+		`{"botId":"pip","clientId":"owner","color":"w","targetElo":3451}`,
+		`{"playerBotId":"pip"}`, `{"moveDelayMs":0}`, `{"targetElo":1500}`,
 	} {
 		if response := recoveryRequest(h.HandleCreateGame, "", "POST", "/api/games", input); response.Code != 400 {
 			t.Fatalf("accepted invalid settings: %s", input)
 		}
 	}
-	response := recoveryRequest(h.HandleCreateGame, "", "POST", "/api/games", `{"botId":"ada","clientId":"owner","color":"w","playerBotId":"max","moveDelayMs":0}`)
+	response := recoveryRequest(h.HandleCreateGame, "", "POST", "/api/games", `{"botId":"ada","clientId":"owner","color":"w","playerBotId":"max","moveDelayMs":0,"targetElo":1500}`)
 	if response.Code != 200 {
 		t.Fatal(response.Body.String())
 	}
 	var created struct{ ID string }
 	_ = json.Unmarshal(response.Body.Bytes(), &created)
 	state := recoverySnapshot(t, h, created.ID, "visitor")
-	if state.Role != "spectator" || state.Bot.PlayerBotID != "max" || state.Bot.MoveDelayMs == nil || *state.Bot.MoveDelayMs != 0 {
+	if state.Role != "spectator" || state.Bot.PlayerBotID != "max" || state.Bot.MoveDelayMs == nil || *state.Bot.MoveDelayMs != 0 || state.Bot.TargetElo == nil || *state.Bot.TargetElo != 1500 {
 		t.Fatal("battle settings missing from snapshot")
 	}
 	for _, input := range []string{

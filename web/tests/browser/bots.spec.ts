@@ -43,14 +43,14 @@ test("advanced settings run two selected bots at the chosen pace and resume afte
  await page.getByRole("checkbox", { name: "Bot vs. bot" }).check();
  await page.getByLabel("Black bot", { exact: true }).selectOption("ada");
  await page.getByLabel("White bot", { exact: true }).selectOption("max");
- await page.getByRole("slider", { name: "Time between moves" }).fill("1000");
- await expect(page.locator(".bot-delay output")).toHaveText("1 s");
+ await page.getByRole("slider", { name: "Minimum move interval" }).fill("1000");
+ await expect(page.locator(".bot-range output")).toHaveText("1S");
  await page.getByRole("button", { name: "Start bot battle" }).click();
  await expect(page).toHaveURL(/\/g\//);
  const url = page.url();
  const id = new URL(url).pathname.split("/").at(-1)!;
  const snapshot = async () => (await (await request.get(`/api/games/${id}/snapshot?clientId=battle-spectator`)).json());
- await expect(page.locator(".player-info strong", { hasText: "Max" })).toBeVisible();
+ await expect(page.locator(".player-info strong", { hasText: "Snobal" })).toBeVisible();
  await expect(page.locator(".player-info strong", { hasText: "Ada" })).toBeVisible();
  await expect(page.getByText("Watching", { exact: true })).toBeVisible();
  await expect.poll(async () => (await snapshot()).uci.length, { timeout: 30000 }).toBeGreaterThanOrEqual(4);
@@ -62,7 +62,7 @@ test("advanced settings run two selected bots at the chosen pace and resume afte
  await expect.poll(async () => (await snapshot()).uci.length, { timeout: 20000 }).toBeGreaterThan(before.uci.length);
  await page.goto("/");
  await expect(page.locator(".recent-games").getByText("Bot vs. bot", { exact: true })).toBeVisible();
- await expect(page.locator(".recent-games").getByText("Max vs. Ada")).toBeVisible();
+ await expect(page.locator(".recent-games").getByText("Snobal vs. Ada")).toBeVisible();
  const spectator = await browser.newPage();
  await spectator.goto(url);
  await expect(spectator.getByText("Watching", { exact: true })).toBeVisible();
@@ -70,4 +70,21 @@ test("advanced settings run two selected bots at the chosen pace and resume afte
  await spectator.waitForTimeout(2200);
  expect((await snapshot()).uci).toEqual(stopped.uci);
  await spectator.close();
+});
+
+test("custom difficulty stores the Elo target and the limited engine still moves", async ({ page, request }) => {
+ await page.goto("/");
+ await page.getByRole("button", { name: "Play the computer" }).click();
+ await page.getByRole("radio", { name: /Gibson the Gray/ }).check();
+ await page.getByLabel("Black", { exact: true }).check();
+ await page.getByRole("switch", { name: "Custom difficulty" }).check();
+ await page.getByRole("slider", { name: "Elo target" }).fill("1200");
+ await expect(page.getByText("ELO TARGET · 1200")).toBeVisible();
+ await page.getByRole("button", { name: "Let’s play" }).click();
+ await expect(page).toHaveURL(/\/g\//);
+ const id = new URL(page.url()).pathname.split("/").at(-1)!;
+ await expect(page.getByTestId("turn")).toContainText("Your turn", { timeout: 20000 });
+ const state = await (await request.get(`/api/games/${id}/snapshot?clientId=elo-spectator`)).json();
+ expect(state.bot).toMatchObject({ id: "machine", color: "w", targetElo: 1200 });
+ expect(state.uci).toHaveLength(1);
 });

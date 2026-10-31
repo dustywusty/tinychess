@@ -12,7 +12,7 @@ Your Move includes a React website and an Expo app for iOS and Android. Both cli
 Available features include:
 
 - **Play a friend.** The first two visitors take the seats. Everyone else can watch and send emoji reactions.
-- **Play the computer.** Choose Pip, Max, Ada, Viktor, or The Machine, then choose White or Black. All five opponents start unlocked.
+- **Play the computer.** Choose Pip, Snobal, Ada, Viktor, or Gibson the Gray, then choose White or Black. All five opponents start unlocked. Custom difficulty sets an approximate Elo target instead.
 - **Make your move.** Tap or click to move. The website also supports drag and drop. Both boards show legal destinations, the last move, check, and captured pieces.
 - **Keep the game close.** Share links, flip the board, read move notation, and reopen recent games with win, loss, or draw results.
 - **Make it yours.** Choose light or dark mode and six board colors: Matcha, Lilac, Peach, Teal, Sky, and Rose.

@@ -49,7 +49,7 @@ func (h *Handler) HandleCreateGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	request.ClientID = strings.TrimSpace(request.ClientID)
-	if !request.BotSettings.Valid() || (request.BotID == "" && (request.PlayerBotID != "" || request.MoveDelayMs != nil)) {
+	if !request.BotSettings.Valid() || (request.BotID == "" && (request.PlayerBotID != "" || request.MoveDelayMs != nil || request.TargetElo != nil)) {
 		WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid computer settings"})
 		return
 	}

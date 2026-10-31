@@ -261,17 +261,35 @@ dialog::backdrop { background: #252b2877; backdrop-filter: blur(3px); }
 .bot-option small { display: block; color: var(--muted); margin-top: 3px; }
 .bot-option input { margin-left: auto; accent-color: var(--text); }
 .bot-emoji { font-size: 28px; }
-.bot-color { display: flex; gap: 20px; border: 0; margin-bottom: 20px; padding: 0; }
-.bot-color legend { padding-bottom: 8px; font-size: 13px; }
-.bot-color input { margin-right: 8px; }
-.bot-advanced { border-top: 1px solid var(--line); padding-top: 16px; margin-bottom: 20px; }
+.bot-intro { color: var(--muted); font-size: 14px; margin-top: 6px; }
+.bot-color { display: flex; gap: 12px; border: 0; margin: 0 0 20px; padding: 0; }
+.bot-color legend { padding-bottom: 10px; }
+.bot-color label { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 20px; border: 1px solid var(--line); border-radius: 12px; font-weight: 600; cursor: pointer; }
+.bot-color label.chosen { background: var(--lilac); border-color: var(--lilac); }
+.bot-color label:has(:focus-visible) { outline: 2px solid var(--text); outline-offset: 2px; }
+.bot-color input { position: absolute; opacity: 0; pointer-events: none; }
+.bot-color span { font-size: 18px; }
+.bot-switch { display: flex; align-items: center; justify-content: space-between; min-height: 48px; font-size: 16px; cursor: pointer; }
+.bot-switch input { appearance: none; position: relative; width: 52px; height: 32px; margin: 0; border: 2px solid var(--muted); border-radius: 16px; background: var(--soft); cursor: pointer; transition: background .15s; }
+.bot-switch input::after { content: ""; position: absolute; top: 4px; left: 4px; width: 20px; height: 20px; border-radius: 50%; background: var(--muted); transition: transform .15s; }
+.bot-switch input:checked { background: var(--mint); border-color: var(--mint); }
+.bot-switch input:checked::after { background: #252b28; transform: translateX(20px); }
+.bot-range { display: grid; gap: 8px; margin: 12px 0 16px; }
+.bot-range output { color: inherit; }
+.bot-range p, .bot-advanced .bot-range p { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 0; }
+/* Mint up to the value, lilac after it, with a dotted texture over both. */
+.bot-range input { --fill: 0%; appearance: none; width: 100%; height: 28px; margin: 0; border-radius: 14px; cursor: pointer;
+  background: radial-gradient(circle, #252b2866 1.5px, transparent 2px) 0 50% / 10px 10px repeat-x, linear-gradient(90deg, var(--mint) var(--fill), var(--lilac) var(--fill)) 0 50% / 100% 14px no-repeat; }
+.bot-range input::-webkit-slider-thumb { appearance: none; width: 6px; height: 28px; border-radius: 3px; background: var(--mint); box-shadow: 0 0 0 3px var(--bg); }
+.bot-range input::-moz-range-thumb { width: 6px; height: 28px; border: 0; border-radius: 3px; background: var(--mint); box-shadow: 0 0 0 3px var(--bg); }
+.bot-range input:focus-visible { outline: 2px solid var(--text); outline-offset: 4px; }
+.bot-advanced { border-top: 1px solid var(--line); padding-top: 16px; margin: 8px 0 20px; }
 .bot-advanced summary { cursor: pointer; font-weight: 600; }
 .bot-advanced p { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 8px 0 16px; }
 .bot-battle-toggle { display: flex; gap: 10px; align-items: center; margin-top: 16px; }
-.bot-select, .bot-delay { display: block; font-size: 14px; }
+.bot-battle-toggle input { width: 20px; height: 20px; accent-color: var(--mint); }
+.bot-select { display: block; font-size: 14px; }
 .bot-select select { display: block; width: 100%; margin: 8px 0 16px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; color: var(--text); background: var(--bg); }
-.bot-delay output { float: right; color: var(--muted); }
-.bot-delay input { display: block; width: 100%; min-height: 36px; accent-color: var(--text); }
 
 .service-games { padding: 24px 0; border-top: 1px solid var(--line); }
 .service-games h2 { margin: 0; font-size: 18px; }
