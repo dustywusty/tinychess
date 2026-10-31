@@ -1,0 +1,53 @@
+name: yourmove
+
+services:
+  app:
+    image: ${TINYCHESS_IMAGE:?Set the tested backend image digest}
+    command: ["-static-dir", "/releases/${RELEASE:?Set the release commit}/site"]
+    restart: unless-stopped
+    environment:
+      PORT: "8080"
+      DATABASE_URL: postgres://yourmove:${TINYCHESS_DB_PASSWORD:?Set the database password}@db:5432/yourmove?sslmode=disable
+    ports:
+      - "127.0.0.1:18080:8080"
+    volumes:
+      - ./releases:/releases:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 128
+    stop_grace_period: 15s
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  db:
+    image: ${POSTGRES_IMAGE:?Set a PostgreSQL 18 image digest}
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set the administrator password}
+      TINYCHESS_DB_PASSWORD: ${TINYCHESS_DB_PASSWORD:?Set the database password}
+    command: ["postgres", "-c", "shared_buffers=128MB", "-c", "max_connections=40"]
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./init-db.sh:/docker-entrypoint-initdb.d/yourmove.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d yourmove"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 768m
+    cpus: 1.0
+    shm_size: 128m
+    pids_limit: 128
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  postgres_data:

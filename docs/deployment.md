@@ -1,10 +1,13 @@
 # Deploy Tinychess and build an Android APK
 
-The backend container serves the Go API on port 8080.
-A separate App Platform Static Site serves the compiled React website and Arasan engine assets.
-The Android app connects to the same API through HTTPS.
+Production runs on the OVH VPS behind `yourmove.fun`.
+Use the [OVH deployment instructions](../deploy/ovh/README.md) for the server, database, HTTPS, and backups.
+
+The backend container serves the Go API and the compiled React website on port 8080.
+The OVH host publishes it through Caddy at `https://yourmove.fun`.
+The Android app connects to the same HTTPS origin.
 The runtime uses a non-root user and includes no shell or package manager.
-DigitalOcean App Platform is the primary deployment target. The `.do/app.yaml` file defines both components.
+PostgreSQL runs in a separate container with a persistent volume.
 
 ## Current limits
 
@@ -69,7 +72,7 @@ The workflow records both immutable digests in its summary.
 Deployment uses these digests, so a later tag update cannot change the selected files.
 Pull requests never publish images or deploy the app.
 The publication job uses `GITHUB_TOKEN` with `packages: write` permission.
-DigitalOcean pulls this public package without registry credentials.
+The OVH server pulls this public package without registry credentials.
 
 The separate `Container` workflow handles version tags and manual runs.
 It retains the AMD64/ARM64 release process, but no longer repeats the normal PR and `main` checks.
@@ -92,156 +95,35 @@ Deploy the digest from the successful workflow summary.
 Retain the previous digest for rollback.
 If a GHCR package is private, configure registry credentials on the deployment host.
 Do not change package visibility without reviewing the intended audience.
-The `Container` release workflow does not deploy to DigitalOcean. The `CI` workflow publishes and deploys after successful checks on `main`.
+The `Container` release workflow only publishes images.
+The `CI` workflow publishes and deploys to OVH after successful checks on `main`.
 
-## DigitalOcean App Platform
+## OVH deployment
 
-The spec updates the existing `hammerhead-app` in `nyc`, with app ID `e80ec2bc-7a78-4b44-b856-d2c26a1a1ca5`.
-The primary domain is `yourmove.fun`. The previous domain, `pawnd.dusty.wtf`, remains an alias.
-CI renders the production spec from `.do/app.yaml` with `scripts/render-app-spec.py`.
-The renderer preserves the database binding, domains, ingress, instance count, and health probe.
-The checked-in spec remains available for a source build.
+The [OVH instructions](../deploy/ovh/README.md) describe installation, credentials, DNS, backups, and rollback.
+GitHub deploys the tested image pair after a successful `main` build.
+The deployment key accepts only the release command and cannot open a shell.
+The host retains the previous image references for rollback.
 
-| Component | Source | Public routes |
-| --- | --- | --- |
-| `tinychess` | Tested GHCR image, pinned by digest | `/api/*` |
-| `frontend` | `Dockerfile.frontend-prebuilt`, extracts the pinned frontend image into `/site` | `/` and game links |
+The production origin remains `https://yourmove.fun` for both web and mobile.
+Mobile builds that already use this origin do not require a connection change.
+The previous DigitalOcean database was deleted.
+The OVH database starts fresh and does not contain earlier games.
 
-GitHub builds the Vite client and restores the Arasan assets from cache when available.
-DigitalOcean does not compile the backend or frontend during normal deployment.
-The current API rejects an `image` source on `AppStaticSiteSpec`, despite the documentation describing static sites from container images.
-Thus the static site retains a GitHub source with a small extraction Dockerfile.
-Its `FRONTEND_IMAGE` build variable contains the immutable image reference.
-DigitalOcean passes this variable as a [Docker build argument](https://docs.digitalocean.com/products/app-platform/reference/dockerfile/#environment-variables).
-This removes compilation and the Emscripten image from DO builds, but it does not remove the DO static-site build queue.
-The static site serves `index.html` as the fallback for `/g/<game-id>` and legacy game links.
-The API ingress preserves the `/api` prefix. Web and mobile clients use the same public HTTPS origin.
-The backend retains one 512 MB instance and a direct `/healthz` probe on port 8080.
-The public version endpoint is `/api/version`.
+The `.do/app.yaml` file and renderer remain as references for the former deployment.
+The active workflow no longer uses DigitalOcean credentials or updates its app.
 
-### Automatic deployment
+### Persistence and anonymous identities
 
-The `CI` workflow deploys after a push to `main`, including a pull request merge.
-It requires the application checks, backend image tests, frontend build, and both browser suites to pass.
-The application checks include Postgres recovery tests and web/mobile browser regressions.
-Pull requests run checks without deployment. Branch pushes do not start duplicate CI runs.
-A manual workflow run on `main` also permits deployment.
+Postgres stores accepted moves and player seats before the server acknowledges changes.
+A reconnect restores the saved position and seats after an application restart.
+The anonymous client ID acts as a bearer credential.
+Keep client IDs out of shared links and access logs.
+The Caddy route does not enable access logging.
 
-GitHub Actions needs these repository settings:
-
-| Kind | Name | Value |
-| --- | --- | --- |
-| Secret | `DIGITALOCEAN_ACCESS_TOKEN` | A token with permission to read and update the app. |
-| Variable | `DIGITALOCEAN_APP_ID` | `e80ec2bc-7a78-4b44-b856-d2c26a1a1ca5` |
-
-The workflow renders and validates the spec, updates both components, and waits for deployment.
-The `--update-sources` flag refreshes the frontend checkout so it includes `Dockerfile.frontend-prebuilt` and subsequent changes to that file.
-Both image references remain pinned by digest.
-It checks that `/api/version` reports the expected commit and that the website responds.
-The `deployed-app-spec` artifact retains the exact spec for 30 days.
-Deployments run one at a time. An older queued run skips deployment if `main` already has a newer commit.
-DigitalOcean's direct GitHub deployment trigger is disabled so it cannot bypass these checks.
-The backend deployment consumes the tested image directly. The frontend deployment only extracts the files from its image.
-
-### Manual deployment
-
-Use the rendered spec from a successful CI run to deploy the same image pair again:
-
-```sh
-gh run download <successful-main-run-id> --name deployed-app-spec --dir /tmp/yourmove-deploy
-doctl apps propose --app e80ec2bc-7a78-4b44-b856-d2c26a1a1ca5 --spec /tmp/yourmove-deploy/app-images.yaml
-doctl apps update e80ec2bc-7a78-4b44-b856-d2c26a1a1ca5 --spec /tmp/yourmove-deploy/app-images.yaml --update-sources --wait
-```
-
-To select another tested image pair, render a spec from its full digest references:
-
-```sh
-python3 -m pip install PyYAML==6.0.3
-python3 scripts/render-app-spec.py --backend <backend-image-with-digest> --frontend <frontend-image-with-digest> --output /tmp/app-images.yaml
-```
-
-The renderer rejects mutable tags and missing or duplicate components.
-It retains other frontend build variables and replaces only `FRONTEND_IMAGE`.
-
-If the registry is unavailable, the checked-in spec provides the original source-build path:
-
-```sh
-doctl apps propose --app e80ec2bc-7a78-4b44-b856-d2c26a1a1ca5 --spec .do/app.yaml
-doctl apps update e80ec2bc-7a78-4b44-b856-d2c26a1a1ca5 --spec .do/app.yaml --update-sources --wait
-```
-
-This fallback compiles both components on DigitalOcean and can take longer.
-
-The update starts a deployment. It does not create another app.
-See the [App Platform spec reference](https://docs.digitalocean.com/products/app-platform/reference/app-spec/).
-
-Check the public site and API after deployment:
-
-```sh
-curl --fail https://yourmove.fun/
-curl --fail https://yourmove.fun/api/version
-```
-
-Set `EXPO_PUBLIC_API_URL` to `https://yourmove.fun` when building the APK.
-Do not include `/api` or an internal port in this origin.
-
-### Other Docker hosts
-
-The backend image contains no web assets. Build or export the matching static files separately.
-The Compose example mounts `web/dist` and starts the backend with `-static-dir /site` for hosts that need one public service.
-Build `web/dist` before starting Compose. For App Platform, the Static Site component serves these files instead.
-
-### Postgres recovery
-
-Production uses the `yourmove` database and user on the existing PostgreSQL 18 cluster, `db-postgresql-nyc3-59719`.
-The app spec binds `DATABASE_URL` to `${yourmove-db.DATABASE_URL}` at runtime.
-DigitalOcean supplies the connection credentials; the repository contains only the variable reference.
-The cluster's trusted sources must include this App Platform app.
-Keep this database binding in the app spec so automated deployments retain persistence.
-Startup adds a nullable `games.live_state` JSONB column through GORM auto-migration.
-The database user requires permission to migrate the Tinychess tables.
-Connection or migration failure prevents startup.
-
-CAUTION: Back up the database before the first upgrade. Finish games that started on the older server before replacement.
-
-Older rows lack saved player identities and cannot recover safely.
-The API returns HTTP 409 for those games and preserves their existing review history.
-New games created with this version support recovery.
-Invalid recovery data also returns HTTP 409, without overwriting the saved game.
-An unavailable database returns HTTP 503 instead of creating an empty game or accepting an unsaved move.
-
-### Deployments and live games
-
-The anonymous client ID acts as a bearer credential. Anyone with that ID can act as its player.
-New identities use cryptographically random UUIDv4 values.
-Web stores the ID in localStorage. Native apps store it in AsyncStorage.
-Existing IDs remain valid, including IDs from older app builds.
-The website migrates a legacy tab identity when no persistent identity exists.
-
-CAUTION: Keep client IDs out of shared links, screenshots, analytics, and access logs.
-
-The current SSE transport sends the credential in its connection query string.
-Proxy access logs must omit query strings. Application logs do not record these request URLs.
-Emoji events give other viewers a public alias, not the player credential.
-Snapshot and stream responses prohibit caching.
-Account recovery and identity transfer between devices are not available yet.
-
-Deployments interrupt SSE connections. After reconnect, clients restore the saved position and their original seats.
-Missed emoji reactions do not replay.
-One instance still has temporary downtime during replacement.
-Keep scaling fixed at one instance until shared event delivery is implemented.
-
-## Update or roll back
-
-Merge tested changes into `main` to deploy both App Platform components.
-Without Postgres, finish active games before replacement because restarts erase in-memory games.
-Back up Postgres before updates if persistence is enabled.
-
-For rollback, revert the release commit through a pull request and merge it into `main`.
-CI builds and tests the reverted revision, then deploys its image pair.
-Check database schema compatibility before rollback because startup migrations can change the schema.
-Do not roll back active games to a version without recovery support.
-After deployment, check the website, `/api/version`, and a two-player game.
+Run one application instance because SSE delivery remains local to that process.
+Automatic database migrations run at startup.
+Back up the database before schema changes and check compatibility before rollback.
 
 ## Build the shareable Android APK
 
