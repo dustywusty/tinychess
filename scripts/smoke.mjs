@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 const origin = process.argv[2] ?? "http://127.0.0.1:8080";
+const withStatic = process.argv.includes("--with-static");
 const json = async (path, body) => {
   const response = await fetch(origin + path, {
     signal: AbortSignal.timeout(5000),
@@ -17,7 +18,16 @@ for (let attempt = 0; attempt < 30; attempt++) {
 assert.ok(ready, "server must become healthy");
 assert.equal(typeof (await json("/api/version")).commit, "string");
 const page = await fetch(origin + "/g/smoke-spa", { signal: AbortSignal.timeout(5000) });
-assert.equal(page.status, 404, "backend image must not serve frontend pages");
+if (withStatic) {
+  assert.equal(page.status, 200, "game links must serve the website");
+  assert.match(await page.text(), /<html/i);
+  const wasm = await fetch(origin + "/arasan/arasan.wasm", { signal: AbortSignal.timeout(15000) });
+  assert.equal(wasm.status, 200, "computer opponent assets must be available");
+  assert.match(wasm.headers.get("content-type"), /application\/wasm/);
+  assert.deepEqual([...new Uint8Array(await wasm.arrayBuffer()).slice(0, 4)], [0, 97, 115, 109]);
+} else {
+  assert.equal(page.status, 404, "backend image must not serve frontend pages");
+}
 
 const { id } = await json("/api/games", {});
 const path = `/api/games/${id}`;
@@ -69,4 +79,4 @@ try {
   clearTimeout(timeout);
   controller.abort();
 }
-console.log("Smoke test passed: health, version, API-only serving, seats, captures, SSE, and reactions.");
+console.log(`Smoke test passed: health, version, ${withStatic ? "website and engine assets" : "API-only serving"}, seats, captures, SSE, and reactions.`);
