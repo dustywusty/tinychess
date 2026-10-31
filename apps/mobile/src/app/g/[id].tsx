@@ -15,6 +15,7 @@ import { color, initialFEN, legalMoves, moveLabels } from "@/lib/chess";
 import { useBoardTheme, useThemedStyles, type AppColors } from "@/lib/theme";
 import { useLiveGame } from "@/lib/useLiveGame";
 import { BotTurn } from "@/components/BotTurn";
+import { BotEmoji } from "@/components/BotEmoji";
 import { botDefinition } from "@yourmove/chess/bots";
 
 export default function GameScreen() {
@@ -105,15 +106,15 @@ export default function GameScreen() {
   const heading = !state ? "Finding your board…" : !connected ? "Reconnecting…" : state.status || (botThinking && activeBotId ? `${botDefinition(activeBotId).name} is thinking…` : state.role === "spectator" || playerBot ? (turn === "white" ? "White to move" : "Black to move") : canMove ? (check ? "You’re in check." : "Your move.") : "Over to them.");
   const bottomColor = perspective;
   const topColor = bottomColor === "white" ? "black" : "white";
-  const player = (side: "white" | "black") => <View style={styles.player}>
+  const player = (side: "white" | "black") => { const sideBot = state?.bot?.color === (side === "white" ? "w" : "b") ? botDefinition(state.bot.id) : playerBot; return <View style={styles.player}>
     <View style={[styles.avatar, { backgroundColor: side === "white" ? "#EDF0E5" : "#DFE4D9" }]}><Piece piece={side === "white" ? "K" : "k"} size={29} /></View>
-    <View style={{ flex: 1, minWidth: 0 }}><Text style={styles.playerName}>{state?.bot?.color === (side === "white" ? "w" : "b") ? `${botDefinition(state.bot.id).emoji} ${botDefinition(state.bot.id).name}` : playerBot ? `${playerBot.emoji} ${playerBot.name}` : state?.role === "player" ? side === playerColor ? "You" : "Your friend" : side === "white" ? "White" : "Black"}</Text><Text style={styles.playerMeta}>{side === "white" ? "White pieces" : "Black pieces"}</Text>
+    <View style={{ flex: 1, minWidth: 0 }}>{sideBot ? <View style={styles.botName}><BotEmoji bot={sideBot} size={17} /><Text style={styles.playerName}>{sideBot.name}</Text></View> : <Text style={styles.playerName}>{state?.role === "player" ? side === playerColor ? "You" : "Your friend" : side === "white" ? "White" : "Black"}</Text>}<Text style={styles.playerMeta}>{side === "white" ? "White pieces" : "Black pieces"}</Text>
       {captured[side].length > 0 && <View accessible accessibilityRole="image" accessibilityLabel={capturedLabel(side, captured[side])} testID={"captured-" + side} style={styles.captured}>
         {captured[side].map((piece, index) => <View key={index} style={styles.capturedPiece}><Piece piece={piece} size={20} /></View>)}
       </View>}
     </View>
     {connected && !state?.status && turn === side && <View style={styles.turnBadge}><View style={styles.dot} /><Text style={styles.turnText}>TO MOVE</Text></View>}
-  </View>;
+  </View>; };
 
   return <SafeAreaView style={styles.safe}>
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -188,6 +189,7 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   player: { flexDirection: "row", alignItems: "center", gap: 10 },
   avatar: { width: 41, height: 41, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   playerName: { fontSize: 14, fontWeight: "600", color: colors.ink },
+  botName: { flexDirection: "row", alignItems: "center", gap: 5 },
   playerMeta: { fontSize: 11, color: colors.muted, marginTop: 3 },
   captured: { flexDirection: "row", flexWrap: "wrap", gap: 2, marginTop: 5 },
   capturedPiece: { width: 20, height: 22, alignItems: "center", justifyContent: "center", borderRadius: 5, backgroundColor: "#E3E8DA" },

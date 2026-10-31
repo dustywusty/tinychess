@@ -5,6 +5,7 @@ import { useBoardTheme } from "@/lib/theme";
 import { Button, useUI } from "./UI";
 import type { BotSettings } from "@yourmove/protocol";
 import { RangeSlider } from "./RangeSlider";
+import { BotEmoji } from "./BotEmoji";
 
 export function BotPicker({ open, busy, onClose, onStart }: { open: boolean; busy: boolean; onClose: () => void; onStart: (id: BotId, color: "w" | "b", settings: BotSettings) => void }) {
  const { colors } = useBoardTheme();
@@ -28,7 +29,7 @@ export function BotPicker({ open, busy, onClose, onStart }: { open: boolean; bus
     {!battle && <Text style={ui.body}>Five personalities. Practice anywhere, even offline.</Text>}
     {!battle && bots.map(bot => <Pressable key={bot.id} accessibilityRole="radio" aria-checked={selected === bot.id} accessibilityState={{ checked: selected === bot.id }} accessibilityLabel={`${bot.name}, ${bot.description}`} onPress={() => setSelected(bot.id)}
      style={{ flexDirection: "row", alignItems: "center", gap: 14, padding: 14, borderRadius: 16, backgroundColor: selected === bot.id ? colors.soft : colors.surface, borderWidth: 1, borderColor: colors.line }}>
-     <Text style={{ fontSize: 28 }}>{bot.emoji}</Text><View style={{ flex: 1 }}><Text style={{ color: colors.ink, fontWeight: "600", fontSize: 16 }}>{bot.name}</Text><Text style={ui.body}>{bot.description}</Text></View><Text style={{ color: colors.ink }}>{selected === bot.id ? "●" : "○"}</Text>
+     <BotEmoji bot={bot} size={28} /><View style={{ flex: 1 }}><Text style={{ color: colors.ink, fontWeight: "600", fontSize: 16 }}>{bot.name}</Text><Text style={ui.body}>{bot.description}</Text></View><Text style={{ color: colors.ink }}>{selected === bot.id ? "●" : "○"}</Text>
     </Pressable>)}
     {!battle && <><Text style={[ui.eyebrow, { marginTop: 8 }]}>YOUR PIECES</Text><View style={{ flexDirection: "row", gap: 12 }}>{(["w", "b"] as const).map(value => <Pressable key={value} accessibilityRole="radio" aria-checked={color === value} accessibilityState={{ checked: color === value }} onPress={() => setColor(value)}
      style={{ flexDirection: "row", alignItems: "center", gap: 8, minHeight: 48, paddingHorizontal: 20, borderRadius: 12, borderWidth: 1, borderColor: color === value ? colors.lilac : colors.line, backgroundColor: color === value ? colors.lilac : "transparent" }}>
@@ -49,7 +50,7 @@ export function BotPicker({ open, busy, onClose, onStart }: { open: boolean; bus
       <Text style={{ color: colors.ink, fontSize: 16 }}>Bot vs. bot</Text>
      </Pressable>
      <Text style={ui.body}>Watch two computer opponents play a test game.</Text>
-     {battle && [{ label: "White bot", value: whiteBot, set: setWhiteBot }, { label: "Black bot", value: selected, set: setSelected }].map(side => <View key={side.label} style={{ gap: 8 }}><Text style={ui.eyebrow}>{side.label.toUpperCase()}</Text><View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>{bots.map(bot => <Pressable key={bot.id} accessibilityRole="radio" accessibilityLabel={`${side.label}: ${bot.name}`} accessibilityState={{ checked: side.value === bot.id }} onPress={() => side.set(bot.id)} style={{ padding: 12, borderRadius: 12, backgroundColor: side.value === bot.id ? colors.soft : colors.surface }}><Text style={{ color: colors.ink }}>{bot.emoji} {bot.name} {side.value === bot.id ? "●" : "○"}</Text></Pressable>)}</View></View>)}
+     {battle && [{ label: "White bot", value: whiteBot, set: setWhiteBot }, { label: "Black bot", value: selected, set: setSelected }].map(side => <View key={side.label} style={{ gap: 8 }}><Text style={ui.eyebrow}>{side.label.toUpperCase()}</Text><View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>{bots.map(bot => <Pressable key={bot.id} accessibilityRole="radio" accessibilityLabel={`${side.label}: ${bot.name}`} accessibilityState={{ checked: side.value === bot.id }} onPress={() => side.set(bot.id)} style={{ flexDirection: "row", alignItems: "center", gap: 6, padding: 12, borderRadius: 12, backgroundColor: side.value === bot.id ? colors.soft : colors.surface }}><BotEmoji bot={bot} size={14} /><Text style={{ color: colors.ink }}>{bot.name} {side.value === bot.id ? "●" : "○"}</Text></Pressable>)}</View></View>)}
      <RangeSlider label="Minimum move interval" valueLabel={pace === 0 ? "AS FAST AS POSSIBLE" : `${pace / 1000}S`} valueText={`${pace / 1000} seconds`} min={0} max={5000} step={250} value={pace} onChange={setDelay} />
      <Text style={ui.body}>Thinking may take longer.{!battle && delay === undefined ? " Regular games use each bot’s natural pace until you adjust this." : ""}</Text>
     </View>}
