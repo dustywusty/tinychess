@@ -27,7 +27,7 @@ test("mobile opponent picker and controller play both sides and recover on reloa
  await page.getByRole("radio", {name:/Black/}).click();
  await page.getByRole("button", {name:"Let’s play"}).click();
  await expect(page).toHaveURL(/\/g\//);
- await expect(page.getByText("🐣 Pip", {exact:true})).toBeVisible();
+ await expect(page.locator("#root").getByText("Pip", {exact:true})).toBeVisible();
  await expect(page.getByTestId("game-status")).toContainText("Your move.", {timeout:25000});
  await page.getByRole("button", {name:/^e7, black pawn/}).click();
  await page.getByRole("button", {name:/^e5,.*legal move/}).click();
@@ -49,13 +49,14 @@ test("mobile bot battle uses both selections and resumes with its saved delay", 
  await page.getByRole("button", { name: "Play the computer" }).click();
  await page.getByRole("button", { name: /Advanced settings/ }).click();
  await page.getByRole("checkbox", { name: /Bot vs. bot/ }).click();
- await page.getByRole("radio", { name: "White bot: Max", exact: true }).click();
+ await page.getByRole("radio", { name: "White bot: Snobal", exact: true }).click();
  await page.getByRole("radio", { name: "Black bot: Ada", exact: true }).click();
- await page.getByRole("slider", { name: "Time between moves" }).fill("1000");
+ await page.getByRole("slider", { name: "Minimum move interval" }).fill("1000");
  await page.getByRole("button", { name: "Start bot battle" }).click();
  await expect(page).toHaveURL(/\/g\//);
- await expect(page.getByText("😎 Max", { exact: true })).toBeVisible();
- await expect(page.getByText("🧠 Ada", { exact: true })).toBeVisible();
+ await expect(page.locator("#root").getByText("Snobal", { exact: true })).toBeVisible();
+ await expect(page.locator("#root").getByRole("img", { name: "White cat" })).toBeVisible();
+ await expect(page.locator("#root").getByText("Ada", { exact: true })).toBeVisible();
  await expect(page.getByText("Watching", { exact: true })).toBeVisible();
  const id = new URL(page.url()).pathname.split("/").at(-1)!;
  const snapshot = async () => (await (await request.get(`/api/games/${id}/snapshot?clientId=mobile-battle-spectator`)).json());

@@ -1,0 +1,11 @@
+# Import this file from the host Caddyfile. The forums keep their own routes.
+yourmove.fun {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:18080 {
+        flush_interval -1
+    }
+}
+
+www.yourmove.fun {
+    redir https://yourmove.fun{uri} permanent
+}

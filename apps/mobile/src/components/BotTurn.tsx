@@ -34,12 +34,12 @@ export function BotTurn({ gameID, state, cid, connected, accept, onThinkingChang
  useEffect(() => {
   setThinking(false);
   if (!eligible || !transport || !engine.current || !state.bot || !activeBotId) return;
-  if (state.bot.policyVersion !== BOT_POLICY_VERSION) { setError("Update the app to play this computer opponent."); return; }
+  if (state.bot.policyVersion > BOT_POLICY_VERSION) { setError("Update the app to play this computer opponent."); return; }
   const abort = new AbortController();
   const run = async () => {
    setThinking(true); setError("");
    try {
-    const selected = await chooseBotMove(engine.current!, botDefinition(activeBotId), { fen: state.fen, moves: state.uci }, abort.signal, undefined, state.bot?.moveDelayMs);
+    const selected = await chooseBotMove(engine.current!, botDefinition(activeBotId), { fen: state.fen, moves: state.uci }, abort.signal, undefined, state.bot?.moveDelayMs, state.bot?.targetElo);
     if (abort.signal.aborted || current.current.fen !== state.fen || current.current.uci.length !== state.uci.length) return;
     const response = await makeMove(gameID, selected.uci, cid, { botMove: true, expectedPly: state.uci.length });
     if (abort.signal.aborted) return;
@@ -55,7 +55,7 @@ export function BotTurn({ gameID, state, cid, connected, accept, onThinkingChang
   };
   void run();
   return () => abort.abort();
- }, [eligible, transport, gameID, cid, state.fen, historyKey, activeBotId, state.bot?.policyVersion, state.bot?.moveDelayMs, accept]);
+ }, [eligible, transport, gameID, cid, state.fen, historyKey, activeBotId, state.bot?.policyVersion, state.bot?.moveDelayMs, state.bot?.targetElo, accept]);
  // Remount the isolated runtime after backgrounding or cancellation.
  useEffect(() => { if (!active || !focused || !connected) { setTransport(null); setGeneration(value => value + 1); } }, [active, focused, connected]);
  return <View style={{ gap: 8 }}>

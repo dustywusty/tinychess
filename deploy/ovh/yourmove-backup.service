@@ -1,0 +1,9 @@
+[Unit]
+Description=Back up the Your Move PostgreSQL database
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/yourmove/backup.sh
+UMask=0077

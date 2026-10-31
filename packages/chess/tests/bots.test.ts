@@ -119,3 +119,18 @@ test("engine errors reject a pending search instead of leaving it unresolved", a
  await tick(); fake.line("engine-error"); await rejected;
  assert.ok(fake.stopped); await engine.dispose();
 });
+test("custom Elo limits Arasan per search and skips personality analysis", async () => {
+ const fake = new Fake(); const engine = new ArasanEngine(() => fake);
+ const limited = engine.analyzePosition({ fen, moves:[], multiPv:1, moveTimeMs:100, elo:999 });
+ await tick(); fake.line("bestmove e2e4"); await limited;
+ assert.ok(fake.commands.includes("setoption name UCI_Elo value 1000"));
+ assert.equal(fake.commands.filter(c => c.startsWith("setoption name UCI_LimitStrength")).at(-1), "setoption name UCI_LimitStrength value true");
+ const full = engine.analyzePosition({ fen, moves:[], multiPv:1, moveTimeMs:100 });
+ await tick(); fake.line("bestmove e2e4"); await full;
+ assert.equal(fake.commands.filter(c => c.startsWith("setoption name UCI_LimitStrength")).at(-1), "setoption name UCI_LimitStrength value false");
+ const searches: { elo?: number; multiPv: number }[] = [];
+ const selected = await chooseBotMove({ initialize:async () => {}, dispose:async () => {}, analyzePosition:async input => { searches.push(input); return { candidates, bestMove:"a2a3" }; } },
+  botDefinition("pip"), { fen, moves:[] }, new AbortController().signal, seededRandom(1), 0, 1500);
+ assert.equal(selected.uci, "a2a3");
+ assert.deepEqual(searches.map(search => [search.elo, search.multiPv]), [[1500, 1]]);
+});

@@ -1,6 +1,6 @@
 import { Chess } from "chess.js";
 import { parseBestMove, parseInfo, validUci } from "./parser.ts";
-import type { AnalyzePositionInput, ChessEngine, EngineAnalysis, EngineCandidate, EngineTransport } from "./types.ts";
+import { MAX_BOT_ELO, MIN_BOT_ELO, type AnalyzePositionInput, type ChessEngine, type EngineAnalysis, type EngineCandidate, type EngineTransport } from "./types.ts";
 
 export function abortError(): Error { const error = new Error("Analysis canceled."); error.name = "AbortError"; return error; }
 
@@ -75,6 +75,9 @@ export class ArasanEngine implements ChessEngine {
   const moveTime = Math.min(1500, Math.max(20, Math.round(input.moveTimeMs)));
   const byDepth = new Map<number, Map<number, EngineCandidate>>();
   this.send(`setoption name MultiPV value ${multiPv}`);
+  // Strength options persist in the engine, so every search sets them.
+  if (input.elo !== undefined) this.send(`setoption name UCI_Elo value ${Math.min(MAX_BOT_ELO, Math.max(MIN_BOT_ELO, Math.round(input.elo)))}`);
+  this.send(`setoption name UCI_LimitStrength value ${input.elo !== undefined}`);
   this.send(`position ${input.initialFen ? "fen " + new Chess(input.initialFen).fen() : "startpos"}${input.moves.length ? " moves " + input.moves.join(" ") : ""}`);
   let stopTimer: ReturnType<typeof setTimeout> | undefined;
   try { return await this.waitFor(line => {

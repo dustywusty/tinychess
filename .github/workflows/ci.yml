@@ -128,6 +128,15 @@ jobs:
         run: |
           python3 -m pip install --disable-pip-version-check PyYAML==6.0.3
           python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+          bash -n deploy/ovh/*.sh
+      - name: Check OVH deployment configuration
+        env:
+          TINYCHESS_IMAGE: tinychess:ci
+          POSTGRES_IMAGE: postgres:18-alpine
+          RELEASE: ${{ github.sha }}
+          POSTGRES_PASSWORD: ci_configuration_only
+          TINYCHESS_DB_PASSWORD: ci_configuration_only
+        run: docker compose -f deploy/ovh/compose.yml config --quiet
       - uses: digitalocean/action-doctl@3cb3953159719656269e044e0e24ca16dd2a690f # v2
         with:
           no_auth: true
@@ -198,18 +207,22 @@ jobs:
           echo "Frontend: $frontend_ref" >> "$GITHUB_STEP_SUMMARY"
 
   deploy:
-    name: Deploy to DigitalOcean
+    name: Deploy to OVH
     needs: [publish]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    # The deploy key lives in this environment, which only main can use.
+    environment:
+      name: production
+      url: https://yourmove.fun
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     concurrency:
-      group: digitalocean-production
+      group: ovh-production
       cancel-in-progress: false
     env:
-      DIGITALOCEAN_APP_ID: ${{ vars.DIGITALOCEAN_APP_ID }}
       BACKEND_IMAGE: ${{ needs.publish.outputs.backend }}
       FRONTEND_IMAGE: ${{ needs.publish.outputs.frontend }}
+      OVH_SSH_HOST: ${{ vars.OVH_SSH_HOST }}
     steps:
       - uses: actions/checkout@v4
       - name: Check whether this commit is still current
@@ -224,40 +237,31 @@ jobs:
             echo 'deploy=false' >> "$GITHUB_OUTPUT"
             echo 'Skipping deployment because main has a newer commit.'
           fi
-      - name: Install doctl
+      - name: Configure the restricted deployment key
         if: steps.current.outputs.deploy == 'true'
-        uses: digitalocean/action-doctl@3cb3953159719656269e044e0e24ca16dd2a690f # v2
-        with:
-          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
-          version: 1.168.0
-      - name: Render the app spec with tested image digests
+        env:
+          DEPLOY_KEY: ${{ secrets.OVH_DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ vars.OVH_SSH_KNOWN_HOSTS }}
+        run: |
+          test -n "$OVH_SSH_HOST"
+          test -n "$DEPLOY_KEY"
+          test -n "$KNOWN_HOSTS"
+          install -d -m 700 "$RUNNER_TEMP/yourmove-ssh"
+          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/yourmove-ssh/key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$RUNNER_TEMP/yourmove-ssh/known_hosts"
+          chmod 600 "$RUNNER_TEMP/yourmove-ssh/key"
+      - name: Deploy tested images and check HTTPS
         if: steps.current.outputs.deploy == 'true'
         run: |
-          python3 -m pip install --disable-pip-version-check PyYAML==6.0.3
-          python3 scripts/render-app-spec.py --backend "$BACKEND_IMAGE" \
-            --frontend "$FRONTEND_IMAGE" --output "$RUNNER_TEMP/app-images.yaml"
-      - uses: actions/upload-artifact@v4
-        if: steps.current.outputs.deploy == 'true'
-        with:
-          name: deployed-app-spec
-          path: ${{ runner.temp }}/app-images.yaml
-          retention-days: 30
-      - name: Validate the app update
-        if: steps.current.outputs.deploy == 'true'
-        run: |
-          test -n "$DIGITALOCEAN_APP_ID"
-          doctl apps propose --app "$DIGITALOCEAN_APP_ID" --spec "$RUNNER_TEMP/app-images.yaml"
-      - name: Deploy and wait for completion
-        if: steps.current.outputs.deploy == 'true'
-        run: |
-          # The frontend still needs the latest checkout for its extraction Dockerfile.
-          doctl apps update "$DIGITALOCEAN_APP_ID" \
-            --spec "$RUNNER_TEMP/app-images.yaml" --update-sources --wait
-      - name: Check the deployed API
-        if: steps.current.outputs.deploy == 'true'
-        run: |
-          app_url=$(doctl apps get "$DIGITALOCEAN_APP_ID" --format DefaultIngress --no-header)
-          curl --fail --retry 5 --retry-delay 5 "$app_url/api/version" > "$RUNNER_TEMP/deployed-version.json"
+          ssh -i "$RUNNER_TEMP/yourmove-ssh/key" \
+            -o IdentitiesOnly=yes -o IdentityAgent=none -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
+            -o UserKnownHostsFile="$RUNNER_TEMP/yourmove-ssh/known_hosts" \
+            "ubuntu@$OVH_SSH_HOST" "deploy $BACKEND_IMAGE $FRONTEND_IMAGE $GITHUB_SHA"
+          curl --fail --retry 5 --retry-delay 5 https://yourmove.fun/api/version > "$RUNNER_TEMP/deployed-version.json"
           jq --exit-status --arg commit "$GITHUB_SHA" '.commit == $commit' "$RUNNER_TEMP/deployed-version.json"
-          curl --fail --retry 5 --retry-delay 5 "$app_url/" > /dev/null
-          echo "Deployment completed: $app_url" >> "$GITHUB_STEP_SUMMARY"
+          node scripts/smoke.mjs https://yourmove.fun --with-static
+          echo "Deployment completed: https://yourmove.fun" >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove the deployment key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/yourmove-ssh"

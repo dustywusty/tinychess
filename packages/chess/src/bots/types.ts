@@ -1,4 +1,9 @@
+// IDs are stored with saved games. Rename bots through their definitions only.
 export type BotId = "pip" | "max" | "ada" | "viktor" | "machine";
+// Arasan accepts up to 3450, but targets above ~2200 play at nearly full
+// strength, so the useful range stops at 2400.
+export const MIN_BOT_ELO = 1000;
+export const MAX_BOT_ELO = 2400;
 export type Quality = "excellent" | "good" | "inaccurate" | "mistake" | "blunder";
 export interface RandomSource { next(): number }
 export interface BotDefinition {
@@ -14,6 +19,8 @@ export interface EngineAnalysis { candidates: EngineCandidate[]; bestMove: strin
 export interface AnalyzePositionInput {
  initialFen?: string;
  fen: string; moves: readonly string[]; multiPv: number; moveTimeMs: number; depth?: number;
+ /** Limits Arasan with UCI_Elo. Omit for full strength. */
+ elo?: number;
  searchMoves?: string[]; signal?: AbortSignal;
 }
 export interface ChessEngine {
@@ -27,4 +34,5 @@ export interface EngineTransport {
  subscribe(line: (line: string) => void, error: (error: Error) => void): () => void;
  dispose(): void;
 }
-export const BOT_POLICY_VERSION = 1;
+// Newest policy this client supports. Version 2 adds custom Elo targets.
+export const BOT_POLICY_VERSION = 2;
