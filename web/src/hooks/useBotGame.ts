@@ -17,7 +17,7 @@ export function useBotGame(gameId: string, connected: boolean) {
  useEffect(() => {
   setThinking(false); setError("");
   if (!bot || !activeBotId || !connected || !visible || isSpectator || !playerColor || !clientId || status) return;
-  if (bot.policyVersion !== BOT_POLICY_VERSION) { setError("Update the app to play this computer opponent."); return; }
+  if (bot.policyVersion > BOT_POLICY_VERSION) { setError("Update the app to play this computer opponent."); return; }
   const abort = new AbortController();
   const run = async () => {
    setThinking(true);

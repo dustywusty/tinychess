@@ -199,8 +199,24 @@ func TestBotSettingsValidation(t *testing.T) {
 	if err := g.ConfigureBotWithSettings("ada", "owner", "w", BotSettings{TargetElo: &elo}); err != nil {
 		t.Fatal(err)
 	}
+	if g.Bot.PolicyVersion != 2 {
+		t.Fatal("custom Elo game does not require policy version 2")
+	}
 	restored, err := Restore(g.PersistentState())
 	if err != nil || restored.Bot.TargetElo == nil || *restored.Bot.TargetElo != elo {
 		t.Fatal("custom Elo did not survive recovery")
+	}
+	// Games saved before version 2 existed, with and without a target, still restore.
+	for _, target := range []*int{nil, &elo} {
+		state := g.PersistentState()
+		state.Bot.PolicyVersion, state.Bot.TargetElo = 1, target
+		if _, err := Restore(state); err != nil {
+			t.Fatal(err)
+		}
+	}
+	plain := NewGame()
+	_ = plain.ConfigureBot("pip", "owner", "w")
+	if plain.Bot.PolicyVersion != 1 {
+		t.Fatal("personality game requires a newer app")
 	}
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { Worker } from "node:worker_threads";
-import { ArasanEngine, botDefinition, chooseBotMove } from "../../packages/chess/src/bots/index.ts";
+import { ArasanEngine, botDefinition, chooseBotMove, MAX_BOT_ELO, MIN_BOT_ELO } from "../../packages/chess/src/bots/index.ts";
 import { Chess } from "../../packages/chess/node_modules/chess.js/dist/esm/chess.js";
 const engine = new ArasanEngine(() => {
  const worker = new Worker(new URL("./node-worker.cjs", import.meta.url));
@@ -17,7 +17,7 @@ try {
  // Custom difficulty: Arasan's UCI_Elo limit must still produce legal moves.
  const limited = new Chess(); const limitedMoves: string[] = [];
  for (let ply = 0; ply < 4; ply++) {
-  const selected = await chooseBotMove(engine, botDefinition("ada"), { fen: limited.fen(), moves: limitedMoves }, new AbortController().signal, undefined, 0, ply % 2 ? 1000 : 3450);
+  const selected = await chooseBotMove(engine, botDefinition("ada"), { fen: limited.fen(), moves: limitedMoves }, new AbortController().signal, undefined, 0, ply % 2 ? MIN_BOT_ELO : MAX_BOT_ELO);
   assert.ok(limited.move({from:selected.uci.slice(0,2), to:selected.uci.slice(2,4), promotion:selected.uci[4]}));
   limitedMoves.push(selected.uci);
  }

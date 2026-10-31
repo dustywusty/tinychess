@@ -5,7 +5,16 @@ import (
 	"github.com/corentings/chess/v2"
 )
 
-const BotPolicyVersion = 1
+// BotPolicyVersion is the newest policy clients must support. Version 2 adds
+// custom Elo targets. Other games stay at version 1 so older apps can play them.
+const BotPolicyVersion = 2
+
+func botPolicyVersion(settings BotSettings) int {
+	if settings.TargetElo != nil {
+		return 2
+	}
+	return 1
+}
 
 type BotOpponent struct {
 	ID            string `json:"id"`
@@ -16,10 +25,11 @@ type BotOpponent struct {
 	TargetElo     *int   `json:"targetElo,omitempty"`
 }
 
-// Arasan's UCI_Elo range at the pinned engine commit.
+// Arasan accepts up to 3450, but targets above ~2200 play at nearly full
+// strength, so the useful range stops at 2400.
 const (
 	MinBotElo = 1000
-	MaxBotElo = 3450
+	MaxBotElo = 2400
 )
 
 type BotSettings struct {
@@ -65,7 +75,7 @@ func (g *Game) ConfigureBotWithSettings(id, owner, color string, settings BotSet
 		value := 1500
 		delay = &value
 	}
-	g.Bot = &BotOpponent{ID: id, Color: botColor, PolicyVersion: BotPolicyVersion, PlayerBotID: settings.PlayerBotID, MoveDelayMs: delay, TargetElo: settings.TargetElo}
+	g.Bot = &BotOpponent{ID: id, Color: botColor, PolicyVersion: botPolicyVersion(settings), PlayerBotID: settings.PlayerBotID, MoveDelayMs: delay, TargetElo: settings.TargetElo}
 	return nil
 }
 
