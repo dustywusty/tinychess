@@ -5,10 +5,10 @@ export function GameStatus({ connected, thinkingLabel = "" }: { connected: boole
   const { turn, status, playerColor, isSpectator, lastSeen, bot } = useGameStore();
   const { status: uiStatus, statusError } = useUiStore();
   const turnText = !lastSeen ? "Finding your board…" : !connected ? "Reconnecting…" : status || thinkingLabel || (isSpectator || bot?.playerBotId ? (turn === "white" ? "White to move" : "Black to move") : turn === playerColor ? "Your turn" : "Their turn");
-  return <div className="game-heading">
-    <div className="section-line"><span className="eyebrow">{bot?.playerBotId ? "BOT BATTLE" : "A FRIENDLY MATCH"}</span>{lastSeen && (isSpectator || bot?.playerBotId) && <span className="spectator-label">Watching</span>}<span className="connection-label"><span className={"live-dot" + (!connected ? " offline-dot" : "")} />{connected ? "LIVE" : "CONNECTING"}</span></div>
+  return <details open className="game-heading sidebar-widget">
+    <summary className="section-line"><span className="eyebrow">{bot?.playerBotId ? "BOT BATTLE" : "A FRIENDLY MATCH"}</span>{lastSeen && (isSpectator || bot?.playerBotId) && <span className="spectator-label">Watching</span>}<span className="connection-label"><span className={"live-dot" + (!connected ? " offline-dot" : "")} />{connected ? "LIVE" : "CONNECTING"}</span><span className="widget-chevron" aria-hidden="true">⌄</span></summary>
     <h1 id="turn" data-testid="turn" aria-live="polite">{turnText}</h1>
-    <p>{!lastSeen ? "We’re saving a seat for you." : status ? "Every game has something to teach us." : bot?.playerBotId ? "Two bots. One board. Watch the game unfold." : isSpectator ? "The seats are full. You can watch and react." : turn === playerColor ? "Take your time. Make it a good one." : "Good things come to those who wait."}</p>
+    {(!lastSeen || status || bot?.playerBotId || isSpectator || turn !== playerColor) && <p>{!lastSeen ? "We’re saving a seat for you." : status ? "Every game has something to teach us." : bot?.playerBotId ? "Two bots. One board. Watch the game unfold." : isSpectator ? "The seats are full. You can watch and react." : "Good things come to those who wait."}</p>}
     <div id="status" data-testid="status" role={statusError ? "alert" : "status"} className={statusError ? "error-message" : "game-message"}>{uiStatus || status}</div>
-  </div>;
+  </details>;
 }

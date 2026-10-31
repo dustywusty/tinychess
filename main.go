@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"tinychess/internal/coach"
 	"tinychess/internal/game"
 	"tinychess/internal/handlers"
 	"tinychess/internal/logging"
@@ -43,6 +44,10 @@ func main() {
 
 	hub := game.NewHub()
 	h := handlers.NewHandler(hub)
+	if os.Getenv("COACH_ENABLED") == "1" {
+		h.Narrator = &coach.Narrator{Key: os.Getenv("OPENAI_API_KEY"), Model: os.Getenv("COACH_NARRATION_MODEL")}
+		h.Coach = coach.NewService(coach.NewCachedEngine(coach.NewEngine(os.Getenv("COACH_ENGINE_PATH"))), &coach.Jev{Key: os.Getenv("TYPESAFE_API_KEY"), Model: os.Getenv("TYPESAFE_MODEL")})
+	}
 
 	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
 		db, err := storage.New(dsn)
@@ -59,6 +64,12 @@ func main() {
 	mux.HandleFunc("GET /healthz", healthHandler)
 
 	// API
+	mux.HandleFunc("POST /api/games/{gameId}/coach", h.HandleCoach)
+	mux.HandleFunc("POST /api/games/{gameId}/coach/agent", h.HandleCoachStream)
+	mux.HandleFunc("POST /api/games/{gameId}/coach/runtime/agent/coach/run", h.HandleCoachStream)
+	mux.HandleFunc("GET /api/games/{gameId}/coach/runtime/info", func(w http.ResponseWriter, r *http.Request) {
+		handlers.WriteJSON(w, 200, map[string]any{"version": "1.73.0", "agents": map[string]any{"coach": map[string]string{"description": "Bounded visual chess coach"}}})
+	})
 	mux.HandleFunc("POST /api/games", h.HandleCreateGame)
 	mux.HandleFunc("GET /api/games/{gameId}/snapshot", h.HandleSnapshot)
 	mux.HandleFunc("GET /api/stats/games", h.HandleGameCounts)

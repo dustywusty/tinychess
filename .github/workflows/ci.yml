@@ -46,6 +46,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build Arasan assets
         uses: ./.github/actions/build-engine
+      - name: Build native coach engine
+        run: pnpm engine:native
       - name: Build web and shared packages
         run: pnpm build
       - name: Test real Arasan runtime

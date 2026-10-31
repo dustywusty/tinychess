@@ -23,3 +23,10 @@ The current build does not include Stockfish. Earlier releases and Git history c
 Replacing the engine does not remove obligations for those earlier distributions.
 
 This file covers the new engine distribution. It does not replace the licenses of existing application dependencies.
+
+## Server coach engine
+
+The optional coach uses the same pinned Arasan source and network in a native executable.
+The native build applies the same tablebase guard patch and retains the upstream console input.
+The API image includes `LICENSE.arasan`, the network, and Debian runtime notices beside the executable.
+The C++ runtime image uses dynamically linked system libraries.

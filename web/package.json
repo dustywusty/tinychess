@@ -13,6 +13,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@copilotkit/react-core": "^1.73.0",
     "@yourmove/chess": "workspace:*",
     "@yourmove/protocol": "workspace:*",
     "chess.js": "^1.4.0",
